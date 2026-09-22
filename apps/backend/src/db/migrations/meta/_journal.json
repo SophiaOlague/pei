@@ -8,6 +8,20 @@
       "when": 1790101165329,
       "tag": "0000_early_screwball",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790105523913,
+      "tag": "0001_stale_cerise",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790106414028,
+      "tag": "0002_giant_nicolaos",
+      "breakpoints": true
     }
   ]
 }
