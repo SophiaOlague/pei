@@ -1,9 +1,9 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { IdentityModule } from './modules/identity/identity.module';
 import { ConfigModule } from '@nestjs/config';
-
+import * as bodyParser from 'body-parser';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -14,4 +14,11 @@ import { ConfigModule } from '@nestjs/config';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(bodyParser.json())
+      .exclude({ path: 'api/auth/*path', method: RequestMethod.ALL })
+      .forRoutes('*path');
+  }
+}
