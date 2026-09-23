@@ -8,3 +8,4 @@ export * from './appointment';
 export * from './clinical-record';
 export * from './prescription';
 export * from './payment';
+export * from './consent'; 
