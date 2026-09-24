@@ -9,4 +9,6 @@ export const patientProfile = pgTable('patient_profile', {
   address: text('address'),
   riskLevel: riskLevelEnum('risk_level'),
   photoUrl: text('photo_url'),
+  ineFrontUrl: text('ine_front_url'), // foto del INE, lado frontal
+  ineBackUrl: text('ine_back_url'),   // foto del INE, lado reverso
 });

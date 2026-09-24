@@ -6,6 +6,8 @@ export const userProfile = pgTable('user_profile', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id').notNull().unique().references(() => user.id),
   role: roleEnum('role').notNull(),
+  firstName: varchar('first_name').notNull(),
+  lastName: varchar('last_name').notNull(),
   phone: varchar('phone'),
   birthDate: date('birth_date'),
   emergencyContactName: varchar('emergency_contact_name'),
