@@ -1,21 +1,17 @@
-import { pgTable, uuid, varchar, text, timestamp, numeric, boolean, index } from 'drizzle-orm/pg-core';
-import { labStatusEnum } from './enums';
+import { pgTable, uuid, text, timestamp, index } from 'drizzle-orm/pg-core';
+import { userProfile } from './identity';
 import { patientProfile } from './patient';
-import { appointment } from './appointment';
 import { doctorProfile } from './doctor';
+import { appointment } from './appointment';
 
 export const medicalRecord = pgTable('medical_record', {
   id: uuid('id').primaryKey().defaultRandom(),
   patientId: uuid('patient_id').notNull().unique().references(() => patientProfile.id),
-  bloodType: varchar('blood_type'),
-  allergies: text('allergies'),
-  diagnosisSummary: text('diagnosis_summary'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// La inmutabilidad real (RNF-02) se refuerza con un trigger de Postgres,
-// agregado manualmente en la migración generada (ver paso siguiente).
+// Inmutable cuando locked_at no es nulo (RNF-02); se refuerza con trigger en la migración.
 export const medicalRecordEntry = pgTable(
   'medical_record_entry',
   {
@@ -24,23 +20,24 @@ export const medicalRecordEntry = pgTable(
     appointmentId: uuid('appointment_id').references(() => appointment.id),
     authoredBy: uuid('authored_by').notNull().references(() => doctorProfile.id),
     content: text('content').notNull(),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-    isLocked: boolean('is_locked').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lockedAt: timestamp('locked_at', { withTimezone: true }),
   },
-  (table) => ({
-    recordIdx: index('medical_record_entry_record_idx').on(table.medicalRecordId),
-  }),
+  (t) => [
+    index('medical_record_entry_record_idx').on(t.medicalRecordId),
+    index('medical_record_entry_appointment_idx').on(t.appointmentId),
+    index('medical_record_entry_author_idx').on(t.authoredBy),
+  ],
 );
 
-export const labResult = pgTable('lab_result', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  medicalRecordId: uuid('medical_record_id').notNull().references(() => medicalRecord.id),
-  testName: varchar('test_name').notNull(),
-  testDate: timestamp('test_date').notNull(),
-  value: numeric('value'),
-  unit: varchar('unit'),
-  referenceRangeLow: numeric('reference_range_low'),
-  referenceRangeHigh: numeric('reference_range_high'),
-  status: labStatusEnum('status').notNull(),
-  fileUrl: text('file_url'),
-});
+export const labDocument = pgTable(
+  'lab_document',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    medicalRecordId: uuid('medical_record_id').notNull().references(() => medicalRecord.id),
+    fileUrl: text('file_url').notNull(),
+    uploadedByUserProfileId: uuid('uploaded_by_user_profile_id').references(() => userProfile.id),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('lab_document_record_idx').on(t.medicalRecordId)],
+);
