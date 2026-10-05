@@ -1,4 +1,4 @@
-import { ExceptionFilter, Catch, ArgumentsHost, HttpStatus } from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
 import {
   DuplicateCurpError,
@@ -32,6 +32,17 @@ export class DomainExceptionFilter implements ExceptionFilter {
         message: exception.message,
         error: exception.name,
       });
+      return;
+    }
+
+    // HttpException también hereda de Error, así que @Catch(Error) la atrapa antes que el filtro
+    // por defecto de Nest: se responde igual que él, conservando su status y su cuerpo.
+    if (exception instanceof HttpException) {
+      const status = exception.getStatus();
+      const body = exception.getResponse();
+      response
+        .status(status)
+        .json(typeof body === 'object' ? body : { statusCode: status, message: body });
       return;
     }
 
