@@ -5,43 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1790101165329,
-      "tag": "0000_early_screwball",
+      "when": 1791229646603,
+      "tag": "0000_init",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1790105523913,
-      "tag": "0001_stale_cerise",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1790106414028,
-      "tag": "0002_giant_nicolaos",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1790186417154,
-      "tag": "0003_lovely_red_wolf",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1790189469754,
-      "tag": "0004_easy_tyger_tiger",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1790277762184,
-      "tag": "0005_right_mad_thinker",
+      "when": 1791229847239,
+      "tag": "0001_triggers",
       "breakpoints": true
     }
   ]
