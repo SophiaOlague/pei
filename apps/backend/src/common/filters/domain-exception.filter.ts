@@ -1,22 +1,17 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
-import {
-  DuplicateCurpError,
-  TermsNotAcceptedError,
-  ProfileAlreadyCompletedError,
-  MissingIdentityDocumentsError,
-  LegalDocumentsNotPublishedError,
-} from '../../modules/identity/domain/errors/identity.errors';
+import { DomainError, type DomainErrorKind } from '../domain/domain-error';
+import { translatePostgresError } from '../infrastructure/postgres-error-translator';
 
-// Mapa: qué clase de error de dominio corresponde a qué código HTTP.
-// Todos estos son errores de "el cliente mandó algo inválido" → 400.
-const DOMAIN_ERROR_STATUS = new Map<Function, number>([
-  [DuplicateCurpError, HttpStatus.BAD_REQUEST],
-  [TermsNotAcceptedError, HttpStatus.BAD_REQUEST],
-  [ProfileAlreadyCompletedError, HttpStatus.BAD_REQUEST],
-  [MissingIdentityDocumentsError, HttpStatus.BAD_REQUEST],
-  [LegalDocumentsNotPublishedError, HttpStatus.CONFLICT], // 409: el sistema no está listo, no es culpa del cliente
-]);
+// Qué código HTTP corresponde a cada tipo de error de dominio.
+const STATUS_BY_KIND: Record<DomainErrorKind, number> = {
+  validation: HttpStatus.BAD_REQUEST,
+  unauthenticated: HttpStatus.UNAUTHORIZED,
+  forbidden: HttpStatus.FORBIDDEN,
+  not_found: HttpStatus.NOT_FOUND,
+  conflict: HttpStatus.CONFLICT,
+  business_rule: HttpStatus.UNPROCESSABLE_ENTITY,
+};
 
 @Catch(Error)
 export class DomainExceptionFilter implements ExceptionFilter {
@@ -24,13 +19,15 @@ export class DomainExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
-    const status = DOMAIN_ERROR_STATUS.get(exception.constructor);
+    // Un error de PostgreSQL que no pasó por una unidad de trabajo se traduce aquí.
+    const domainError = exception instanceof DomainError ? exception : translatePostgresError(exception);
 
-    if (status) {
+    if (domainError) {
+      const status = STATUS_BY_KIND[domainError.kind];
       response.status(status).json({
         statusCode: status,
-        message: exception.message,
-        error: exception.name,
+        message: domainError.message,
+        error: domainError.name,
       });
       return;
     }

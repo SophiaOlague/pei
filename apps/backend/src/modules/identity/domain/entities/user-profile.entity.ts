@@ -1,7 +1,9 @@
 // Entidad pura: sin Drizzle, sin decoradores de Nest, sin nada externo.
 // Representa las reglas de negocio de un perfil de usuario.
 
-export type Role = 'patient' | 'doctor' | 'admin' | 'organization';
+import type { Role } from '../../../../common/domain/role';
+
+export type { Role };
 
 export class UserProfile {
   constructor(

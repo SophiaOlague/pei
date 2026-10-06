@@ -21,6 +21,7 @@ import {
   ProfileAlreadyCompletedError,
   TermsNotAcceptedError,
 } from '../../modules/identity/domain/errors/identity.errors';
+import { DomainError, type DomainErrorKind } from '../domain/domain-error';
 
 // ArgumentsHost mínimo: solo lo que usa el filtro (switchToHttp().getResponse()).
 function mockHost() {
@@ -95,13 +96,78 @@ describe('DomainExceptionFilter', () => {
       [new ProfileAlreadyCompletedError(), 400],
       [new MissingIdentityDocumentsError(), 400],
       [new LegalDocumentsNotPublishedError(), 409],
-    ])('%s → %i', (error, status) => {
+    ])('%p → %i', (error, status) => {
       const { host, response } = mockHost();
 
       filter.catch(error, host);
 
       expect(response.status).toHaveBeenCalledWith(status);
       expect(response.json).toHaveBeenCalledWith({ statusCode: status, message: error.message, error: error.name });
+    });
+  });
+
+  describe('mapeo por kind de DomainError', () => {
+    class SampleError extends DomainError {
+      constructor(readonly kind: DomainErrorKind) {
+        super(`error de tipo ${kind}`);
+      }
+    }
+
+    it.each([
+      ['validation', 400],
+      ['unauthenticated', 401],
+      ['forbidden', 403],
+      ['not_found', 404],
+      ['conflict', 409],
+      ['business_rule', 422],
+    ] as [DomainErrorKind, number][])('[TC-M00-070][RT-M00-01] kind %s → %i', (kind, status) => {
+      const { host, response } = mockHost();
+
+      filter.catch(new SampleError(kind), host);
+
+      expect(response.status).toHaveBeenCalledWith(status);
+      expect(response.json).toHaveBeenCalledWith({ statusCode: status, message: `error de tipo ${kind}`, error: 'SampleError' });
+      expect(console.error).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('errores de PostgreSQL que llegan sin traducir', () => {
+    const driverError = (code: string, message: string) =>
+      Object.assign(new Error('Failed query: insert into "medication" ...'), {
+        cause: Object.assign(new Error(message), { code, severity: 'ERROR', constraint: 'medication_name_unique', table: 'medication' }),
+      });
+
+    it('[TC-M00-071][RT-M00-03][RNF-10] 23505 → 409 sin exponer SQL ni el nombre de la constraint', () => {
+      const { host, response } = mockHost();
+
+      filter.catch(driverError('23505', 'duplicate key value violates unique constraint "medication_name_unique"'), host);
+
+      expect(response.status).toHaveBeenCalledWith(409);
+      const body = response.json.mock.calls[0][0];
+      expect(body).toEqual({ statusCode: 409, message: 'El registro ya existe', error: 'UniqueConstraintViolationError' });
+      expect(JSON.stringify(body)).not.toMatch(/medication|insert|duplicate key/i);
+    });
+
+    it('[TC-M00-072][RT-M00-03] P0001 de un trigger → 422 con el mensaje del trigger', () => {
+      const { host, response } = mockHost();
+
+      filter.catch(driverError('P0001', 'La tabla audit_log es de solo inserción: no admite UPDATE'), host);
+
+      expect(response.status).toHaveBeenCalledWith(422);
+      expect(response.json).toHaveBeenCalledWith({
+        statusCode: 422,
+        message: 'La tabla audit_log es de solo inserción: no admite UPDATE',
+        error: 'BusinessRuleViolationError',
+      });
+    });
+
+    it('[TC-M00-073][RNF-10] SQLSTATE sin traducción → 500 genérico, sin el mensaje de PostgreSQL', () => {
+      const { host, response } = mockHost();
+
+      filter.catch(driverError('42P01', 'relation "x" does not exist'), host);
+
+      expect(response.status).toHaveBeenCalledWith(500);
+      expect(response.json).toHaveBeenCalledWith({ statusCode: 500, message: 'Error interno del servidor' });
     });
   });
 

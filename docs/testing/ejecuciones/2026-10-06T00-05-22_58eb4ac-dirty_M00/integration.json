@@ -1,0 +1,515 @@
+{
+  "numFailedTestSuites": 0,
+  "numFailedTests": 0,
+  "numPassedTestSuites": 4,
+  "numPassedTests": 24,
+  "numPendingTestSuites": 0,
+  "numPendingTests": 0,
+  "numRuntimeErrorTestSuites": 0,
+  "numTodoTests": 0,
+  "numTotalTestSuites": 4,
+  "numTotalTests": 24,
+  "openHandles": [],
+  "snapshot": {
+    "added": 0,
+    "didUpdate": false,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0
+  },
+  "startTime": 1791245126107,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "constraints del esquema"
+          ],
+          "duration": 636,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) constraints del esquema [TC-M00-110][RT-M00-03] 23503 llave foránea inexistente → ReferenceViolationError",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-110][RT-M00-03] 23503 llave foránea inexistente → ReferenceViolationError",
+          "startAt": 1791245127679
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "constraints del esquema"
+          ],
+          "duration": 1540,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) constraints del esquema [TC-M00-111][RT-M00-03][RNF-05] 23514 inventario negativo → IntegrityConstraintViolationError (inventory_quantity_on_hand_chk)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-111][RT-M00-03][RNF-05] 23514 inventario negativo → IntegrityConstraintViolationError (inventory_quantity_on_hand_chk)",
+          "startAt": 1791245128315
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "constraints del esquema"
+          ],
+          "duration": 940,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) constraints del esquema [TC-M00-112][RT-M00-03] 23502 NOT NULL → IntegrityConstraintViolationError",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-112][RT-M00-03] 23502 NOT NULL → IntegrityConstraintViolationError",
+          "startAt": 1791245129855
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "constraints del esquema"
+          ],
+          "duration": 3621,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) constraints del esquema [TC-M00-113][RT-M00-03][RNF-17] 23P01 vigencias solapadas de cancellation_policy → ExclusionConstraintViolationError",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-113][RT-M00-03][RNF-17] 23P01 vigencias solapadas de cancellation_policy → ExclusionConstraintViolationError",
+          "startAt": 1791245130795
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "triggers reales de 0001_triggers.sql (P0001)"
+          ],
+          "duration": 1071,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) triggers reales de 0001_triggers.sql (P0001) [TC-M00-120][RT-M00-03][RN-119][RNF-08] audit_log es de solo inserción: update → BusinessRuleViolationError",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-120][RT-M00-03][RN-119][RNF-08] audit_log es de solo inserción: update → BusinessRuleViolationError",
+          "startAt": 1791245134417
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "triggers reales de 0001_triggers.sql (P0001)"
+          ],
+          "duration": 1432,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) triggers reales de 0001_triggers.sql (P0001) [TC-M00-120][RT-M00-03][RN-119][RNF-08] audit_log es de solo inserción: delete → BusinessRuleViolationError",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-120][RT-M00-03][RN-119][RNF-08] audit_log es de solo inserción: delete → BusinessRuleViolationError",
+          "startAt": 1791245135488
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "triggers reales de 0001_triggers.sql (P0001)"
+          ],
+          "duration": 1865,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) triggers reales de 0001_triggers.sql (P0001) [TC-M00-121][RT-M00-03][RN-006][RNF-12] una versión publicada de legal_document no se modifica",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-121][RT-M00-03][RN-006][RNF-12] una versión publicada de legal_document no se modifica",
+          "startAt": 1791245136920
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "triggers reales de 0001_triggers.sql (P0001)"
+          ],
+          "duration": 1811,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) triggers reales de 0001_triggers.sql (P0001) [TC-M00-122][RT-M00-03][RNF-12] una aceptación legal registrada no se elimina",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-122][RT-M00-03][RNF-12] una aceptación legal registrada no se elimina",
+          "startAt": 1791245138785
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "error real del driver que llega al filtro HTTP sin pasar por la unidad de trabajo"
+          ],
+          "duration": 781,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) error real del driver que llega al filtro HTTP sin pasar por la unidad de trabajo [TC-M00-130][RT-M00-03][RNF-10] el filtro reconoce el error real de @neondatabase/serverless y responde 422 con el mensaje del trigger",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-130][RT-M00-03][RNF-10] el filtro reconoce el error real de @neondatabase/serverless y responde 422 con el mensaje del trigger",
+          "startAt": 1791245140596
+        }
+      ],
+      "endTime": 1791245141526,
+      "message": "",
+      "name": ".\\test\\integration\\postgres-errors.int-spec.ts",
+      "startTime": 1791245126346,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 616,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-100][RT-M00-02] confirma todo el trabajo de la unidad de forma atómica",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-100][RT-M00-02] confirma todo el trabajo de la unidad de forma atómica",
+          "startAt": 1791245142767
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 1142,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-101][RT-M00-02] si el trabajo falla, revierte todo lo que hizo la unidad",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-101][RT-M00-02] si el trabajo falla, revierte todo lo que hizo la unidad",
+          "startAt": 1791245143384
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 1911,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-102][RT-M00-02] una unidad anidada que falla solo revierte su parte (SAVEPOINT)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-102][RT-M00-02] una unidad anidada que falla solo revierte su parte (SAVEPOINT)",
+          "startAt": 1791245144527
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 1747,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-103][RT-M00-02] la unidad anidada usa la misma conexión y la misma transacción (no escapa del rollback)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-103][RT-M00-02] la unidad anidada usa la misma conexión y la misma transacción (no escapa del rollback)",
+          "startAt": 1791245146438
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 2553,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-106][RT-M00-02] UoW dentro de UoW: un error de PostgreSQL en la interna se revierte a su SAVEPOINT y la externa continúa y termina",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-106][RT-M00-02] UoW dentro de UoW: un error de PostgreSQL en la interna se revierte a su SAVEPOINT y la externa continúa y termina",
+          "startAt": 1791245148186
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 1234,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-107][RT-M00-02] control: sin SAVEPOINT, un error de PostgreSQL aborta la transacción y la siguiente sentencia falla con 25P02",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-107][RT-M00-02] control: sin SAVEPOINT, un error de PostgreSQL aborta la transacción y la siguiente sentencia falla con 25P02",
+          "startAt": 1791245150739
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 715,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-104][RT-M00-02] sin transacción activa, una unidad que falla no deja datos (no hay commit)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-104][RT-M00-02] sin transacción activa, una unidad que falla no deja datos (no hay commit)",
+          "startAt": 1791245151973
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 2655,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-105][RT-M00-03] un error de PostgreSQL dentro de la unidad se traduce y la transacción exterior sigue usable",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-105][RT-M00-03] un error de PostgreSQL dentro de la unidad se traduce y la transacción exterior sigue usable",
+          "startAt": 1791245152688
+        }
+      ],
+      "endTime": 1791245155517,
+      "message": "",
+      "name": ".\\test\\integration\\unit-of-work.int-spec.ts",
+      "startTime": 1791245141532,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "Concurrencia a nivel PostgreSQL (dos conexiones, sin commits)"
+          ],
+          "duration": 4469,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Concurrencia a nivel PostgreSQL (dos conexiones, sin commits) [TC-M00-140][RT-M00-05][RNF-17] exclusion constraint: un rango sin confirmar de A bloquea el rango solapado de B (lock_timeout → ConcurrencyConflictError)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-140][RT-M00-05][RNF-17] exclusion constraint: un rango sin confirmar de A bloquea el rango solapado de B (lock_timeout → ConcurrencyConflictError)",
+          "startAt": 1791245156886
+        },
+        {
+          "ancestorTitles": [
+            "Concurrencia a nivel PostgreSQL (dos conexiones, sin commits)"
+          ],
+          "duration": 1124,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Concurrencia a nivel PostgreSQL (dos conexiones, sin commits) [TC-M00-141][RT-M00-05] índice único: B espera a A; si A se revierte, B continúa sin falso conflicto",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 4,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-141][RT-M00-05] índice único: B espera a A; si A se revierte, B continúa sin falso conflicto",
+          "startAt": 1791245161355
+        }
+      ],
+      "endTime": 1791245162701,
+      "message": "",
+      "name": ".\\test\\integration\\concurrency.int-spec.ts",
+      "startTime": 1791245155523,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 1230,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback) [TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario patient",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario patient",
+          "startAt": 1791245163959
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 1167,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback) [TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario doctor",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario doctor",
+          "startAt": 1791245165190
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 1343,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback) [TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario admin",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario admin",
+          "startAt": 1791245166357
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 857,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback) [TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario organization",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario organization",
+          "startAt": 1791245167700
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 475,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback) [TC-M00-151][RN-002] usuario sin perfil de dominio → null",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-151][RN-002] usuario sin perfil de dominio → null",
+          "startAt": 1791245168558
+        }
+      ],
+      "endTime": 1791245169096,
+      "message": "",
+      "name": ".\\test\\integration\\actor-profile-reader.int-spec.ts",
+      "startTime": 1791245162706,
+      "status": "passed",
+      "summary": ""
+    }
+  ],
+  "wasInterrupted": false
+}

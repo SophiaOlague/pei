@@ -1,0 +1,1715 @@
+{
+  "numFailedTestSuites": 0,
+  "numFailedTests": 0,
+  "numPassedTestSuites": 10,
+  "numPassedTests": 86,
+  "numPendingTestSuites": 0,
+  "numPendingTests": 0,
+  "numRuntimeErrorTestSuites": 0,
+  "numTodoTests": 0,
+  "numTotalTestSuites": 10,
+  "numTotalTests": 86,
+  "openHandles": [],
+  "snapshot": {
+    "added": 0,
+    "didUpdate": false,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0
+  },
+  "startTime": 1791244403041,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 7,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-010][RT-M00-03] SQLSTATE 23505 → [Function UniqueConstraintViolationError]",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-010][RT-M00-03] SQLSTATE 23505 → [Function UniqueConstraintViolationError]",
+          "startAt": 1791244404055
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-010][RT-M00-03] SQLSTATE 23P01 → [Function ExclusionConstraintViolationError]",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-010][RT-M00-03] SQLSTATE 23P01 → [Function ExclusionConstraintViolationError]",
+          "startAt": 1791244404063
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-010][RT-M00-03] SQLSTATE 23503 → [Function ReferenceViolationError]",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-010][RT-M00-03] SQLSTATE 23503 → [Function ReferenceViolationError]",
+          "startAt": 1791244404064
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-010][RT-M00-03] SQLSTATE 23514 → [Function IntegrityConstraintViolationError]",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-010][RT-M00-03] SQLSTATE 23514 → [Function IntegrityConstraintViolationError]",
+          "startAt": 1791244404065
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-010][RT-M00-03] SQLSTATE 23502 → [Function IntegrityConstraintViolationError]",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-010][RT-M00-03] SQLSTATE 23502 → [Function IntegrityConstraintViolationError]",
+          "startAt": 1791244404066
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-010][RT-M00-03] SQLSTATE P0001 → [Function BusinessRuleViolationError]",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-010][RT-M00-03] SQLSTATE P0001 → [Function BusinessRuleViolationError]",
+          "startAt": 1791244404067
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-010][RT-M00-03] SQLSTATE 40001 → [Function ConcurrencyConflictError]",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-010][RT-M00-03] SQLSTATE 40001 → [Function ConcurrencyConflictError]",
+          "startAt": 1791244404068
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-010][RT-M00-03] SQLSTATE 40P01 → [Function ConcurrencyConflictError]",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-010][RT-M00-03] SQLSTATE 40P01 → [Function ConcurrencyConflictError]",
+          "startAt": 1791244404068
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-010][RT-M00-03] SQLSTATE 55P03 → [Function ConcurrencyConflictError]",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-010][RT-M00-03] SQLSTATE 55P03 → [Function ConcurrencyConflictError]",
+          "startAt": 1791244404069
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-011][RT-M00-03] P0001 conserva el mensaje escrito por el trigger",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-011][RT-M00-03] P0001 conserva el mensaje escrito por el trigger",
+          "startAt": 1791244404070
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-012][RT-M00-03] encuentra el error del driver directamente o a varios niveles de \"cause\"",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-012][RT-M00-03] encuentra el error del driver directamente o a varios niveles de \"cause\"",
+          "startAt": 1791244404071
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-013][RT-M00-03] deja de buscar después de 5 niveles de \"cause\"",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-013][RT-M00-03] deja de buscar después de 5 niveles de \"cause\"",
+          "startAt": 1791244404072
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-014][RT-M00-03] error genérico → null (se trata como error interno)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-014][RT-M00-03] error genérico → null (se trata como error interno)",
+          "startAt": 1791244404072
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-014][RT-M00-03] error de red de Node con code de 5 letras pero sin severity → null (se trata como error interno)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-014][RT-M00-03] error de red de Node con code de 5 letras pero sin severity → null (se trata como error interno)",
+          "startAt": 1791244404073
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 7,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-014][RT-M00-03] SQLSTATE sin traducción (42P01 tabla inexistente) → null (se trata como error interno)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-014][RT-M00-03] SQLSTATE sin traducción (42P01 tabla inexistente) → null (se trata como error interno)",
+          "startAt": 1791244404073
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-014][RT-M00-03] valor que no es objeto → null (se trata como error interno)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-014][RT-M00-03] valor que no es objeto → null (se trata como error interno)",
+          "startAt": 1791244404080
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-014][RT-M00-03] null → null (se trata como error interno)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-014][RT-M00-03] null → null (se trata como error interno)",
+          "startAt": 1791244404080
+        },
+        {
+          "ancestorTitles": [
+            "translatePostgresError"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "translatePostgresError [TC-M00-015][RT-M00-03] un DomainError no se vuelve a traducir",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-015][RT-M00-03] un DomainError no se vuelve a traducir",
+          "startAt": 1791244404081
+        }
+      ],
+      "endTime": 1791244404084,
+      "message": "",
+      "name": ".\\src\\common\\infrastructure\\postgres-error-translator.spec.ts",
+      "startTime": 1791244403738,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "extractRequestMetadata (IP y user-agent)"
+          ],
+          "duration": 9,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "extractRequestMetadata (IP y user-agent) [TC-M00-060][RN-121] toma la IP de request.ip y el user-agent del header",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-060][RN-121] toma la IP de request.ip y el user-agent del header",
+          "startAt": 1791244404081
+        },
+        {
+          "ancestorTitles": [
+            "extractRequestMetadata (IP y user-agent)"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "extractRequestMetadata (IP y user-agent) [TC-M00-061][RN-121] normaliza IPv4 representada como IPv6",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-061][RN-121] normaliza IPv4 representada como IPv6",
+          "startAt": 1791244404091
+        },
+        {
+          "ancestorTitles": [
+            "extractRequestMetadata (IP y user-agent)"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "extractRequestMetadata (IP y user-agent) [TC-M00-062][RN-121] conserva IPv6 real",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-062][RN-121] conserva IPv6 real",
+          "startAt": 1791244404092
+        },
+        {
+          "ancestorTitles": [
+            "extractRequestMetadata (IP y user-agent)"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "extractRequestMetadata (IP y user-agent) [TC-M00-063][RN-121] sin request.ip usa la dirección del socket",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-063][RN-121] sin request.ip usa la dirección del socket",
+          "startAt": 1791244404093
+        },
+        {
+          "ancestorTitles": [
+            "extractRequestMetadata (IP y user-agent)"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "extractRequestMetadata (IP y user-agent) [TC-M00-064][RN-121] sin IP ni user-agent → null en ambos",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-064][RN-121] sin IP ni user-agent → null en ambos",
+          "startAt": 1791244404093
+        },
+        {
+          "ancestorTitles": [
+            "extractRequestMetadata (IP y user-agent)"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "extractRequestMetadata (IP y user-agent) [TC-M00-065][RNF-10] ignora X-Forwarded-For: la IP no se toma de headers del cliente",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-065][RNF-10] ignora X-Forwarded-For: la IP no se toma de headers del cliente",
+          "startAt": 1791244404094
+        },
+        {
+          "ancestorTitles": [
+            "extractRequestMetadata (IP y user-agent)"
+          ],
+          "duration": 2,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "extractRequestMetadata (IP y user-agent) [TC-M00-066][RNF-10] trunca user-agents de más de 512 caracteres",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-066][RNF-10] trunca user-agents de más de 512 caracteres",
+          "startAt": 1791244404097
+        },
+        {
+          "ancestorTitles": [
+            "extractRequestMetadata (IP y user-agent)"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "extractRequestMetadata (IP y user-agent) [TC-M00-067] user-agent vacío → null",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-067] user-agent vacío → null",
+          "startAt": 1791244404099
+        }
+      ],
+      "endTime": 1791244404102,
+      "message": "",
+      "name": ".\\src\\auth\\authenticated-request.spec.ts",
+      "startTime": 1791244403783,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "DomainError"
+          ],
+          "duration": 7,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainError [TC-M00-001][RT-M00-01] una subclase es Error y DomainError, con su nombre de clase y su kind",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 5,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-001][RT-M00-01] una subclase es Error y DomainError, con su nombre de clase y su kind",
+          "startAt": 1791244404159
+        },
+        {
+          "ancestorTitles": [
+            "DomainError",
+            "errores de persistencia"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainError errores de persistencia [TC-M00-002][RT-M00-03][RNF-10] UniqueConstraintViolationError tiene kind conflict y no expone la constraint en el mensaje",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 6,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-002][RT-M00-03][RNF-10] UniqueConstraintViolationError tiene kind conflict y no expone la constraint en el mensaje",
+          "startAt": 1791244404167
+        },
+        {
+          "ancestorTitles": [
+            "DomainError",
+            "errores de persistencia"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainError errores de persistencia [TC-M00-002][RT-M00-03][RNF-10] ExclusionConstraintViolationError tiene kind conflict y no expone la constraint en el mensaje",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 6,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-002][RT-M00-03][RNF-10] ExclusionConstraintViolationError tiene kind conflict y no expone la constraint en el mensaje",
+          "startAt": 1791244404168
+        },
+        {
+          "ancestorTitles": [
+            "DomainError",
+            "errores de persistencia"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainError errores de persistencia [TC-M00-002][RT-M00-03][RNF-10] ReferenceViolationError tiene kind validation y no expone la constraint en el mensaje",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 6,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-002][RT-M00-03][RNF-10] ReferenceViolationError tiene kind validation y no expone la constraint en el mensaje",
+          "startAt": 1791244404169
+        },
+        {
+          "ancestorTitles": [
+            "DomainError",
+            "errores de persistencia"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainError errores de persistencia [TC-M00-002][RT-M00-03][RNF-10] IntegrityConstraintViolationError tiene kind validation y no expone la constraint en el mensaje",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 6,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-002][RT-M00-03][RNF-10] IntegrityConstraintViolationError tiene kind validation y no expone la constraint en el mensaje",
+          "startAt": 1791244404170
+        },
+        {
+          "ancestorTitles": [
+            "DomainError",
+            "errores de persistencia"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainError errores de persistencia [TC-M00-002][RT-M00-03][RNF-10] BusinessRuleViolationError tiene kind business_rule y no expone la constraint en el mensaje",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 6,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-002][RT-M00-03][RNF-10] BusinessRuleViolationError tiene kind business_rule y no expone la constraint en el mensaje",
+          "startAt": 1791244404171
+        },
+        {
+          "ancestorTitles": [
+            "DomainError",
+            "errores de persistencia"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainError errores de persistencia [TC-M00-002][RT-M00-03][RNF-10] ConcurrencyConflictError tiene kind conflict y no expone la constraint en el mensaje",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 6,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-002][RT-M00-03][RNF-10] ConcurrencyConflictError tiene kind conflict y no expone la constraint en el mensaje",
+          "startAt": 1791244404172
+        },
+        {
+          "ancestorTitles": [
+            "DomainError",
+            "errores de persistencia"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainError errores de persistencia [TC-M00-003][RT-M00-03] BusinessRuleViolationError conserva el mensaje del trigger",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-003][RT-M00-03] BusinessRuleViolationError conserva el mensaje del trigger",
+          "startAt": 1791244404172
+        }
+      ],
+      "endTime": 1791244404174,
+      "message": "",
+      "name": ".\\src\\common\\domain\\domain-error.spec.ts",
+      "startTime": 1791244403713,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "SessionGuard (contexto del actor)"
+          ],
+          "duration": 21,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "SessionGuard (contexto del actor) [TC-M00-050][RNF-01] sin sesión → 401 y no consulta el perfil",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-050][RNF-01] sin sesión → 401 y no consulta el perfil",
+          "startAt": 1791244404655
+        },
+        {
+          "ancestorTitles": [
+            "SessionGuard (contexto del actor)"
+          ],
+          "duration": 2,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "SessionGuard (contexto del actor) [TC-M00-051][RN-001][RN-121] con sesión y perfil → actor con perfil, rol, IP y user-agent",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-051][RN-001][RN-121] con sesión y perfil → actor con perfil, rol, IP y user-agent",
+          "startAt": 1791244404676
+        },
+        {
+          "ancestorTitles": [
+            "SessionGuard (contexto del actor)"
+          ],
+          "duration": 2,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "SessionGuard (contexto del actor) [TC-M00-052][RN-002] con sesión pero sin perfil de dominio → autenticado, sin rol",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-052][RN-002] con sesión pero sin perfil de dominio → autenticado, sin rol",
+          "startAt": 1791244404678
+        },
+        {
+          "ancestorTitles": [
+            "SessionGuard (contexto del actor)"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "SessionGuard (contexto del actor) [TC-M00-053] conserva request.session tal como la entrega el proveedor (respuesta de /me sin cambios)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-053] conserva request.session tal como la entrega el proveedor (respuesta de /me sin cambios)",
+          "startAt": 1791244404680
+        },
+        {
+          "ancestorTitles": [
+            "SessionGuard (contexto del actor)"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "SessionGuard (contexto del actor) [TC-M00-054] pasa los headers del request al proveedor de sesión",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-054] pasa los headers del request al proveedor de sesión",
+          "startAt": 1791244404681
+        }
+      ],
+      "endTime": 1791244404683,
+      "message": "",
+      "name": ".\\src\\auth\\session.guard.spec.ts",
+      "startTime": 1791244403714,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "RolesGuard"
+          ],
+          "duration": 6,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "RolesGuard [TC-M00-040][RF-02][RN-001] rol permitido → acceso",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-040][RF-02][RN-001] rol permitido → acceso",
+          "startAt": 1791244404862
+        },
+        {
+          "ancestorTitles": [
+            "RolesGuard"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "RolesGuard [TC-M00-041][RF-02] cualquiera de varios roles permitidos → acceso",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-041][RF-02] cualquiera de varios roles permitidos → acceso",
+          "startAt": 1791244404869
+        },
+        {
+          "ancestorTitles": [
+            "RolesGuard"
+          ],
+          "duration": 21,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "RolesGuard [TC-M00-042][RF-02] rol patient en ruta de admin → 403",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-042][RF-02] rol patient en ruta de admin → 403",
+          "startAt": 1791244404869
+        },
+        {
+          "ancestorTitles": [
+            "RolesGuard"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "RolesGuard [TC-M00-042][RF-02] rol doctor en ruta de admin → 403",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-042][RF-02] rol doctor en ruta de admin → 403",
+          "startAt": 1791244404890
+        },
+        {
+          "ancestorTitles": [
+            "RolesGuard"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "RolesGuard [TC-M00-042][RF-02] rol organization en ruta de admin → 403",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-042][RF-02] rol organization en ruta de admin → 403",
+          "startAt": 1791244404892
+        },
+        {
+          "ancestorTitles": [
+            "RolesGuard"
+          ],
+          "duration": 2,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "RolesGuard [TC-M00-043][RF-02][RN-002] usuario autenticado sin perfil de dominio → 403",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-043][RF-02][RN-002] usuario autenticado sin perfil de dominio → 403",
+          "startAt": 1791244404893
+        },
+        {
+          "ancestorTitles": [
+            "RolesGuard"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "RolesGuard [TC-M00-044][RNF-01] sin actor (no pasó por SessionGuard) → 401",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-044][RNF-01] sin actor (no pasó por SessionGuard) → 401",
+          "startAt": 1791244404895
+        },
+        {
+          "ancestorTitles": [
+            "RolesGuard"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "RolesGuard [TC-M00-045][RNF-10] ruta sin @Roles → 403 aunque el actor sea admin (falla cerrado)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-045][RNF-10] ruta sin @Roles → 403 aunque el actor sea admin (falla cerrado)",
+          "startAt": 1791244404896
+        },
+        {
+          "ancestorTitles": [
+            "RolesGuard"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "RolesGuard [TC-M00-046][RF-02] @Roles a nivel de clase aplica a sus handlers y el del handler tiene prioridad",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-046][RF-02] @Roles a nivel de clase aplica a sus handlers y el del handler tiene prioridad",
+          "startAt": 1791244404897
+        }
+      ],
+      "endTime": 1791244404899,
+      "message": "",
+      "name": ".\\src\\auth\\roles.guard.spec.ts",
+      "startTime": 1791244403758,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork (sin BD)"
+          ],
+          "duration": 6,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork (sin BD) [TC-M00-020][RT-M00-02] con una transacción activa abre la unidad dentro de ella y la expone a los repositorios",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-020][RT-M00-02] con una transacción activa abre la unidad dentro de ella y la expone a los repositorios",
+          "startAt": 1791244404916
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork (sin BD)"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork (sin BD) [TC-M00-021][RT-M00-03] traduce el error de PostgreSQL que sale de la transacción",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-021][RT-M00-03] traduce el error de PostgreSQL que sale de la transacción",
+          "startAt": 1791244404923
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork (sin BD)"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork (sin BD) [TC-M00-022][RT-M00-02] un error que no es de PostgreSQL se propaga sin cambios",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-022][RT-M00-02] un error que no es de PostgreSQL se propaga sin cambios",
+          "startAt": 1791244404924
+        },
+        {
+          "ancestorTitles": [
+            "SystemClock"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "SystemClock [TC-M00-023][RT-M00-04] devuelve la hora actual del sistema",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-023][RT-M00-04] devuelve la hora actual del sistema",
+          "startAt": 1791244404928
+        }
+      ],
+      "endTime": 1791244404930,
+      "message": "",
+      "name": ".\\src\\common\\infrastructure\\drizzle-unit-of-work.spec.ts",
+      "startTime": 1791244403712,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "createValidationPipe"
+          ],
+          "duration": 11,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "createValidationPipe [TC-M00-030][RNF-10] payload válido → instancia del DTO",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-030][RNF-10] payload válido → instancia del DTO",
+          "startAt": 1791244404991
+        },
+        {
+          "ancestorTitles": [
+            "createValidationPipe"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "createValidationPipe [TC-M00-031][RNF-10] propiedad no declarada → 400 (protección contra asignación masiva)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-031][RNF-10] propiedad no declarada → 400 (protección contra asignación masiva)",
+          "startAt": 1791244405003
+        },
+        {
+          "ancestorTitles": [
+            "createValidationPipe"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "createValidationPipe [TC-M00-032][RNF-10] {\"name\":123,\"quantity\":2} → 400 con \"name must be a string\"",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-032][RNF-10] {\"name\":123,\"quantity\":2} → 400 con \"name must be a string\"",
+          "startAt": 1791244405004
+        },
+        {
+          "ancestorTitles": [
+            "createValidationPipe"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "createValidationPipe [TC-M00-032][RNF-10] {\"name\":\"Truvada\",\"quantity\":1.5} → 400 con \"quantity must be an integer number\"",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-032][RNF-10] {\"name\":\"Truvada\",\"quantity\":1.5} → 400 con \"quantity must be an integer number\"",
+          "startAt": 1791244405005
+        },
+        {
+          "ancestorTitles": [
+            "createValidationPipe"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "createValidationPipe [TC-M00-032][RNF-10] {\"name\":\"Truvada\",\"quantity\":0} → 400 con \"quantity must not be less than 1\"",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-032][RNF-10] {\"name\":\"Truvada\",\"quantity\":0} → 400 con \"quantity must not be less than 1\"",
+          "startAt": 1791244405006
+        },
+        {
+          "ancestorTitles": [
+            "createValidationPipe"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "createValidationPipe [TC-M00-032][RNF-10] {\"name\":\"Truvada\"} → 400 con \"quantity must be an integer number\"",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-032][RNF-10] {\"name\":\"Truvada\"} → 400 con \"quantity must be an integer number\"",
+          "startAt": 1791244405007
+        },
+        {
+          "ancestorTitles": [
+            "createValidationPipe"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "createValidationPipe [TC-M00-033][RNF-10] un body tipado como objeto literal (sin clase DTO) no se valida: comportamiento previo de /me/complete-profile",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-033][RNF-10] un body tipado como objeto literal (sin clase DTO) no se valida: comportamiento previo de /me/complete-profile",
+          "startAt": 1791244405008
+        }
+      ],
+      "endTime": 1791244405009,
+      "message": "",
+      "name": ".\\src\\common\\validation\\create-validation-pipe.spec.ts",
+      "startTime": 1791244403722,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "AppController",
+            "root"
+          ],
+          "duration": 293,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AppController root should return \"Hello World!\"",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "should return \"Hello World!\"",
+          "startAt": 1791244404834
+        }
+      ],
+      "endTime": 1791244405128,
+      "message": "",
+      "name": ".\\src\\app.controller.spec.ts",
+      "startTime": 1791244403690,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "excepciones HTTP de Nest"
+          ],
+          "duration": 9,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter excepciones HTTP de Nest UnauthorizedException → 401 con el cuerpo por defecto de Nest",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "UnauthorizedException → 401 con el cuerpo por defecto de Nest",
+          "startAt": 1791244404981
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "excepciones HTTP de Nest"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter excepciones HTTP de Nest BadRequestException → 400 con el cuerpo por defecto de Nest",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "BadRequestException → 400 con el cuerpo por defecto de Nest",
+          "startAt": 1791244404991
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "excepciones HTTP de Nest"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter excepciones HTTP de Nest HttpException con cuerpo en texto → { statusCode, message }",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "HttpException con cuerpo en texto → { statusCode, message }",
+          "startAt": 1791244404992
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "excepciones HTTP de Nest"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter excepciones HTTP de Nest HttpException con cuerpo personalizado → se conserva tal cual",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "HttpException con cuerpo personalizado → se conserva tal cual",
+          "startAt": 1791244404993
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "excepciones de dominio (comportamiento existente)"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter excepciones de dominio (comportamiento existente) [DuplicateCurpError: Ya existe un paciente registrado con el CURP PRUE900101HDFRRS03] → 400",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[DuplicateCurpError: Ya existe un paciente registrado con el CURP PRUE900101HDFRRS03] → 400",
+          "startAt": 1791244404994
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "excepciones de dominio (comportamiento existente)"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter excepciones de dominio (comportamiento existente) [TermsNotAcceptedError: Debes aceptar el aviso de privacidad y los términos y condiciones] → 400",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TermsNotAcceptedError: Debes aceptar el aviso de privacidad y los términos y condiciones] → 400",
+          "startAt": 1791244404994
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "excepciones de dominio (comportamiento existente)"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter excepciones de dominio (comportamiento existente) [ProfileAlreadyCompletedError: El perfil de este usuario ya fue completado] → 400",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[ProfileAlreadyCompletedError: El perfil de este usuario ya fue completado] → 400",
+          "startAt": 1791244404995
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "excepciones de dominio (comportamiento existente)"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter excepciones de dominio (comportamiento existente) [MissingIdentityDocumentsError: Debes subir ambos lados de tu INE para validar tu identidad] → 400",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[MissingIdentityDocumentsError: Debes subir ambos lados de tu INE para validar tu identidad] → 400",
+          "startAt": 1791244404995
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "excepciones de dominio (comportamiento existente)"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter excepciones de dominio (comportamiento existente) [LegalDocumentsNotPublishedError: No hay aviso de privacidad o términos y condiciones publicados] → 409",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[LegalDocumentsNotPublishedError: No hay aviso de privacidad o términos y condiciones publicados] → 409",
+          "startAt": 1791244404996
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "mapeo por kind de DomainError"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter mapeo por kind de DomainError [TC-M00-070][RT-M00-01] kind validation → 400",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-070][RT-M00-01] kind validation → 400",
+          "startAt": 1791244404996
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "mapeo por kind de DomainError"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter mapeo por kind de DomainError [TC-M00-070][RT-M00-01] kind unauthenticated → 401",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-070][RT-M00-01] kind unauthenticated → 401",
+          "startAt": 1791244404997
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "mapeo por kind de DomainError"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter mapeo por kind de DomainError [TC-M00-070][RT-M00-01] kind forbidden → 403",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-070][RT-M00-01] kind forbidden → 403",
+          "startAt": 1791244404997
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "mapeo por kind de DomainError"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter mapeo por kind de DomainError [TC-M00-070][RT-M00-01] kind not_found → 404",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-070][RT-M00-01] kind not_found → 404",
+          "startAt": 1791244404997
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "mapeo por kind de DomainError"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter mapeo por kind de DomainError [TC-M00-070][RT-M00-01] kind conflict → 409",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-070][RT-M00-01] kind conflict → 409",
+          "startAt": 1791244404998
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "mapeo por kind de DomainError"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter mapeo por kind de DomainError [TC-M00-070][RT-M00-01] kind business_rule → 422",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-070][RT-M00-01] kind business_rule → 422",
+          "startAt": 1791244404998
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "errores de PostgreSQL que llegan sin traducir"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter errores de PostgreSQL que llegan sin traducir [TC-M00-071][RT-M00-03][RNF-10] 23505 → 409 sin exponer SQL ni el nombre de la constraint",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-071][RT-M00-03][RNF-10] 23505 → 409 sin exponer SQL ni el nombre de la constraint",
+          "startAt": 1791244404999
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "errores de PostgreSQL que llegan sin traducir"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter errores de PostgreSQL que llegan sin traducir [TC-M00-072][RT-M00-03] P0001 de un trigger → 422 con el mensaje del trigger",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-072][RT-M00-03] P0001 de un trigger → 422 con el mensaje del trigger",
+          "startAt": 1791244405000
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "errores de PostgreSQL que llegan sin traducir"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter errores de PostgreSQL que llegan sin traducir [TC-M00-073][RNF-10] SQLSTATE sin traducción → 500 genérico, sin el mensaje de PostgreSQL",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-073][RNF-10] SQLSTATE sin traducción → 500 genérico, sin el mensaje de PostgreSQL",
+          "startAt": 1791244405000
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "errores inesperados"
+          ],
+          "duration": 0,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter errores inesperados Error genérico → 500 sin exponer el mensaje y se registra en consola",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "Error genérico → 500 sin exponer el mensaje y se registra en consola",
+          "startAt": 1791244405001
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "registrado como filtro global"
+          ],
+          "duration": 15,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter registrado como filtro global guard que lanza UnauthorizedException → 401",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "guard que lanza UnauthorizedException → 401",
+          "startAt": 1791244405188
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "registrado como filtro global"
+          ],
+          "duration": 5,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter registrado como filtro global BadRequestException en el handler → 400",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "BadRequestException en el handler → 400",
+          "startAt": 1791244405203
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "registrado como filtro global"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter registrado como filtro global error de dominio → 400 con su nombre",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "error de dominio → 400 con su nombre",
+          "startAt": 1791244405208
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "registrado como filtro global"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter registrado como filtro global Error genérico → 500",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "Error genérico → 500",
+          "startAt": 1791244405211
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "registrado como filtro global"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter registrado como filtro global ruta inexistente → 404 (NotFoundException de Nest)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "ruta inexistente → 404 (NotFoundException de Nest)",
+          "startAt": 1791244405214
+        },
+        {
+          "ancestorTitles": [
+            "DomainExceptionFilter",
+            "registrado como filtro global"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DomainExceptionFilter registrado como filtro global respuesta exitosa sin cambios",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "respuesta exitosa sin cambios",
+          "startAt": 1791244405217
+        }
+      ],
+      "endTime": 1791244405222,
+      "message": "",
+      "name": ".\\src\\common\\filters\\domain-exception.filter.spec.ts",
+      "startTime": 1791244403696,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "IdentityController"
+          ],
+          "duration": 11,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "IdentityController should be defined",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "should be defined",
+          "startAt": 1791244405889
+        }
+      ],
+      "endTime": 1791244405901,
+      "message": "",
+      "name": ".\\src\\modules\\identity\\identity.controller.spec.ts",
+      "startTime": 1791244403722,
+      "status": "passed",
+      "summary": ""
+    }
+  ],
+  "wasInterrupted": false
+}

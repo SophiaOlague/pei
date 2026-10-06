@@ -4,6 +4,8 @@ import { AppService } from './app.service';
 import { IdentityModule } from './modules/identity/identity.module';
 import { ConfigModule } from '@nestjs/config';
 import * as bodyParser from 'body-parser';
+import { CommonModule } from './common/common.module';
+import { AuthModule } from './auth/auth.module';
 
 
 @Module({
@@ -12,6 +14,8 @@ import * as bodyParser from 'body-parser';
       isGlobal: true, // para no tener que importarlo en cada módulo
       envFilePath: '.env',
     }),
+    CommonModule,
+    AuthModule,
     IdentityModule],
   controllers: [AppController],
   providers: [AppService],

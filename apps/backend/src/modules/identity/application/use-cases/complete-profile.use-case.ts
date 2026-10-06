@@ -5,8 +5,8 @@ import { PATIENT_PROFILE_REPOSITORY } from '../../domain/repositories/patient-pr
 import type { PatientProfileRepository } from '../../domain/repositories/patient-profile.repository';
 import { LEGAL_DOCUMENT_REPOSITORY } from '../../domain/repositories/legal-document.repository';
 import type { LegalDocumentRepository } from '../../domain/repositories/legal-document.repository';
-import { UNIT_OF_WORK } from '../../domain/ports/unit-of-work';
-import type { UnitOfWork } from '../../domain/ports/unit-of-work';
+import { UNIT_OF_WORK } from '../../../../common/application/ports/unit-of-work';
+import type { UnitOfWork } from '../../../../common/application/ports/unit-of-work';
 import {
   DuplicateCurpError,
   TermsNotAcceptedError,
