@@ -1,0 +1,680 @@
+{
+  "numFailedTestSuites": 0,
+  "numFailedTests": 0,
+  "numPassedTestSuites": 5,
+  "numPassedTests": 32,
+  "numPendingTestSuites": 0,
+  "numPendingTests": 0,
+  "numRuntimeErrorTestSuites": 0,
+  "numTodoTests": 0,
+  "numTotalTestSuites": 5,
+  "numTotalTests": 32,
+  "openHandles": [],
+  "snapshot": {
+    "added": 0,
+    "didUpdate": false,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0
+  },
+  "startTime": 1791258831900,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "Auditoría desde HTTP con PostgreSQL real y rollback (E2E)"
+          ],
+          "duration": 535,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Auditoría desde HTTP con PostgreSQL real y rollback (E2E) [TC-M01-204][RF-52][RN-120][RN-121][RT-M01-03] la fila real de audit_log tiene el actor, IP y user-agent del request y created_at de la BD",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-204][RF-52][RN-120][RN-121][RT-M01-03] la fila real de audit_log tiene el actor, IP y user-agent del request y created_at de la BD",
+          "startAt": 1791258834247
+        }
+      ],
+      "endTime": 1791258835016,
+      "message": "",
+      "name": ".\\test\\audit-db.e2e-spec.ts",
+      "startTime": 1791258832164,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "Rutas protegidas reales sin sesión (E2E, AppModule)"
+          ],
+          "duration": 22,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Rutas protegidas reales sin sesión (E2E, AppModule) [TC-M00-240][RNF-01] get /me sin cookie de sesión → 401",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-240][RNF-01] get /me sin cookie de sesión → 401",
+          "startAt": 1791258837068
+        },
+        {
+          "ancestorTitles": [
+            "Rutas protegidas reales sin sesión (E2E, AppModule)"
+          ],
+          "duration": 5,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Rutas protegidas reales sin sesión (E2E, AppModule) [TC-M00-240][RNF-01] post /me/complete-profile sin cookie de sesión → 401",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-240][RNF-01] post /me/complete-profile sin cookie de sesión → 401",
+          "startAt": 1791258837090
+        },
+        {
+          "ancestorTitles": [
+            "Rutas protegidas reales sin sesión (E2E, AppModule)"
+          ],
+          "duration": 6,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Rutas protegidas reales sin sesión (E2E, AppModule) [TC-M00-240][RNF-01] post /me/upload sin cookie de sesión → 401",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-240][RNF-01] post /me/upload sin cookie de sesión → 401",
+          "startAt": 1791258837095
+        },
+        {
+          "ancestorTitles": [
+            "Rutas protegidas reales sin sesión (E2E, AppModule)"
+          ],
+          "duration": 5,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Rutas protegidas reales sin sesión (E2E, AppModule) [TC-M00-242][RF-02] la ruta pública GET / sigue accesible sin sesión",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-242][RF-02] la ruta pública GET / sigue accesible sin sesión",
+          "startAt": 1791258837101
+        },
+        {
+          "ancestorTitles": [
+            "Rutas protegidas reales sin sesión (E2E, AppModule)"
+          ],
+          "duration": 15,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Rutas protegidas reales sin sesión (E2E, AppModule) [TC-M00-243][RF-02] las rutas de Better Auth (/api/auth/*) no quedan bloqueadas por los guards",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-243][RF-02] las rutas de Better Auth (/api/auth/*) no quedan bloqueadas por los guards",
+          "startAt": 1791258837106
+        },
+        {
+          "ancestorTitles": [
+            "Rutas protegidas reales sin sesión (E2E, AppModule)"
+          ],
+          "duration": 6,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Rutas protegidas reales sin sesión (E2E, AppModule) [TC-M00-241][RNF-01] GET /me con una cookie de sesión falsificada → 401",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-241][RNF-01] GET /me con una cookie de sesión falsificada → 401",
+          "startAt": 1791258837121
+        }
+      ],
+      "endTime": 1791258837131,
+      "message": "",
+      "name": ".\\test\\me.e2e-spec.ts",
+      "startTime": 1791258835023,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "401 sin sesión válida"
+          ],
+          "duration": 24,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) 401 sin sesión válida [TC-M00-200][RNF-01] /probe/actor sin sesión → 401",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-200][RNF-01] /probe/actor sin sesión → 401",
+          "startAt": 1791258838331
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "401 sin sesión válida"
+          ],
+          "duration": 4,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) 401 sin sesión válida [TC-M00-200][RNF-01] /probe/admin sin sesión → 401",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-200][RNF-01] /probe/admin sin sesión → 401",
+          "startAt": 1791258838355
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "401 sin sesión válida"
+          ],
+          "duration": 4,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) 401 sin sesión válida [TC-M00-200][RNF-01] /probe/clinical sin sesión → 401",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-200][RNF-01] /probe/clinical sin sesión → 401",
+          "startAt": 1791258838359
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "401 sin sesión válida"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) 401 sin sesión válida [TC-M00-201][RNF-01] sesión inválida → 401",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-201][RNF-01] sesión inválida → 401",
+          "startAt": 1791258838363
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "403 por rol"
+          ],
+          "duration": 4,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) 403 por rol [TC-M00-210][RF-02] user-patient en ruta de admin → 403",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-210][RF-02] user-patient en ruta de admin → 403",
+          "startAt": 1791258838366
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "403 por rol"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) 403 por rol [TC-M00-210][RF-02] user-doctor en ruta de admin → 403",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-210][RF-02] user-doctor en ruta de admin → 403",
+          "startAt": 1791258838370
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "403 por rol"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) 403 por rol [TC-M00-210][RF-02] user-organization en ruta de admin → 403",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-210][RF-02] user-organization en ruta de admin → 403",
+          "startAt": 1791258838374
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "403 por rol"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) 403 por rol [TC-M00-211][RF-02][RN-002] usuario autenticado sin perfil de dominio → 403",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-211][RF-02][RN-002] usuario autenticado sin perfil de dominio → 403",
+          "startAt": 1791258838377
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "403 por rol"
+          ],
+          "duration": 4,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) 403 por rol [TC-M00-212][RNF-10] ruta con RolesGuard pero sin @Roles → 403 incluso para admin",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-212][RNF-10] ruta con RolesGuard pero sin @Roles → 403 incluso para admin",
+          "startAt": 1791258838380
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "acceso permitido con el rol correcto"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) acceso permitido con el rol correcto [TC-M00-220][RF-02] admin en ruta de admin → 200",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-220][RF-02] admin en ruta de admin → 200",
+          "startAt": 1791258838384
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "acceso permitido con el rol correcto"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) acceso permitido con el rol correcto [TC-M00-221][RF-02] user-doctor en ruta doctor/admin → 200",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-221][RF-02] user-doctor en ruta doctor/admin → 200",
+          "startAt": 1791258838388
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "acceso permitido con el rol correcto"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) acceso permitido con el rol correcto [TC-M00-221][RF-02] user-admin en ruta doctor/admin → 200",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-221][RF-02] user-admin en ruta doctor/admin → 200",
+          "startAt": 1791258838391
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "acceso permitido con el rol correcto"
+          ],
+          "duration": 4,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) acceso permitido con el rol correcto [TC-M00-222][RN-001][RN-121] el handler recibe el actor con perfil, rol, IP y user-agent",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-222][RN-001][RN-121] el handler recibe el actor con perfil, rol, IP y user-agent",
+          "startAt": 1791258838394
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "acceso permitido con el rol correcto"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) acceso permitido con el rol correcto [TC-M00-223][RNF-10] X-Forwarded-For enviado por el cliente no cambia la IP registrada",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-223][RNF-10] X-Forwarded-For enviado por el cliente no cambia la IP registrada",
+          "startAt": 1791258838398
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "rutas públicas"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) rutas públicas [TC-M00-224][RF-02] una ruta sin @UseGuards responde 200 sin sesión aunque AuthModule esté cargado",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-224][RF-02] una ruta sin @UseGuards responde 200 sin sesión aunque AuthModule esté cargado",
+          "startAt": 1791258838401
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "rutas públicas"
+          ],
+          "duration": 2,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) rutas públicas [TC-M00-225][RF-02] la ruta pública no exige rol: responde igual con una sesión de cualquier rol",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-225][RF-02] la ruta pública no exige rol: responde igual con una sesión de cualquier rol",
+          "startAt": 1791258838404
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "validación de entrada global"
+          ],
+          "duration": 15,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) validación de entrada global [TC-M00-230][RNF-10] payload válido → 201 y el controller recibe una instancia del DTO",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-230][RNF-10] payload válido → 201 y el controller recibe una instancia del DTO",
+          "startAt": 1791258838407
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "validación de entrada global"
+          ],
+          "duration": 5,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) validación de entrada global [TC-M00-231][RNF-10] propiedad no declarada → 400",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-231][RNF-10] propiedad no declarada → 400",
+          "startAt": 1791258838422
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "validación de entrada global"
+          ],
+          "duration": 4,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) validación de entrada global [TC-M00-232][RNF-10] tipo inválido → 400",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-232][RNF-10] tipo inválido → 400",
+          "startAt": 1791258838427
+        },
+        {
+          "ancestorTitles": [
+            "Autenticación, autorización y validación por HTTP (E2E)",
+            "validación de entrada global"
+          ],
+          "duration": 3,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Autenticación, autorización y validación por HTTP (E2E) validación de entrada global [TC-M00-233][RNF-01] la validación no se ejecuta antes de la autenticación: sin sesión → 401",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-233][RNF-01] la validación no se ejecuta antes de la autenticación: sin sesión → 401",
+          "startAt": 1791258838431
+        }
+      ],
+      "endTime": 1791258838436,
+      "message": "",
+      "name": ".\\test\\auth-guards.e2e-spec.ts",
+      "startTime": 1791258837137,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "AppController (e2e)"
+          ],
+          "duration": 52,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AppController (e2e) / (GET)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 0,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "/ (GET)",
+          "startAt": 1791258839898
+        }
+      ],
+      "endTime": 1791258839951,
+      "message": "",
+      "name": ".\\test\\app.e2e-spec.ts",
+      "startTime": 1791258838441,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "Auditoría desde una acción HTTP (E2E con dobles, sin BD)"
+          ],
+          "duration": 14,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Auditoría desde una acción HTTP (E2E con dobles, sin BD) [TC-M01-200][RF-52][RN-120][RN-121] acción autenticada → un evento con el actor, perfil, IP y user-agent del request",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 6,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-200][RF-52][RN-120][RN-121] acción autenticada → un evento con el actor, perfil, IP y user-agent del request",
+          "startAt": 1791258841357
+        },
+        {
+          "ancestorTitles": [
+            "Auditoría desde una acción HTTP (E2E con dobles, sin BD)"
+          ],
+          "duration": 5,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Auditoría desde una acción HTTP (E2E con dobles, sin BD) [TC-M01-201][RNF-01] sin sesión → 401 y ningún evento",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-201][RNF-01] sin sesión → 401 y ningún evento",
+          "startAt": 1791258841372
+        },
+        {
+          "ancestorTitles": [
+            "Auditoría desde una acción HTTP (E2E con dobles, sin BD)"
+          ],
+          "duration": 5,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Auditoría desde una acción HTTP (E2E con dobles, sin BD) [TC-M01-202][RF-02] rol sin permiso → 403 y ningún evento",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-202][RF-02] rol sin permiso → 403 y ningún evento",
+          "startAt": 1791258841377
+        },
+        {
+          "ancestorTitles": [
+            "Auditoría desde una acción HTTP (E2E con dobles, sin BD)"
+          ],
+          "duration": 15,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Auditoría desde una acción HTTP (E2E con dobles, sin BD) [TC-M01-203][RT-M01-01] el caso de uso falla después de auditar → 422 y el evento no se confirma",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-203][RT-M01-01] el caso de uso falla después de auditar → 422 y el evento no se confirma",
+          "startAt": 1791258841383
+        }
+      ],
+      "endTime": 1791258841401,
+      "message": "",
+      "name": ".\\test\\audit.e2e-spec.ts",
+      "startTime": 1791258839957,
+      "status": "passed",
+      "summary": ""
+    }
+  ],
+  "wasInterrupted": false
+}
