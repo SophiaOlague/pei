@@ -3,7 +3,7 @@
 Gestinnovo es la empresa; PEI es la aplicación. Esta evidencia sale del código, las migraciones y las pruebas reales de M01.
 Solo se incluyen los entregables del documento de dualidad que M01 permite demostrar; no se agregó funcionalidad para cubrir ejemplos académicos.
 
-Fuentes: [ejecución `2026-10-06T03-25-17_b622ecc-dirty_M01`](../testing/ejecuciones/2026-10-06T03-25-17_b622ecc-dirty_M01/resumen.md),
+Fuentes: [ejecución `2026-10-06T03-53-14_727ea2a_M01`](../testing/ejecuciones/2026-10-06T03-53-14_727ea2a_M01/resumen.md),
 [validación y aplicación de migraciones](../testing/ejecuciones/2026-10-06_M01-migraciones/validacion-y-aplicacion.md),
 [matriz de trazabilidad](../testing/trazabilidad/M01-audit.md) y [guía de auditoría para los módulos](../arquitectura/auditoria.md).
 
