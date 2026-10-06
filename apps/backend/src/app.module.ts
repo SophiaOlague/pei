@@ -6,6 +6,7 @@ import { ConfigModule } from '@nestjs/config';
 import * as bodyParser from 'body-parser';
 import { CommonModule } from './common/common.module';
 import { AuthModule } from './auth/auth.module';
+import { AuditModule } from './modules/audit/audit.module';
 
 
 @Module({
@@ -16,6 +17,7 @@ import { AuthModule } from './auth/auth.module';
     }),
     CommonModule,
     AuthModule,
+    AuditModule,
     IdentityModule],
   controllers: [AppController],
   providers: [AppService],

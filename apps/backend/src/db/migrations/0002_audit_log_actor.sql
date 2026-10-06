@@ -1,0 +1,4 @@
+ALTER TABLE "audit_log" ADD COLUMN "actor_user_id" text;--> statement-breakpoint
+ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_actor_user_id_user_id_fk" FOREIGN KEY ("actor_user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_actor_chk" CHECK (("audit_log"."actor_type" = 'user' and "audit_log"."actor_user_id" is not null) or ("audit_log"."actor_type" = 'system' and "audit_log"."actor_user_id" is null and "audit_log"."actor_user_profile_id" is null));--> statement-breakpoint
+ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_entity_chk" CHECK ("audit_log"."entity_id" is null or "audit_log"."entity_type" is not null);

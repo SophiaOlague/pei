@@ -41,3 +41,4 @@ Los resultados se toman solo de la salida de Jest. Un caso omitido o una suite q
 ## Matrices de trazabilidad por módulo
 
 - [M00 Fundaciones](trazabilidad/M00-fundaciones.md)
+- [M01 Audit](trazabilidad/M01-audit.md)
