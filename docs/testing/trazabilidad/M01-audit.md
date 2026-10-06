@@ -1,7 +1,7 @@
 # Trazabilidad M01: Audit Trail de PEI
 
-Ejecución de referencia: [`2026-10-06T03-25-17_b622ecc-dirty_M01`](../ejecuciones/2026-10-06T03-25-17_b622ecc-dirty_M01/resumen.md)
-(commit base `b622ecc` con los cambios de M01 sin commit). Los resultados de esta página se copiaron de esa ejecución.
+Ejecución de referencia: [`2026-10-06T03-53-14_727ea2a_M01`](../ejecuciones/2026-10-06T03-53-14_727ea2a_M01/resumen.md)
+(commit funcional de M01 `727ea2a`, árbol limpio). Los resultados de esta página coinciden con esa ejecución.
 Validación y aplicación de las migraciones: [`2026-10-06_M01-migraciones`](../ejecuciones/2026-10-06_M01-migraciones/validacion-y-aplicacion.md).
 
 ## Alcance
