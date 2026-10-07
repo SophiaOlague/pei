@@ -24,10 +24,12 @@ export class DomainExceptionFilter implements ExceptionFilter {
 
     if (domainError) {
       const status = STATUS_BY_KIND[domainError.kind];
+      const details = domainError.details;
       response.status(status).json({
         statusCode: status,
         message: domainError.message,
         error: domainError.name,
+        ...(details ? { details } : {}),
       });
       return;
     }

@@ -1,32 +1,57 @@
 import { Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { getDbContext } from '../../../../db/transaction-context';
-import { userProfile as userProfileTable } from '../../../../db/schema';
-import type { UserProfileRepository } from '../../domain/repositories/user-profile.repository';
-import { UserProfile } from '../../domain/entities/user-profile.entity';
+import { userProfile } from '../../../../db/schema';
+import type { UserProfileRecord, UserProfileRepository } from '../../application/ports/user-profile.repository';
+
+// Clave del bloqueo consultivo que serializa los bootstraps de administrador (DT-12).
+const ADMIN_BOOTSTRAP_LOCK = 'pei.identity.admin_bootstrap';
 
 @Injectable()
 export class DrizzleUserProfileRepository implements UserProfileRepository {
-  async create(input: {
-    userId: string;
-    role: 'patient' | 'doctor' | 'admin' | 'organization';
-    firstName: string;
-    lastName: string;
-    phone?: string;
-    birthDate?: string;
-  }): Promise<UserProfile> {
+  async findByUserId(userId: string): Promise<UserProfileRecord | null> {
     const [row] = await getDbContext()
-      .insert(userProfileTable)
-      .values(input)
-      .returning();
-    return new UserProfile(row.id, row.userId, row.role, row.firstName, row.lastName);
+      .select({ id: userProfile.id, role: userProfile.role })
+      .from(userProfile)
+      .where(eq(userProfile.userId, userId))
+      .limit(1);
+    return row ?? null;
   }
 
-  async existsByUserId(userId: string): Promise<boolean> {
+  async createPatient(input: {
+    userId: string;
+    firstName: string;
+    lastName: string;
+    birthDate: string;
+    phone: string | null;
+    emergencyContactName: string | null;
+    emergencyContactPhone: string | null;
+  }): Promise<string> {
     const [row] = await getDbContext()
-      .select({ id: userProfileTable.id })
-      .from(userProfileTable)
-      .where(eq(userProfileTable.userId, userId))
+      .insert(userProfile)
+      .values({ ...input, role: 'patient' })
+      .returning({ id: userProfile.id });
+    return row.id;
+  }
+
+  async createAdmin(input: { userId: string; firstName: string; lastName: string }): Promise<string> {
+    const [row] = await getDbContext()
+      .insert(userProfile)
+      .values({ ...input, role: 'admin' })
+      .returning({ id: userProfile.id });
+    return row.id;
+  }
+
+  // Se libera al terminar la transacción (commit o rollback).
+  async lockAdminBootstrap(): Promise<void> {
+    await getDbContext().execute(sql`select pg_advisory_xact_lock(hashtext(${ADMIN_BOOTSTRAP_LOCK}))`);
+  }
+
+  async adminExists(): Promise<boolean> {
+    const [row] = await getDbContext()
+      .select({ id: userProfile.id })
+      .from(userProfile)
+      .where(eq(userProfile.role, 'admin'))
       .limit(1);
     return !!row;
   }

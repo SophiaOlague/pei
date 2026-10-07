@@ -29,6 +29,20 @@
       "when": 1791254111064,
       "tag": "0003_audit_log_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791326720263,
+      "tag": "0004_m02_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791326732522,
+      "tag": "0005_m02_identity_guards",
+      "breakpoints": true
     }
   ]
 }

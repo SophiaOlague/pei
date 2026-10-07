@@ -42,3 +42,4 @@ Los resultados se toman solo de la salida de Jest. Un caso omitido o una suite q
 
 - [M00 Fundaciones](trazabilidad/M00-fundaciones.md)
 - [M01 Audit](trazabilidad/M01-audit.md)
+- [M02 Identity](trazabilidad/M02-identity.md) (borrador: evidencia definitiva pendiente)

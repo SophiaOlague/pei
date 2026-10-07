@@ -16,4 +16,10 @@ export abstract class DomainError extends Error {
     super(message);
     this.name = new.target.name;
   }
+
+  // Datos adicionales que el cliente puede ver (por ejemplo, qué falta para completar un registro).
+  // Nunca deben incluir datos personales ni detalles internos.
+  get details(): Readonly<Record<string, unknown>> | undefined {
+    return undefined;
+  }
 }

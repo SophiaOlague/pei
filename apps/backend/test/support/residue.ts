@@ -19,3 +19,18 @@ export async function countM00Residue(): Promise<Record<string, number>> {
   `);
   return Object.fromEntries(Object.entries(rows[0]).map(([table, count]) => [table, Number(count)]));
 }
+
+// M02: conteos totales (solo lectura) de las tablas de Identity, para comparar antes y después de cada archivo.
+export async function countM02Residue(): Promise<Record<string, number>> {
+  const { rows } = await db.execute<Record<string, string>>(sql`
+    select
+      (select count(*) from user_profile) as user_profile,
+      (select count(*) from user_profile where role = 'admin') as admins,
+      (select count(*) from patient_profile) as patient_profile,
+      (select count(*) from patient_identity_verification) as patient_identity_verification,
+      (select count(*) from legal_document) as legal_document,
+      (select count(*) from user_legal_acceptance) as user_legal_acceptance,
+      (select count(*) from audit_log where action like 'identity.%') as identity_audit_log
+  `);
+  return Object.fromEntries(Object.entries(rows[0]).map(([table, count]) => [table, Number(count)]));
+}

@@ -16,11 +16,12 @@ import request from 'supertest';
 import { DomainExceptionFilter } from './domain-exception.filter';
 import {
   DuplicateCurpError,
+  InvalidCurpError,
+  InvalidDocumentFileError,
   LegalDocumentsNotPublishedError,
-  MissingIdentityDocumentsError,
-  ProfileAlreadyCompletedError,
-  TermsNotAcceptedError,
-} from '../../modules/identity/domain/errors/identity.errors';
+  ProfileAlreadyExistsError,
+  RegistrationIncompleteError,
+} from '../../modules/identity/domain/identity.errors';
 import { DomainError, type DomainErrorKind } from '../domain/domain-error';
 
 // ArgumentsHost mínimo: solo lo que usa el filtro (switchToHttp().getResponse()).
@@ -89,12 +90,14 @@ describe('DomainExceptionFilter', () => {
     });
   });
 
-  describe('excepciones de dominio (comportamiento existente)', () => {
+  // M02 reemplazó los errores de complete-profile (TermsNotAccepted, ProfileAlreadyCompleted,
+  // MissingIdentityDocuments) por los del nuevo flujo; DuplicateCurpError pasa a 409 (decisión de la CURP).
+  describe('excepciones de dominio de Identity', () => {
     it.each([
-      [new DuplicateCurpError('PRUE900101HDFRRS03'), 400],
-      [new TermsNotAcceptedError(), 400],
-      [new ProfileAlreadyCompletedError(), 400],
-      [new MissingIdentityDocumentsError(), 400],
+      [new DuplicateCurpError(), 409],
+      [new InvalidCurpError(), 400],
+      [new ProfileAlreadyExistsError(), 409],
+      [new InvalidDocumentFileError(), 400],
       [new LegalDocumentsNotPublishedError(), 409],
     ])('%p → %i', (error, status) => {
       const { host, response } = mockHost();
@@ -103,6 +106,20 @@ describe('DomainExceptionFilter', () => {
 
       expect(response.status).toHaveBeenCalledWith(status);
       expect(response.json).toHaveBeenCalledWith({ statusCode: status, message: error.message, error: error.name });
+    });
+
+    it('[TC-M02-090][DP-8] un error con details los incluye en la respuesta', () => {
+      const { host, response } = mockHost();
+
+      filter.catch(new RegistrationIncompleteError(['legal', 'identity_review']), host);
+
+      expect(response.status).toHaveBeenCalledWith(403);
+      expect(response.json).toHaveBeenCalledWith({
+        statusCode: 403,
+        message: 'El registro del paciente está incompleto',
+        error: 'RegistrationIncompleteError',
+        details: { missing: ['legal', 'identity_review'] },
+      });
     });
   });
 
@@ -209,7 +226,7 @@ describe('DomainExceptionFilter', () => {
 
       @Get('domain')
       domain() {
-        throw new ProfileAlreadyCompletedError();
+        throw new InvalidCurpError();
       }
 
       @Get('crash')
@@ -253,8 +270,8 @@ describe('DomainExceptionFilter', () => {
       expect(res.status).toBe(400);
       expect(res.body).toEqual({
         statusCode: 400,
-        message: 'El perfil de este usuario ya fue completado',
-        error: 'ProfileAlreadyCompletedError',
+        message: 'La CURP no tiene un formato válido',
+        error: 'InvalidCurpError',
       });
     });
 

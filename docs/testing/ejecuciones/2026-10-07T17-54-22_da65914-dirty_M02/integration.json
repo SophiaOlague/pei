@@ -1,0 +1,1143 @@
+{
+  "numFailedTestSuites": 0,
+  "numFailedTests": 0,
+  "numPassedTestSuites": 6,
+  "numPassedTests": 56,
+  "numPendingTestSuites": 0,
+  "numPendingTests": 0,
+  "numRuntimeErrorTestSuites": 0,
+  "numTodoTests": 0,
+  "numTotalTestSuites": 6,
+  "numTotalTests": 56,
+  "openHandles": [],
+  "snapshot": {
+    "added": 0,
+    "didUpdate": false,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0
+  },
+  "startTime": 1791395675942,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "perfil del paciente"
+          ],
+          "duration": 4441,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) perfil del paciente [TC-M02-100][RF-01][RNF-08] crea user_profile (patient) y patient_profile con el evento created en la misma UoW",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 4,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-100][RF-01][RNF-08] crea user_profile (patient) y patient_profile con el evento created en la misma UoW",
+          "startAt": 1791395679642
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "perfil del paciente"
+          ],
+          "duration": 4248,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) perfil del paciente [TC-M02-101][DT-22] CURP duplicada → DuplicateCurpError (409) genérico y sin escribir",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-101][DT-22] CURP duplicada → DuplicateCurpError (409) genérico y sin escribir",
+          "startAt": 1791395684083
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "perfil del paciente"
+          ],
+          "duration": 14259,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) perfil del paciente [TC-M02-102][DT-22] carrera de dos conexiones con la misma CURP: B queda bloqueada por A y falla con 409, sin escribir",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-102][DT-22] carrera de dos conexiones con la misma CURP: B queda bloqueada por A y falla con 409, sin escribir",
+          "startAt": 1791395688332
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "aceptación legal"
+          ],
+          "duration": 8787,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) aceptación legal [TC-M02-103][RF-03][RF-04][RNF-12] acepta la versión vigente con IP y user-agent; una versión nueva deja legal.accepted en falso",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 4,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-103][RF-03][RF-04][RNF-12] acepta la versión vigente con IP y user-agent; una versión nueva deja legal.accepted en falso",
+          "startAt": 1791395702591
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "aceptación legal"
+          ],
+          "duration": 3953,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) aceptación legal [TC-M02-104][RN-006] una versión obsoleta → LegalDocumentNotCurrentError (409) sin guardar nada",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-104][RN-006] una versión obsoleta → LegalDocumentNotCurrentError (409) sin guardar nada",
+          "startAt": 1791395711378
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "envíos del INE"
+          ],
+          "duration": 29057,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) envíos del INE [TC-M02-105][DP-11][DT-2][DT-16] primer envío; segundo con pending → 409; tras rejected → attempt 2; tras approved → 409",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 5,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-105][DP-11][DT-2][DT-16] primer envío; segundo con pending → 409; tras rejected → attempt 2; tras approved → 409",
+          "startAt": 1791395715331
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "envíos del INE"
+          ],
+          "duration": 22775,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) envíos del INE [TC-M02-106][DP-11][DT-6] carrera de envíos: el índice parcial rechaza el segundo pending (409) y se compensan sus objetos",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-106][DP-11][DT-6] carrera de envíos: el índice parcial rechaza el segundo pending (409) y se compensan sus objetos",
+          "startAt": 1791395744389
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "envíos del INE"
+          ],
+          "duration": 5000,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) envíos del INE [TC-M02-107][DT-6] si la BD falla después de subir, se eliminan los objetos subidos (compensación)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 4,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-107][DT-6] si la BD falla después de subir, se eliminan los objetos subidos (compensación)",
+          "startAt": 1791395767164
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "revisión, acceso y purga"
+          ],
+          "duration": 12124,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) revisión, acceso y purga [TC-M02-108][DP-15][RNF-08] ver un documento pendiente registra identity_document.viewed por lado en la UoW",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-108][DP-15][RNF-08] ver un documento pendiente registra identity_document.viewed por lado en la UoW",
+          "startAt": 1791395772165
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "revisión, acceso y purga"
+          ],
+          "duration": 10560,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) revisión, acceso y purga [TC-M02-109][DT-5] purga tras approve: elimina los 2 objetos, claves en NULL y documents_deleted_at fijado; acceso → 409",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 5,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-109][DT-5] purga tras approve: elimina los 2 objetos, claves en NULL y documents_deleted_at fijado; acceso → 409",
+          "startAt": 1791395784290
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "revisión, acceso y purga"
+          ],
+          "duration": 6092,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) revisión, acceso y purga [TC-M02-109][DT-5] purga tras reject: elimina los 2 objetos, claves en NULL y documents_deleted_at fijado; acceso → 409",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 5,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-109][DT-5] purga tras reject: elimina los 2 objetos, claves en NULL y documents_deleted_at fijado; acceso → 409",
+          "startAt": 1791395794851
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "revisión, acceso y purga"
+          ],
+          "duration": 7993,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) revisión, acceso y purga [TC-M02-110][DT-5][DT-6] si la eliminación falla, el envío queda revisado con claves; el CLI de purga lo completa",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 5,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-110][DT-5][DT-6] si la eliminación falla, el envío queda revisado con claves; el CLI de purga lo completa",
+          "startAt": 1791395800943
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "revisión, acceso y purga"
+          ],
+          "duration": 6135,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) revisión, acceso y purga [TC-M02-111][RF-07] revisión concurrente: si otro administrador ya resolvió el envío, la segunda revisión → 409",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-111][RF-07] revisión concurrente: si otro administrador ya resolvió el envío, la segunda revisión → 409",
+          "startAt": 1791395808936
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "bootstrap del primer administrador (DT-12)"
+          ],
+          "duration": 2787,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) bootstrap del primer administrador (DT-12) [TC-M02-112][DP-5][DT-12] primera ejecución crea el admin con evento de sistema; la segunda aborta",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-112][DP-5][DT-12] primera ejecución crea el admin con evento de sistema; la segunda aborta",
+          "startAt": 1791395815071
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "bootstrap del primer administrador (DT-12)"
+          ],
+          "duration": 7223,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) bootstrap del primer administrador (DT-12) [TC-M02-113][DT-12] dos bootstraps concurrentes se serializan con el bloqueo consultivo: B no avanza mientras A lo tiene",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-113][DT-12] dos bootstraps concurrentes se serializan con el bloqueo consultivo: B no avanza mientras A lo tiene",
+          "startAt": 1791395817858
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "restricciones de la BD (0004 y 0005)"
+          ],
+          "duration": 2707,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) restricciones de la BD (0004 y 0005) [TC-M02-114][RN-001][DP-5] el rol de un user_profile no se puede cambiar (P0001)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-114][RN-001][DP-5] el rol de un user_profile no se puede cambiar (P0001)",
+          "startAt": 1791395825082
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "restricciones de la BD (0004 y 0005)"
+          ],
+          "duration": 701,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) restricciones de la BD (0004 y 0005) [TC-M02-115][RN-006][RNF-12] TRUNCATE legal_document → P0001",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-115][RN-006][RNF-12] TRUNCATE legal_document → P0001",
+          "startAt": 1791395827789
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "restricciones de la BD (0004 y 0005)"
+          ],
+          "duration": 719,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) restricciones de la BD (0004 y 0005) [TC-M02-115][RN-006][RNF-12] TRUNCATE user_legal_acceptance → P0001",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-115][RN-006][RNF-12] TRUNCATE user_legal_acceptance → P0001",
+          "startAt": 1791395828490
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "restricciones de la BD (0004 y 0005)"
+          ],
+          "duration": 879,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) restricciones de la BD (0004 y 0005) [TC-M02-116][DT-22] CHECK de la CURP: minúsculas y formato inválido → 23514",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 5,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-116][DT-22] CHECK de la CURP: minúsculas y formato inválido → 23514",
+          "startAt": 1791395829210
+        },
+        {
+          "ancestorTitles": [
+            "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)",
+            "restricciones de la BD (0004 y 0005)"
+          ],
+          "duration": 8350,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback) restricciones de la BD (0004 y 0005) [TC-M02-117][DT-2][DT-5] CHECK de claves por estado y unicidades (patient_id, attempt) y (type, published_at)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 5,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M02-117][DT-2][DT-5] CHECK de claves por estado y unicidades (patient_id, attempt) y (type, published_at)",
+          "startAt": 1791395830089
+        }
+      ],
+      "endTime": 1791395838746,
+      "message": "",
+      "name": ".\\test\\integration\\identity.int-spec.ts",
+      "startTime": 1791395676186,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback)",
+            "registro dentro de la UnitOfWork"
+          ],
+          "duration": 1201,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback) registro dentro de la UnitOfWork [TC-M01-100][RF-52][RN-120][RN-121] guarda actor, perfil, IP, user-agent, acción, entidad y metadata",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-100][RF-52][RN-120][RN-121] guarda actor, perfil, IP, user-agent, acción, entidad y metadata",
+          "startAt": 1791395839938
+        },
+        {
+          "ancestorTitles": [
+            "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback)",
+            "registro dentro de la UnitOfWork"
+          ],
+          "duration": 1904,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback) registro dentro de la UnitOfWork [TC-M01-105][RF-52][RN-120] actor sistema y metadata JSON anidada se guardan y se leen igual",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-105][RF-52][RN-120] actor sistema y metadata JSON anidada se guardan y se leen igual",
+          "startAt": 1791395841139
+        },
+        {
+          "ancestorTitles": [
+            "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback)",
+            "registro dentro de la UnitOfWork"
+          ],
+          "duration": 2572,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback) registro dentro de la UnitOfWork [TC-M01-114][RN-120] usuario autenticado sin user_profile queda identificado por actor_user_id",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-114][RN-120] usuario autenticado sin user_profile queda identificado por actor_user_id",
+          "startAt": 1791395843043
+        },
+        {
+          "ancestorTitles": [
+            "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback)",
+            "modelo transaccional (D1, D6)"
+          ],
+          "duration": 2649,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback) modelo transaccional (D1, D6) [TC-M01-101][RT-M01-01] error después de auditar: se revierten la operación y el evento",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-101][RT-M01-01] error después de auditar: se revierten la operación y el evento",
+          "startAt": 1791395845615
+        },
+        {
+          "ancestorTitles": [
+            "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback)",
+            "modelo transaccional (D1, D6)"
+          ],
+          "duration": 2565,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback) modelo transaccional (D1, D6) [TC-M01-102][RT-M01-01][RN-120] si la auditoría falla, la operación se revierte (perfil de otro usuario)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-102][RT-M01-01][RN-120] si la auditoría falla, la operación se revierte (perfil de otro usuario)",
+          "startAt": 1791395848264
+        },
+        {
+          "ancestorTitles": [
+            "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback)",
+            "modelo transaccional (D1, D6)"
+          ],
+          "duration": 1,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback) modelo transaccional (D1, D6) [TC-M01-103][RT-M01-01] fuera de una UnitOfWork falla sin escribir",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-103][RT-M01-01] fuera de una UnitOfWork falla sin escribir",
+          "startAt": 1791395850829
+        },
+        {
+          "ancestorTitles": [
+            "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback)",
+            "modelo transaccional (D1, D6)"
+          ],
+          "duration": 2773,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback) modelo transaccional (D1, D6) [TC-M01-104][RT-M01-01] UoW anidada que falla: solo se revierte su evento; la externa conserva el suyo",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-104][RT-M01-01] UoW anidada que falla: solo se revierte su evento; la externa conserva el suyo",
+          "startAt": 1791395850830
+        },
+        {
+          "ancestorTitles": [
+            "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback)",
+            "protecciones de la BD (migración 0003)"
+          ],
+          "duration": 20474,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback) protecciones de la BD (migración 0003) [TC-M01-106][RN-119][RNF-08] TRUNCATE audit_log → BusinessRuleViolationError",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-106][RN-119][RNF-08] TRUNCATE audit_log → BusinessRuleViolationError",
+          "startAt": 1791395853603
+        },
+        {
+          "ancestorTitles": [
+            "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback)",
+            "protecciones de la BD (migración 0003)"
+          ],
+          "duration": 6544,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback) protecciones de la BD (migración 0003) [TC-M01-107][RN-120] CHECK de actor y entidad: combinaciones inválidas → IntegrityConstraintViolationError",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 8,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-107][RN-120] CHECK de actor y entidad: combinaciones inválidas → IntegrityConstraintViolationError",
+          "startAt": 1791395874077
+        },
+        {
+          "ancestorTitles": [
+            "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback)",
+            "protecciones de la BD (migración 0003)"
+          ],
+          "duration": 1992,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback) protecciones de la BD (migración 0003) [TC-M01-108][RT-M01-03] created_at lo fija PostgreSQL (now() de la transacción); el valor de la app se ignora",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-108][RT-M01-03] created_at lo fija PostgreSQL (now() de la transacción); el valor de la app se ignora",
+          "startAt": 1791395880622
+        },
+        {
+          "ancestorTitles": [
+            "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback)",
+            "protecciones de la BD (migración 0003)"
+          ],
+          "duration": 6390,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback) protecciones de la BD (migración 0003) [TC-M01-109][RN-120] perfil que no pertenece al usuario actor → BusinessRuleViolationError (inserción directa)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-109][RN-120] perfil que no pertenece al usuario actor → BusinessRuleViolationError (inserción directa)",
+          "startAt": 1791395882614
+        },
+        {
+          "ancestorTitles": [
+            "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback)",
+            "concurrencia"
+          ],
+          "duration": 12755,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "AuditTrail contra PostgreSQL (BD de PEI, siempre con rollback) concurrencia [TC-M01-110][RT-M01-02] dos conexiones auditan a la vez sin esperarse; ambas terminan en ROLLBACK",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M01-110][RT-M01-02] dos conexiones auditan a la vez sin esperarse; ambas terminan en ROLLBACK",
+          "startAt": 1791395889004
+        }
+      ],
+      "endTime": 1791395903420,
+      "message": "",
+      "name": ".\\test\\integration\\audit-trail.int-spec.ts",
+      "startTime": 1791395838753,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "constraints del esquema"
+          ],
+          "duration": 2647,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) constraints del esquema [TC-M00-110][RT-M00-03] 23503 llave foránea inexistente → ReferenceViolationError",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-110][RT-M00-03] 23503 llave foránea inexistente → ReferenceViolationError",
+          "startAt": 1791395906020
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "constraints del esquema"
+          ],
+          "duration": 3599,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) constraints del esquema [TC-M00-111][RT-M00-03][RNF-05] 23514 inventario negativo → IntegrityConstraintViolationError (inventory_quantity_on_hand_chk)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-111][RT-M00-03][RNF-05] 23514 inventario negativo → IntegrityConstraintViolationError (inventory_quantity_on_hand_chk)",
+          "startAt": 1791395908668
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "constraints del esquema"
+          ],
+          "duration": 1648,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) constraints del esquema [TC-M00-112][RT-M00-03] 23502 NOT NULL → IntegrityConstraintViolationError",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-112][RT-M00-03] 23502 NOT NULL → IntegrityConstraintViolationError",
+          "startAt": 1791395912268
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "constraints del esquema"
+          ],
+          "duration": 2486,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) constraints del esquema [TC-M00-113][RT-M00-03][RNF-17] 23P01 vigencias solapadas de cancellation_policy → ExclusionConstraintViolationError",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-113][RT-M00-03][RNF-17] 23P01 vigencias solapadas de cancellation_policy → ExclusionConstraintViolationError",
+          "startAt": 1791395913917
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "triggers reales de 0001_triggers.sql (P0001)"
+          ],
+          "duration": 1462,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) triggers reales de 0001_triggers.sql (P0001) [TC-M00-120][RT-M00-03][RN-119][RNF-08] audit_log es de solo inserción: update → BusinessRuleViolationError",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-120][RT-M00-03][RN-119][RNF-08] audit_log es de solo inserción: update → BusinessRuleViolationError",
+          "startAt": 1791395916404
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "triggers reales de 0001_triggers.sql (P0001)"
+          ],
+          "duration": 1600,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) triggers reales de 0001_triggers.sql (P0001) [TC-M00-120][RT-M00-03][RN-119][RNF-08] audit_log es de solo inserción: delete → BusinessRuleViolationError",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-120][RT-M00-03][RN-119][RNF-08] audit_log es de solo inserción: delete → BusinessRuleViolationError",
+          "startAt": 1791395917866
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "triggers reales de 0001_triggers.sql (P0001)"
+          ],
+          "duration": 1099,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) triggers reales de 0001_triggers.sql (P0001) [TC-M00-121][RT-M00-03][RN-006][RNF-12] una versión publicada de legal_document no se modifica",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-121][RT-M00-03][RN-006][RNF-12] una versión publicada de legal_document no se modifica",
+          "startAt": 1791395919466
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "triggers reales de 0001_triggers.sql (P0001)"
+          ],
+          "duration": 10135,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) triggers reales de 0001_triggers.sql (P0001) [TC-M00-122][RT-M00-03][RNF-12] una aceptación legal registrada no se elimina",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-122][RT-M00-03][RNF-12] una aceptación legal registrada no se elimina",
+          "startAt": 1791395920566
+        },
+        {
+          "ancestorTitles": [
+            "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback)",
+            "error real del driver que llega al filtro HTTP sin pasar por la unidad de trabajo"
+          ],
+          "duration": 1904,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Errores reales de PostgreSQL → errores de dominio (BD de desarrollo, siempre con rollback) error real del driver que llega al filtro HTTP sin pasar por la unidad de trabajo [TC-M00-130][RT-M00-03][RNF-10] el filtro reconoce el error real de @neondatabase/serverless y responde 422 con el mensaje del trigger",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-130][RT-M00-03][RNF-10] el filtro reconoce el error real de @neondatabase/serverless y responde 422 con el mensaje del trigger",
+          "startAt": 1791395930701
+        }
+      ],
+      "endTime": 1791395932744,
+      "message": "",
+      "name": ".\\test\\integration\\postgres-errors.int-spec.ts",
+      "startTime": 1791395903427,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "Concurrencia a nivel PostgreSQL (dos conexiones, sin commits)"
+          ],
+          "duration": 11896,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Concurrencia a nivel PostgreSQL (dos conexiones, sin commits) [TC-M00-140][RT-M00-05][RNF-17] exclusion constraint: un rango sin confirmar de A bloquea el rango solapado de B (lock_timeout → ConcurrencyConflictError)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-140][RT-M00-05][RNF-17] exclusion constraint: un rango sin confirmar de A bloquea el rango solapado de B (lock_timeout → ConcurrencyConflictError)",
+          "startAt": 1791395934020
+        },
+        {
+          "ancestorTitles": [
+            "Concurrencia a nivel PostgreSQL (dos conexiones, sin commits)"
+          ],
+          "duration": 9196,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Concurrencia a nivel PostgreSQL (dos conexiones, sin commits) [TC-M00-141][RT-M00-05] índice único: B espera a A; si A se revierte, B continúa sin falso conflicto",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 4,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-141][RT-M00-05] índice único: B espera a A; si A se revierte, B continúa sin falso conflicto",
+          "startAt": 1791395945917
+        }
+      ],
+      "endTime": 1791395955537,
+      "message": "",
+      "name": ".\\test\\integration\\concurrency.int-spec.ts",
+      "startTime": 1791395932749,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 3187,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-100][RT-M00-02] confirma todo el trabajo de la unidad de forma atómica",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-100][RT-M00-02] confirma todo el trabajo de la unidad de forma atómica",
+          "startAt": 1791395961939
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 6714,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-101][RT-M00-02] si el trabajo falla, revierte todo lo que hizo la unidad",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-101][RT-M00-02] si el trabajo falla, revierte todo lo que hizo la unidad",
+          "startAt": 1791395965127
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 5335,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-102][RT-M00-02] una unidad anidada que falla solo revierte su parte (SAVEPOINT)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-102][RT-M00-02] una unidad anidada que falla solo revierte su parte (SAVEPOINT)",
+          "startAt": 1791395971841
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 2366,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-103][RT-M00-02] la unidad anidada usa la misma conexión y la misma transacción (no escapa del rollback)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-103][RT-M00-02] la unidad anidada usa la misma conexión y la misma transacción (no escapa del rollback)",
+          "startAt": 1791395977176
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 3684,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-106][RT-M00-02] UoW dentro de UoW: un error de PostgreSQL en la interna se revierte a su SAVEPOINT y la externa continúa y termina",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-106][RT-M00-02] UoW dentro de UoW: un error de PostgreSQL en la interna se revierte a su SAVEPOINT y la externa continúa y termina",
+          "startAt": 1791395979543
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 1849,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-107][RT-M00-02] control: sin SAVEPOINT, un error de PostgreSQL aborta la transacción y la siguiente sentencia falla con 25P02",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-107][RT-M00-02] control: sin SAVEPOINT, un error de PostgreSQL aborta la transacción y la siguiente sentencia falla con 25P02",
+          "startAt": 1791395983227
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 2154,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-104][RT-M00-02] sin transacción activa, una unidad que falla no deja datos (no hay commit)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-104][RT-M00-02] sin transacción activa, una unidad que falla no deja datos (no hay commit)",
+          "startAt": 1791395985076
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 2611,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleUnitOfWork contra PostgreSQL (BD de desarrollo, siempre con rollback) [TC-M00-105][RT-M00-03] un error de PostgreSQL dentro de la unidad se traduce y la transacción exterior sigue usable",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-105][RT-M00-03] un error de PostgreSQL dentro de la unidad se traduce y la transacción exterior sigue usable",
+          "startAt": 1791395987230
+        }
+      ],
+      "endTime": 1791395990217,
+      "message": "",
+      "name": ".\\test\\integration\\unit-of-work.int-spec.ts",
+      "startTime": 1791395955544,
+      "status": "passed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 797,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback) [TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario patient",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario patient",
+          "startAt": 1791395992205
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 3776,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback) [TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario doctor",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario doctor",
+          "startAt": 1791395993002
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 2334,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback) [TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario admin",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario admin",
+          "startAt": 1791395996778
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 1096,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback) [TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario organization",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-150][RF-02][RN-001][RN-002] devuelve el user_profile y el único rol de un usuario organization",
+          "startAt": 1791395999112
+        },
+        {
+          "ancestorTitles": [
+            "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback)"
+          ],
+          "duration": 135,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "DrizzleActorProfileReader (BD de desarrollo, siempre con rollback) [TC-M00-151][RN-002] usuario sin perfil de dominio → null",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryMessages": [],
+          "retryReasons": [],
+          "status": "passed",
+          "title": "[TC-M00-151][RN-002] usuario sin perfil de dominio → null",
+          "startAt": 1791396000208
+        }
+      ],
+      "endTime": 1791396000447,
+      "message": "",
+      "name": ".\\test\\integration\\actor-profile-reader.int-spec.ts",
+      "startTime": 1791395990222,
+      "status": "passed",
+      "summary": ""
+    }
+  ],
+  "wasInterrupted": false
+}

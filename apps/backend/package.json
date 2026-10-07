@@ -23,7 +23,9 @@
     "test:evidence": "node ./scripts/record-test-run.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "admin:bootstrap": "ts-node --transpile-only src/cli/admin-bootstrap.ts",
+    "identity:purge-documents": "ts-node --transpile-only src/cli/identity-purge-documents.ts"
   },
   "dependencies": {
     "@apollo/server": "^5.5.1",

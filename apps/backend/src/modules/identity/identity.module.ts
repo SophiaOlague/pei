@@ -1,24 +1,82 @@
 import { Module } from '@nestjs/common';
-import { IdentityController, MeController } from './identity.controller';
-import { CompleteProfileUseCase } from './application/use-cases/complete-profile.use-case';
-import { USER_PROFILE_REPOSITORY } from './domain/repositories/user-profile.repository';
-import { PATIENT_PROFILE_REPOSITORY } from './domain/repositories/patient-profile.repository';
-import { LEGAL_DOCUMENT_REPOSITORY } from './domain/repositories/legal-document.repository';
-import { FILE_STORAGE } from './domain/ports/file-storage';
+import { AuthController } from './presentation/auth.controller';
+import { MeController } from './presentation/me.controller';
+import { LegalDocumentsController } from './presentation/legal-documents.controller';
+import { AdminIdentityVerificationsController } from './presentation/admin-identity-verifications.controller';
+import { DEFAULT_IDENTITY_RATE_LIMIT_RULES, IDENTITY_RATE_LIMIT_RULES, RateLimitGuard } from './presentation/rate-limit.guard';
+import { RegisterPatientProfileUseCase } from './application/use-cases/register-patient-profile.use-case';
+import { AcceptLegalDocumentsUseCase, GetCurrentLegalDocumentsUseCase } from './application/use-cases/legal-documents.use-cases';
+import { SubmitIdentityVerificationUseCase } from './application/use-cases/submit-identity-verification.use-case';
+import {
+  GetIdentityVerificationDetailUseCase,
+  ListPendingIdentityVerificationsUseCase,
+  OpenIdentityDocumentUseCase,
+  PurgeReviewedIdentityDocumentsUseCase,
+  ReviewIdentityVerificationUseCase,
+} from './application/use-cases/identity-verification-admin.use-cases';
+import { IdentityDocumentPurger } from './application/use-cases/identity-document-purger';
+import {
+  GetMyIdentityVerificationUseCase,
+  GetPatientProfileUseCase,
+  OpenProfilePhotoUseCase,
+  UpdatePatientProfileUseCase,
+  UpdateProfilePhotoUseCase,
+} from './application/use-cases/patient-profile.use-cases';
+import { GetRegistrationStatusUseCase } from './application/use-cases/registration-status.use-cases';
+import { BootstrapAdminUseCase } from './application/use-cases/bootstrap-admin.use-case';
+import { CanBookAppointmentsPolicy } from './application/policies/can-book-appointments';
+import { USER_PROFILE_REPOSITORY } from './application/ports/user-profile.repository';
+import { PATIENT_PROFILE_REPOSITORY } from './application/ports/patient-profile.repository';
+import { IDENTITY_VERIFICATION_REPOSITORY } from './application/ports/identity-verification.repository';
+import { LEGAL_DOCUMENT_REPOSITORY } from './application/ports/legal-document.repository';
+import { REGISTRATION_STATUS_READER } from './application/ports/registration-status-reader';
+import { DOCUMENT_STORAGE } from './application/ports/document-storage';
+import { RATE_LIMITER } from './application/ports/rate-limiter';
+import { ADMIN_ACCOUNT_PROVISIONER } from './application/ports/admin-account-provisioner';
 import { DrizzleUserProfileRepository } from './infrastructure/persistence/drizzle-user-profile.repository';
 import { DrizzlePatientProfileRepository } from './infrastructure/persistence/drizzle-patient-profile.repository';
+import { DrizzleIdentityVerificationRepository } from './infrastructure/persistence/drizzle-identity-verification.repository';
 import { DrizzleLegalDocumentRepository } from './infrastructure/persistence/drizzle-legal-document.repository';
-import { R2FileStorage } from './infrastructure/storage/r2-file-storage';
+import { DrizzleRegistrationStatusReader } from './infrastructure/persistence/drizzle-registration-status.reader';
+import { loadR2Config, R2DocumentStorage } from './infrastructure/storage/r2-document-storage';
+import { InMemoryRateLimiter } from './infrastructure/rate-limit/in-memory-rate-limiter';
+import { BetterAuthAdminAccountProvisioner } from './infrastructure/auth/better-auth-admin-account.provisioner';
 
-// UNIT_OF_WORK lo provee CommonModule (global).
+// M02 Identity. UNIT_OF_WORK y CLOCK los provee CommonModule; AUDIT_TRAIL, AuditModule; AUTH_INSTANCE y
+// los guards, AuthModule (todos globales).
 @Module({
-  controllers: [IdentityController, MeController],
+  controllers: [AuthController, MeController, LegalDocumentsController, AdminIdentityVerificationsController],
   providers: [
-    CompleteProfileUseCase,
+    RegisterPatientProfileUseCase,
+    GetCurrentLegalDocumentsUseCase,
+    AcceptLegalDocumentsUseCase,
+    SubmitIdentityVerificationUseCase,
+    GetMyIdentityVerificationUseCase,
+    ListPendingIdentityVerificationsUseCase,
+    GetIdentityVerificationDetailUseCase,
+    OpenIdentityDocumentUseCase,
+    ReviewIdentityVerificationUseCase,
+    PurgeReviewedIdentityDocumentsUseCase,
+    IdentityDocumentPurger,
+    GetPatientProfileUseCase,
+    UpdatePatientProfileUseCase,
+    UpdateProfilePhotoUseCase,
+    OpenProfilePhotoUseCase,
+    GetRegistrationStatusUseCase,
+    BootstrapAdminUseCase,
+    CanBookAppointmentsPolicy,
+    RateLimitGuard,
     { provide: USER_PROFILE_REPOSITORY, useClass: DrizzleUserProfileRepository },
     { provide: PATIENT_PROFILE_REPOSITORY, useClass: DrizzlePatientProfileRepository },
+    { provide: IDENTITY_VERIFICATION_REPOSITORY, useClass: DrizzleIdentityVerificationRepository },
     { provide: LEGAL_DOCUMENT_REPOSITORY, useClass: DrizzleLegalDocumentRepository },
-    { provide: FILE_STORAGE, useClass: R2FileStorage },
+    { provide: REGISTRATION_STATUS_READER, useClass: DrizzleRegistrationStatusReader },
+    { provide: DOCUMENT_STORAGE, useFactory: () => new R2DocumentStorage(loadR2Config()) },
+    { provide: RATE_LIMITER, useClass: InMemoryRateLimiter },
+    { provide: IDENTITY_RATE_LIMIT_RULES, useValue: DEFAULT_IDENTITY_RATE_LIMIT_RULES },
+    { provide: ADMIN_ACCOUNT_PROVISIONER, useClass: BetterAuthAdminAccountProvisioner },
   ],
+  // M08 aplicará la política dentro de su caso de uso de agendar (DT-21).
+  exports: [CanBookAppointmentsPolicy],
 })
 export class IdentityModule {}

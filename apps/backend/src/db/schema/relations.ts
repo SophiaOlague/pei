@@ -95,7 +95,7 @@ export const organizationRelations = relations(organization, ({ one, many }) => 
 
 export const patientProfileRelations = relations(patientProfile, ({ one, many }) => ({
   userProfile: one(userProfile, { fields: [patientProfile.userProfileId], references: [userProfile.id] }),
-  identityVerification: one(patientIdentityVerification),
+  identityVerifications: many(patientIdentityVerification),
   healthSummary: one(patientHealthSummary),
   medicalRecord: one(medicalRecord),
   cart: one(cart),

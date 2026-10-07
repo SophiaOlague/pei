@@ -14,7 +14,11 @@ export const legalDocument = pgTable(
     contentHash: varchar('content_hash'),
     publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('legal_document_type_version_uq').on(t.type, t.version)],
+  (t) => [
+    uniqueIndex('legal_document_type_version_uq').on(t.type, t.version),
+    // La versión vigente de cada tipo es la de published_at más reciente: sin empates (DT-20).
+    uniqueIndex('legal_document_type_published_at_uq').on(t.type, t.publishedAt),
+  ],
 );
 
 // RF-24 / RF-25 / RF-26: bitácora de qué versión aceptó cada usuario y cuándo
