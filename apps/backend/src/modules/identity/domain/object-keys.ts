@@ -1,4 +1,4 @@
-import { CONTENT_TYPE_BY_EXTENSION, type ImageExtension } from './image-file';
+import { CONTENT_TYPE_BY_EXTENSION, type ImageExtension } from '../../private-storage/domain/file-signature';
 import type { DocumentSide } from './identity-verification';
 
 // Claves de objetos del bucket privado (DT-3, DT-18). Las genera el servidor y SOLO se forman con

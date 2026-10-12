@@ -31,8 +31,8 @@ import {
   NoEditableFieldsError,
   ProfileAlreadyExistsError,
   RegistrationIncompleteError,
-  StoredFileNotFoundError,
 } from '../../domain/identity.errors';
+import { StoredFileNotFoundError } from '../../../private-storage/domain/private-storage.errors';
 
 const clock = { now: () => new Date() };
 

@@ -1,13 +1,14 @@
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client, S3ServiceException } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
-import type { DocumentStorage, StoredFile } from '../../application/ports/document-storage';
-import { isManagedObjectKey } from '../../domain/object-keys';
-import { StoredFileNotFoundError } from '../../domain/identity.errors';
+import type { PrivateObjectStorage, StoredObject } from '../application/ports/private-object-storage';
+import { isPrivateObjectKey } from '../domain/object-key';
+import { StoredFileNotFoundError } from '../domain/private-storage.errors';
 
-// Cloudflare R2 (API S3) para el bucket PRIVADO de documentos de PEI (DT-18).
+// Cloudflare R2 (API S3) para el bucket PRIVADO de documentos de PEI (DT-18; M03 R-11).
+// Es el único archivo de PEI que importa el SDK de AWS.
 // - Solo usa R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY y R2_BUCKET_NAME. Nunca R2_PUBLIC_URL:
 //   no construye URLs públicas ni firmadas; el contenido sale solo transmitido por el backend.
-// - Solo acepta claves con el formato que genera PEI (sin datos personales).
+// - Solo acepta claves con la gramática del bucket privado y un espacio de nombres registrado (sin datos personales).
 // - Los errores no incluyen claves, credenciales ni detalles del proveedor.
 
 export interface R2Config {
@@ -32,11 +33,11 @@ export function loadR2Config(env: NodeJS.ProcessEnv = process.env): R2Config | n
 }
 
 function assertManagedKey(key: string): void {
-  if (!isManagedObjectKey(key)) throw new Error('Clave de objeto con formato no permitido');
+  if (!isPrivateObjectKey(key)) throw new Error('Clave de objeto con formato no permitido');
 }
 
 // Se registra con useFactory (su configuración no es un proveedor de Nest).
-export class R2DocumentStorage implements DocumentStorage {
+export class R2PrivateObjectStorage implements PrivateObjectStorage {
   private client: S3Client | null = null;
 
   constructor(private readonly config: R2Config | null = loadR2Config()) {}
@@ -63,7 +64,7 @@ export class R2DocumentStorage implements DocumentStorage {
     }
   }
 
-  async openForRead(key: string): Promise<StoredFile> {
+  async openForRead(key: string): Promise<StoredObject> {
     assertManagedKey(key);
     const { client, bucket } = this.s3();
     try {

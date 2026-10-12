@@ -4,10 +4,15 @@ import type { Actor } from '../../../../common/application/actor';
 import { UNIT_OF_WORK, type UnitOfWork } from '../../../../common/application/ports/unit-of-work';
 import { AUDIT_TRAIL, type AuditTrail } from '../../../audit/application/ports/audit-trail';
 import { AuditActor } from '../../../audit/domain/audit-actor';
-import { validateImage } from '../../domain/image-file';
+import { validateImage } from '../../../private-storage/domain/file-signature';
 import { contentTypeForKey, isManagedObjectKey, profilePhotoKey } from '../../domain/object-keys';
-import { NoEditableFieldsError, PatientProfileRequiredError, StoredFileNotFoundError } from '../../domain/identity.errors';
-import { DOCUMENT_STORAGE, type DocumentStorage, type StoredFile } from '../ports/document-storage';
+import { NoEditableFieldsError, PatientProfileRequiredError } from '../../domain/identity.errors';
+import { StoredFileNotFoundError } from '../../../private-storage/domain/private-storage.errors';
+import {
+  PRIVATE_OBJECT_STORAGE,
+  type PrivateObjectStorage,
+  type StoredObject,
+} from '../../../private-storage/application/ports/private-object-storage';
 import {
   PATIENT_PROFILE_REPOSITORY,
   type EditableProfileFields,
@@ -87,7 +92,7 @@ export class UpdateProfilePhotoUseCase {
   constructor(
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
     @Inject(AUDIT_TRAIL) private readonly auditTrail: AuditTrail,
-    @Inject(DOCUMENT_STORAGE) private readonly storage: DocumentStorage,
+    @Inject(PRIVATE_OBJECT_STORAGE) private readonly storage: PrivateObjectStorage,
     @Inject(PATIENT_PROFILE_REPOSITORY) private readonly patientProfiles: PatientProfileRepository,
   ) {}
 
@@ -127,11 +132,11 @@ export class UpdateProfilePhotoUseCase {
 @Injectable()
 export class OpenProfilePhotoUseCase {
   constructor(
-    @Inject(DOCUMENT_STORAGE) private readonly storage: DocumentStorage,
+    @Inject(PRIVATE_OBJECT_STORAGE) private readonly storage: PrivateObjectStorage,
     @Inject(PATIENT_PROFILE_REPOSITORY) private readonly patientProfiles: PatientProfileRepository,
   ) {}
 
-  async execute(actor: Actor): Promise<StoredFile & { contentType: string }> {
+  async execute(actor: Actor): Promise<StoredObject & { contentType: string }> {
     const profile = await requirePatientProfile(actor, this.patientProfiles);
     const key = profile.photoObjectKey;
     if (!key || !isManagedObjectKey(key)) throw new StoredFileNotFoundError();

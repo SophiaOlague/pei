@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 import { createIdentityApp, SESSION_HEADER } from './support/identity-e2e';
 import type { FakeDocumentStorage, InMemoryIdentityStore } from './support/identity-in-memory';
 import { fakePdf, syntheticCurp, syntheticJpeg, syntheticPng } from './support/synthetic-identity';
-import { MAX_IMAGE_BYTES } from '../src/modules/identity/domain/image-file';
+import { MAX_IMAGE_BYTES } from '../src/modules/private-storage/domain/file-signature';
 
 // E2E HTTP de Identity (M02) con controllers, guards, pipe y filtro reales; sesiones simuladas,
 // repositorios en memoria y almacenamiento falso. Sin BD, sin R2, sin INEs reales y sin CURP reales.

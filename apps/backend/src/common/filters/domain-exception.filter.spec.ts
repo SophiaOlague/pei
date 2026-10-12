@@ -17,11 +17,11 @@ import { DomainExceptionFilter } from './domain-exception.filter';
 import {
   DuplicateCurpError,
   InvalidCurpError,
-  InvalidDocumentFileError,
   LegalDocumentsNotPublishedError,
   ProfileAlreadyExistsError,
   RegistrationIncompleteError,
 } from '../../modules/identity/domain/identity.errors';
+import { InvalidDocumentFileError } from '../../modules/private-storage/domain/private-storage.errors';
 import { DomainError, type DomainErrorKind } from '../domain/domain-error';
 
 // ArgumentsHost mínimo: solo lo que usa el filtro (switchToHttp().getResponse()).

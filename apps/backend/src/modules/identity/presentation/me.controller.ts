@@ -35,7 +35,7 @@ import {
 import { AcceptLegalDocumentsDto, RegisterPatientProfileDto, UpdatePatientProfileDto } from './dto/identity.dto';
 import { RateLimit, RateLimitGuard } from './rate-limit.guard';
 import { IdentityDocumentsUpload, ProfilePhotoUpload } from './uploads';
-import { privateImageResponse } from './file-response';
+import { privateImageResponse } from '../../private-storage/presentation/private-file-response';
 
 // Rutas de la cuenta autenticada. /me/complete-profile y /me/upload ya no existen (DT-13).
 @Controller('me')

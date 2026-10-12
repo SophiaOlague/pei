@@ -15,9 +15,13 @@ import {
   IdentityDocumentUnavailableError,
   IdentityVerificationAlreadyReviewedError,
   IdentityVerificationNotFoundError,
-  StoredFileNotFoundError,
 } from '../../domain/identity.errors';
-import { DOCUMENT_STORAGE, type DocumentStorage, type StoredFile } from '../ports/document-storage';
+import { StoredFileNotFoundError } from '../../../private-storage/domain/private-storage.errors';
+import {
+  PRIVATE_OBJECT_STORAGE,
+  type PrivateObjectStorage,
+  type StoredObject,
+} from '../../../private-storage/application/ports/private-object-storage';
 import {
   IDENTITY_VERIFICATION_REPOSITORY,
   type IdentityVerificationDetail,
@@ -65,11 +69,11 @@ export class OpenIdentityDocumentUseCase {
   constructor(
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
     @Inject(AUDIT_TRAIL) private readonly auditTrail: AuditTrail,
-    @Inject(DOCUMENT_STORAGE) private readonly storage: DocumentStorage,
+    @Inject(PRIVATE_OBJECT_STORAGE) private readonly storage: PrivateObjectStorage,
     @Inject(IDENTITY_VERIFICATION_REPOSITORY) private readonly verifications: IdentityVerificationRepository,
   ) {}
 
-  async execute(actor: Actor, id: string, side: DocumentSide): Promise<StoredFile & { contentType: string }> {
+  async execute(actor: Actor, id: string, side: DocumentSide): Promise<StoredObject & { contentType: string }> {
     requireAdmin(actor);
     const key = await this.unitOfWork.runInTransaction(async () => {
       const record = await this.verifications.findById(id);

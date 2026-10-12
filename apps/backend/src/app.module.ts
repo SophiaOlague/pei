@@ -7,6 +7,7 @@ import * as bodyParser from 'body-parser';
 import { CommonModule } from './common/common.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { PrivateStorageModule } from './modules/private-storage/private-storage.module';
 
 
 @Module({
@@ -18,6 +19,7 @@ import { AuditModule } from './modules/audit/audit.module';
     CommonModule,
     AuthModule,
     AuditModule,
+    PrivateStorageModule,
     IdentityModule],
   controllers: [AppController],
   providers: [AppService],

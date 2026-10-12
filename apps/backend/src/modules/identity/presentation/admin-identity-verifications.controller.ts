@@ -16,7 +16,7 @@ import {
   ListPendingIdentityVerificationsQueryDto,
   RejectIdentityVerificationDto,
 } from './dto/identity.dto';
-import { privateImageResponse } from './file-response';
+import { privateImageResponse } from '../../private-storage/presentation/private-file-response';
 
 // RF-07, DP-15: revisión del INE por el administrador. Ninguna respuesta incluye claves de objetos ni URLs.
 @Controller('admin/identity-verifications')

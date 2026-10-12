@@ -67,12 +67,6 @@ export class LegalDocumentNotCurrentError extends DomainError {
   }
 }
 
-export class InvalidDocumentFileError extends DomainError {
-  readonly kind = 'validation';
-  constructor(message = 'El archivo debe ser una imagen JPEG o PNG de máximo 5 MB') {
-    super(message);
-  }
-}
 
 export class IdentityVerificationPendingError extends DomainError {
   readonly kind = 'conflict';
@@ -117,12 +111,6 @@ export class InvalidRejectionReasonError extends DomainError {
   }
 }
 
-export class StoredFileNotFoundError extends DomainError {
-  readonly kind = 'not_found';
-  constructor() {
-    super('El archivo no existe');
-  }
-}
 
 export class AdminRequiredError extends DomainError {
   readonly kind = 'forbidden';

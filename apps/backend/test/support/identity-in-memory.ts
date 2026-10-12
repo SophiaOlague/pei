@@ -4,7 +4,7 @@ import type { UnitOfWork } from '../../src/common/application/ports/unit-of-work
 import type { Role } from '../../src/common/domain/role';
 import type { AuditTrail } from '../../src/modules/audit/application/ports/audit-trail';
 import type { AuditEvent } from '../../src/modules/audit/domain/audit-event';
-import type { DocumentStorage, StoredFile } from '../../src/modules/identity/application/ports/document-storage';
+import type { PrivateObjectStorage, StoredObject } from '../../src/modules/private-storage/application/ports/private-object-storage';
 import type { UserProfileRecord, UserProfileRepository } from '../../src/modules/identity/application/ports/user-profile.repository';
 import type {
   EditableProfileFields,
@@ -25,7 +25,7 @@ import type { RegistrationStatusReader } from '../../src/modules/identity/applic
 import type { AdminAccountProvisioner } from '../../src/modules/identity/application/ports/admin-account-provisioner';
 import type { RegistrationSnapshot } from '../../src/modules/identity/domain/registration-status';
 import { UniqueConstraintViolationError } from '../../src/common/domain/persistence.errors';
-import { StoredFileNotFoundError } from '../../src/modules/identity/domain/identity.errors';
+import { StoredFileNotFoundError } from '../../src/modules/private-storage/domain/private-storage.errors';
 
 // Dobles EN MEMORIA de los puertos de Identity para pruebas unitarias de casos de uso y E2E sin BD.
 // Reproducen las reglas de la BD que importan a M02 (unicidades y el "solo un pending") y, con
@@ -302,7 +302,7 @@ export class InMemoryAuditTrail implements AuditTrail {
   }
 }
 
-export class FakeDocumentStorage implements DocumentStorage {
+export class FakeDocumentStorage implements PrivateObjectStorage {
   objects = new Map<string, { bytes: Buffer; contentType: string }>();
   failPut = false;
   failDelete = false;
@@ -312,7 +312,7 @@ export class FakeDocumentStorage implements DocumentStorage {
     if (this.failPut) throw new Error('fallo simulado de put');
     this.objects.set(key, { bytes, contentType });
   }
-  async openForRead(key: string): Promise<StoredFile> {
+  async openForRead(key: string): Promise<StoredObject> {
     const object = this.objects.get(key);
     if (!object) throw new StoredFileNotFoundError();
     return { stream: Readable.from(object.bytes), contentLength: object.bytes.length };
