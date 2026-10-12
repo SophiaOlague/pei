@@ -5,7 +5,11 @@ import { LegalDocumentsController } from './presentation/legal-documents.control
 import { AdminIdentityVerificationsController } from './presentation/admin-identity-verifications.controller';
 import { DEFAULT_IDENTITY_RATE_LIMIT_RULES, IDENTITY_RATE_LIMIT_RULES, RateLimitGuard } from './presentation/rate-limit.guard';
 import { RegisterPatientProfileUseCase } from './application/use-cases/register-patient-profile.use-case';
-import { AcceptLegalDocumentsUseCase, GetCurrentLegalDocumentsUseCase } from './application/use-cases/legal-documents.use-cases';
+import {
+  AcceptLegalDocumentsUseCase,
+  GetCurrentLegalDocumentsUseCase,
+  PublishLegalDocumentsUseCase,
+} from './application/use-cases/legal-documents.use-cases';
 import { SubmitIdentityVerificationUseCase } from './application/use-cases/submit-identity-verification.use-case';
 import {
   GetIdentityVerificationDetailUseCase,
@@ -48,6 +52,7 @@ import { BetterAuthAdminAccountProvisioner } from './infrastructure/auth/better-
     RegisterPatientProfileUseCase,
     GetCurrentLegalDocumentsUseCase,
     AcceptLegalDocumentsUseCase,
+    PublishLegalDocumentsUseCase,
     SubmitIdentityVerificationUseCase,
     GetMyIdentityVerificationUseCase,
     ListPendingIdentityVerificationsUseCase,

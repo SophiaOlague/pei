@@ -267,4 +267,12 @@ export const notificationTypeEnum = pgEnum('notification_type_enum', [
 
 export const auditActorTypeEnum = pgEnum('audit_actor_type_enum', ['user', 'system']);
 
-export const legalDocumentTypeEnum = pgEnum('legal_document_type_enum', ['privacy_notice', 'terms_and_conditions']);
+// privacy_notice y terms_and_conditions: tipos de legado (M02), conservados por las filas históricas (N1).
+// privacy_policy, patient_terms y doctor_terms: requisitos por rol (M03 D-32).
+export const legalDocumentTypeEnum = pgEnum('legal_document_type_enum', [
+  'privacy_notice',
+  'terms_and_conditions',
+  'privacy_policy',
+  'patient_terms',
+  'doctor_terms',
+]);

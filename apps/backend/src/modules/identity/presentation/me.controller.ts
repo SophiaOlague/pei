@@ -107,7 +107,7 @@ export class MeController {
 
   @Post('legal-acceptances')
   @UseGuards(RolesGuard)
-  @Roles('patient')
+  @Roles('patient', 'doctor')
   accept(@CurrentActor() actor: Actor, @Body() body: AcceptLegalDocumentsDto) {
     return this.acceptLegal.execute(actor, body.documentIds);
   }

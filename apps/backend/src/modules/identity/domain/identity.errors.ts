@@ -60,6 +60,30 @@ export class LegalDocumentsNotPublishedError extends DomainError {
   }
 }
 
+// El documento está vigente, pero pertenece al régimen de otro rol (M03 D-32).
+export class LegalDocumentNotRequiredForRoleError extends DomainError {
+  readonly kind = 'conflict';
+  constructor() {
+    super('El documento legal no corresponde a tu tipo de cuenta');
+  }
+}
+
+// La petición de aceptación repite un documento (también lo rechaza el DTO con @ArrayUnique).
+export class DuplicateLegalDocumentIdsError extends DomainError {
+  readonly kind = 'validation';
+  constructor() {
+    super('Cada documento legal debe aparecer una sola vez');
+  }
+}
+
+// CLI legal:publish: el conjunto a publicar no es un régimen completo o incluye tipos de legado (plan v2 §6.4).
+export class InvalidLegalPublicationError extends DomainError {
+  readonly kind = 'validation';
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 export class LegalDocumentNotCurrentError extends DomainError {
   readonly kind = 'conflict';
   constructor() {

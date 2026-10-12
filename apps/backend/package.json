@@ -25,7 +25,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "admin:bootstrap": "ts-node --transpile-only src/cli/admin-bootstrap.ts",
-    "identity:purge-documents": "ts-node --transpile-only src/cli/identity-purge-documents.ts"
+    "identity:purge-documents": "ts-node --transpile-only src/cli/identity-purge-documents.ts",
+    "legal:publish": "ts-node --transpile-only src/cli/legal-publish.ts"
   },
   "dependencies": {
     "@apollo/server": "^5.5.1",

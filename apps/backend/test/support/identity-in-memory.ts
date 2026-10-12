@@ -20,6 +20,8 @@ import type {
 import type {
   CurrentLegalDocumentRecord,
   LegalDocumentRepository,
+  NewLegalDocument,
+  PublishedLegalDocument,
 } from '../../src/modules/identity/application/ports/legal-document.repository';
 import type { RegistrationStatusReader } from '../../src/modules/identity/application/ports/registration-status-reader';
 import type { AdminAccountProvisioner } from '../../src/modules/identity/application/ports/admin-account-provisioner';
@@ -109,6 +111,10 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
   }
   async createAdmin(input: { userId: string; firstName: string; lastName: string }): Promise<string> {
     return this.insertUserProfile({ ...input, role: 'admin', birthDate: null, phone: null, emergencyContactName: null, emergencyContactPhone: null });
+  }
+  // Solo pruebas: un user_profile con rol doctor (M03 creará el registro real del médico).
+  createDoctorForTest(input: { userId: string; firstName: string; lastName: string }): string {
+    return this.insertUserProfile({ ...input, role: 'doctor', birthDate: null, phone: null, emergencyContactName: null, emergencyContactPhone: null });
   }
   async lockAdminBootstrap(): Promise<void> {}
   async adminExists(): Promise<boolean> {
@@ -238,10 +244,26 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
     return [...current.values()].map((doc) => ({ ...doc }));
   }
   async recordAcceptances(input: { userProfileId: string; legalDocumentIds: string[]; ipAddress: string | null; userAgent: string | null }) {
+    const recorded: string[] = [];
     for (const legalDocumentId of input.legalDocumentIds) {
       const exists = this.state.acceptances.some((a) => a.userProfileId === input.userProfileId && a.legalDocumentId === legalDocumentId);
-      if (!exists) this.state.acceptances.push({ userProfileId: input.userProfileId, legalDocumentId, ipAddress: input.ipAddress, userAgent: input.userAgent });
+      if (!exists) {
+        this.state.acceptances.push({ userProfileId: input.userProfileId, legalDocumentId, ipAddress: input.ipAddress, userAgent: input.userAgent });
+        recorded.push(legalDocumentId);
+      }
     }
+    return recorded;
+  }
+  async publish(documents: NewLegalDocument[]): Promise<PublishedLegalDocument[]> {
+    const publishedAt = this.now();
+    return documents.map((doc) => {
+      if (this.state.legalDocuments.some((d) => d.type === doc.type && d.version === doc.version)) {
+        throw unique('legal_document_type_version_uq');
+      }
+      const row = { id: randomUUID(), type: doc.type, version: doc.version, publishedAt: doc.publishedAt ?? publishedAt, content: doc.content };
+      this.state.legalDocuments.push(row);
+      return { id: row.id, type: row.type, version: row.version, publishedAt: row.publishedAt };
+    });
   }
   publishLegalDocument(type: CurrentLegalDocumentRecord['type'], version: string, publishedAt = new Date(Date.now() - 60_000)) {
     const doc = { id: randomUUID(), type, version, publishedAt, content: `Texto sintético ${type} ${version}` };

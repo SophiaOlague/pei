@@ -275,7 +275,7 @@ describe('Casos de uso de Identity con dobles en memoria (M02)', () => {
       const old = env.store.publishLegalDocument('privacy_notice', 'v1', new Date(Date.now() - 120_000));
       const privacy = env.store.publishLegalDocument('privacy_notice', 'v2');
       const terms = env.store.publishLegalDocument('terms_and_conditions', 'v1');
-      const accept = new AcceptLegalDocumentsUseCase(env.uow, env.store);
+      const accept = new AcceptLegalDocumentsUseCase(env.uow, env.audit, env.store);
 
       await expect(accept.execute(actor, [old.id, terms.id])).rejects.toThrow(LegalDocumentNotCurrentError);
       expect(env.store.state.acceptances).toHaveLength(0);
@@ -299,7 +299,7 @@ describe('Casos de uso de Identity con dobles en memoria (M02)', () => {
       expect(error).toBeInstanceOf(RegistrationIncompleteError);
       expect(error.details).toEqual({ missing: ['legal', 'identity_submission'] });
 
-      await new AcceptLegalDocumentsUseCase(env.uow, env.store).execute(actor, [privacy.id, terms.id]);
+      await new AcceptLegalDocumentsUseCase(env.uow, env.audit, env.store).execute(actor, [privacy.id, terms.id]);
       const { submissionId } = await env.submit.execute(actor, { front: syntheticJpeg(), back: syntheticJpeg() });
       await env.review.execute(await admin(env), submissionId, { decision: 'approve' });
       await expect(policy.assertCanBookAppointments(actor)).resolves.toBeUndefined();
