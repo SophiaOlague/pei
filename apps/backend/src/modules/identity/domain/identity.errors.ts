@@ -10,11 +10,23 @@ export class InvalidCurpError extends DomainError {
   }
 }
 
-// 409 genérico: no confirma que la CURP pertenezca a otra cuenta más allá de lo indispensable.
-export class DuplicateCurpError extends DomainError {
+export type RegistrationConflictField = 'curp' | 'license_number';
+
+// D-17: 409 genérico ante datos de registro que ya pertenecen a otra cuenta (CURP, y en M03 el número de cédula).
+// La respuesta no revela la causa: el mensaje y el nombre de la clase son los mismos para cualquier campo.
+// La causa queda solo para uso interno (log sin datos personales) en un campo privado: no es enumerable, no
+// forma parte de `details` y el filtro HTTP no la serializa.
+export class RegistrationDataConflictError extends DomainError {
   readonly kind = 'conflict';
-  constructor() {
+  readonly #field: RegistrationConflictField;
+
+  constructor(field: RegistrationConflictField) {
     super('No fue posible completar el registro con los datos proporcionados');
+    this.#field = field;
+  }
+
+  get conflictField(): RegistrationConflictField {
+    return this.#field;
   }
 }
 

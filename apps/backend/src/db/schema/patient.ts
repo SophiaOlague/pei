@@ -9,20 +9,12 @@ import {
 } from './enums';
 import { userProfile } from './identity';
 
-// Estructura de la CURP (RENAPO): 4 letras (la 2.ª, vocal o X), fecha AAMMDD, sexo, entidad federativa,
-// 3 consonantes internas, diferenciador y dígito verificador. La BD valida el formato; el dígito verificador
-// lo valida la aplicación (M02, DT-22).
-export const CURP_PATTERN =
-  '^[A-Z][AEIOUX][A-Z]{2}[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[HMX]' +
-  '(AS|BC|BS|CC|CL|CM|CS|CH|DF|DG|GT|GR|HG|JC|MC|MN|MS|NT|NL|OC|PL|QT|QR|SP|SL|SR|TC|TS|TL|VZ|YN|ZS|NE)' +
-  '[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9][0-9]$';
-
+// La CURP vive en user_profile (M03 R-12): una sola fuente de verdad, única entre roles (D-20, D-35).
 export const patientProfile = pgTable(
   'patient_profile',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     userProfileId: uuid('user_profile_id').notNull().unique().references(() => userProfile.id),
-    curp: varchar('curp').notNull().unique(),
     address: text('address'),
     riskLevel: riskLevelEnum('risk_level'),
     // Clave del objeto en el bucket privado (DT-3, DT-7); nunca una URL.
@@ -30,10 +22,6 @@ export const patientProfile = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [
-    check('patient_profile_curp_upper_chk', sql`${t.curp} = upper(${t.curp})`),
-    check('patient_profile_curp_format_chk', sql`${t.curp} ~ ${sql.raw(`'${CURP_PATTERN}'`)}`),
-  ],
 );
 
 // Un registro por envío del INE (DT-2): historial de intentos, a lo más uno 'pending' por paciente.

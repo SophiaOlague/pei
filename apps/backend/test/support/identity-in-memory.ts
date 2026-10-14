@@ -39,6 +39,8 @@ interface UserProfileRow {
   role: Role;
   firstName: string;
   lastName: string;
+  // M03 R-12: la CURP vive en user_profile (NULL para admin).
+  curp: string | null;
   birthDate: string | null;
   phone: string | null;
   emergencyContactName: string | null;
@@ -47,7 +49,6 @@ interface UserProfileRow {
 interface PatientProfileRow {
   id: string;
   userProfileId: string;
-  curp: string;
   address: string | null;
   photoObjectKey: string | null;
 }
@@ -78,7 +79,6 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
   readonly patientProfiles: PatientProfileRepository = {
     findByUserProfileId: (id) => this.findByUserProfileId(id),
     lockByUserProfileId: (id) => this.findByUserProfileId(id),
-    existsByCurp: (curp) => this.existsByCurp(curp),
     create: (input) => this.createPatientProfile(input),
     updateEditableFields: (profile, fields) => this.updateEditableFields(profile, fields),
     setPhotoObjectKey: (id, key) => this.setPhotoObjectKey(id, key),
@@ -102,6 +102,11 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
   }
   private insertUserProfile(row: Omit<UserProfileRow, 'id'>): string {
     if (this.state.userProfiles.some((p) => p.userId === row.userId)) throw unique('user_profile_user_id_unique');
+    // Igual que en la BD (0007): CURP única entre roles y obligatoria para paciente y médico.
+    if (row.curp !== null && this.state.userProfiles.some((p) => p.curp === row.curp)) throw unique('user_profile_curp_unique');
+    if ((row.role === 'patient' || row.role === 'doctor') && row.curp === null) {
+      throw new Error('user_profile_curp_required_chk: paciente o médico sin CURP');
+    }
     const id = randomUUID();
     this.state.userProfiles.push({ id, ...row });
     return id;
@@ -110,11 +115,14 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
     return this.insertUserProfile({ ...input, role: 'patient' });
   }
   async createAdmin(input: { userId: string; firstName: string; lastName: string }): Promise<string> {
-    return this.insertUserProfile({ ...input, role: 'admin', birthDate: null, phone: null, emergencyContactName: null, emergencyContactPhone: null });
+    return this.insertUserProfile({ ...input, role: 'admin', curp: null, birthDate: null, phone: null, emergencyContactName: null, emergencyContactPhone: null });
   }
-  // Solo pruebas: un user_profile con rol doctor (M03 creará el registro real del médico).
-  createDoctorForTest(input: { userId: string; firstName: string; lastName: string }): string {
+  // Solo pruebas: un user_profile con rol doctor (M03 creará el registro real del médico). Requiere CURP (0007).
+  createDoctorForTest(input: { userId: string; firstName: string; lastName: string; curp: string }): string {
     return this.insertUserProfile({ ...input, role: 'doctor', birthDate: null, phone: null, emergencyContactName: null, emergencyContactPhone: null });
+  }
+  async existsByCurp(curp: string): Promise<boolean> {
+    return this.state.userProfiles.some((p) => p.curp === curp);
   }
   async lockAdminBootstrap(): Promise<void> {}
   async adminExists(): Promise<boolean> {
@@ -132,7 +140,7 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
       firstName: user.firstName,
       lastName: user.lastName,
       birthDate: user.birthDate,
-      curp: patient.curp,
+      curp: user.curp!,
       phone: user.phone,
       address: patient.address,
       emergencyContactName: user.emergencyContactName,
@@ -140,13 +148,9 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
       photoObjectKey: patient.photoObjectKey,
     };
   }
-  async existsByCurp(curp: string): Promise<boolean> {
-    return this.state.patientProfiles.some((p) => p.curp === curp);
-  }
-  async createPatientProfile(input: { userProfileId: string; curp: string; address: string | null }): Promise<string> {
-    if (this.state.patientProfiles.some((p) => p.curp === input.curp)) throw unique('patient_profile_curp_unique');
+  async createPatientProfile(input: { userProfileId: string; address: string | null }): Promise<string> {
     const id = randomUUID();
-    this.state.patientProfiles.push({ id, userProfileId: input.userProfileId, curp: input.curp, address: input.address, photoObjectKey: null });
+    this.state.patientProfiles.push({ id, userProfileId: input.userProfileId, address: input.address, photoObjectKey: null });
     return id;
   }
 
@@ -205,7 +209,7 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
       submittedAt: row.createdAt,
       reviewedAt: row.reviewedAt,
       rejectionReason: row.rejectionReason,
-      patient: { firstName: user.firstName, lastName: user.lastName, birthDate: user.birthDate, curp: patient.curp },
+      patient: { firstName: user.firstName, lastName: user.lastName, birthDate: user.birthDate, curp: user.curp! },
     };
   }
   async markReviewed(input: { id: string; status: 'approved' | 'rejected'; reviewedBy: string; rejectionReason: string | null }) {

@@ -25,11 +25,11 @@ import { CanBookAppointmentsPolicy } from '../policies/can-book-appointments';
 import {
   AdminAlreadyExistsError,
   BootstrapAccountHasProfileError,
-  DuplicateCurpError,
   IdentityDocumentUnavailableError,
   LegalDocumentNotCurrentError,
   NoEditableFieldsError,
   ProfileAlreadyExistsError,
+  RegistrationDataConflictError,
   RegistrationIncompleteError,
 } from '../../domain/identity.errors';
 import { StoredFileNotFoundError } from '../../../private-storage/domain/private-storage.errors';
@@ -77,7 +77,8 @@ describe('Casos de uso de Identity con dobles en memoria (M02)', () => {
       const result = await env.register.execute(actor, { firstName: ' Ana ', lastName: 'Sintética', curp: syntheticCurp().toLowerCase(), birthDate: '1990-05-01' });
 
       expect(env.store.state.userProfiles).toEqual([expect.objectContaining({ id: result.userProfileId, role: 'patient', firstName: 'Ana' })]);
-      expect(env.store.state.patientProfiles[0].curp).toMatch(/^X[AEIOUX]XX/);
+      // M03 R-12: la CURP (normalizada a mayúsculas) vive en user_profile.
+      expect(env.store.state.userProfiles[0].curp).toMatch(/^X[AEIOUX]XX/);
       expect(env.store.state.audit.map((e) => [e.action, e.entityId, e.metadata])).toEqual([
         ['identity.patient_profile.created', result.patientProfileId, null],
       ]);
@@ -94,18 +95,49 @@ describe('Casos de uso de Identity con dobles en memoria (M02)', () => {
       await patient(env, curp);
 
       const error = await env.register.execute(sessionActor(), { firstName: 'Otra', lastName: 'Cuenta', curp, birthDate: '1991-01-01' }).catch((e) => e);
-      expect(error).toBeInstanceOf(DuplicateCurpError);
+      expect(error).toBeInstanceOf(RegistrationDataConflictError);
       expect(error.message).toBe('No fue posible completar el registro con los datos proporcionados');
       expect(error.message).not.toContain(curp);
 
       // Carrera: la comprobación previa no ve el duplicado, pero el INSERT viola la unicidad.
-      jest.spyOn(env.store.patientProfiles, 'existsByCurp').mockResolvedValueOnce(false);
-      jest.spyOn(env.store.patientProfiles, 'create').mockRejectedValueOnce(
-        new UniqueConstraintViolationError({ code: '23505', constraint: 'patient_profile_curp_unique' }),
+      jest.spyOn(env.store, 'existsByCurp').mockResolvedValueOnce(false);
+      jest.spyOn(env.store, 'createPatient').mockRejectedValueOnce(
+        new UniqueConstraintViolationError({ code: '23505', constraint: 'user_profile_curp_unique' }),
       );
-      await expect(env.register.execute(sessionActor(), { firstName: 'Otra', lastName: 'Cuenta', curp, birthDate: '1991-01-01' })).rejects.toThrow(DuplicateCurpError);
+      await expect(env.register.execute(sessionActor(), { firstName: 'Otra', lastName: 'Cuenta', curp, birthDate: '1991-01-01' })).rejects.toThrow(RegistrationDataConflictError);
       expect(env.store.state.userProfiles).toHaveLength(1);
       expect(env.store.state.audit).toHaveLength(1);
+    });
+
+    it('[TC-M03-052][D-17][M01-D2] el conflicto se registra solo en un log warn sin datos personales; nada en audit_log', async () => {
+      const env = setup();
+      const curp = syntheticCurp();
+      await patient(env, curp);
+      const auditBefore = env.store.state.audit.length;
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+
+      const actor = sessionActor();
+      await expect(
+        env.register.execute(actor, { firstName: 'Nombre', lastName: 'Visible', curp, birthDate: '1991-01-01' }),
+      ).rejects.toThrow(RegistrationDataConflictError);
+
+      expect(warn).toHaveBeenCalledWith('registration_conflict field=curp');
+      const logged = JSON.stringify(warn.mock.calls);
+      expect(logged).not.toContain(curp);
+      expect(logged).not.toContain(actor.userId);
+      expect(logged).not.toMatch(/Nombre|Visible/);
+      expect(env.store.state.audit).toHaveLength(auditBefore);
+      warn.mockRestore();
+    });
+
+    it('[TC-M03-053][D-20][D-35] la CURP es única entre roles: la de un médico existente bloquea el registro de un paciente', async () => {
+      const env = setup();
+      const curp = syntheticCurp();
+      env.store.createDoctorForTest({ userId: `medico-${randomUUID()}`, firstName: 'M', lastName: 'D', curp });
+      await expect(
+        env.register.execute(sessionActor(), { firstName: 'P', lastName: 'Q', curp, birthDate: '1990-01-01' }),
+      ).rejects.toThrow(RegistrationDataConflictError);
+      expect(env.store.state.patientProfiles).toHaveLength(0);
     });
   });
 
@@ -230,7 +262,7 @@ describe('Casos de uso de Identity con dobles en memoria (M02)', () => {
 
       const other = bootstrapSetup();
       other.accounts.accounts.set('admin@example.test', 'ba-paciente');
-      await other.store.createPatient({ userId: 'ba-paciente', firstName: 'P', lastName: 'Q', birthDate: '1990-01-01', phone: null, emergencyContactName: null, emergencyContactPhone: null });
+      await other.store.createPatient({ userId: 'ba-paciente', firstName: 'P', lastName: 'Q', curp: syntheticCurp(), birthDate: '1990-01-01', phone: null, emergencyContactName: null, emergencyContactPhone: null });
       await expect(other.useCase.execute(input)).rejects.toThrow(BootstrapAccountHasProfileError);
       expect(store.state.userProfiles.filter((p) => p.role === 'admin')).toHaveLength(1);
     });

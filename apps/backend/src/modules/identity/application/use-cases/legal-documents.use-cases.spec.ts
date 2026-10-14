@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { Actor } from '../../../../common/application/actor';
 import { InMemoryAuditTrail, InMemoryIdentityStore, InMemoryUnitOfWork } from '../../../../../test/support/identity-in-memory';
+import { syntheticCurp } from '../../../../../test/support/synthetic-identity';
 import {
   AcceptLegalDocumentsUseCase,
   GetCurrentLegalDocumentsUseCase,
@@ -37,10 +38,10 @@ async function actorWithRole(env: Env, role: 'patient' | 'doctor' | 'admin'): Pr
   const base = { userId, firstName: 'Prueba', lastName: 'Legal' };
   const userProfileId =
     role === 'doctor'
-      ? env.store.createDoctorForTest(base)
+      ? env.store.createDoctorForTest({ ...base, curp: syntheticCurp() })
       : role === 'admin'
         ? await env.store.createAdmin(base)
-        : await env.store.createPatient({ ...base, birthDate: '1990-01-01', phone: null, emergencyContactName: null, emergencyContactPhone: null });
+        : await env.store.createPatient({ ...base, curp: syntheticCurp(), birthDate: '1990-01-01', phone: null, emergencyContactName: null, emergencyContactPhone: null });
   return { userId, userProfileId, role, ipAddress: '127.0.0.1', userAgent: 'jest' };
 }
 

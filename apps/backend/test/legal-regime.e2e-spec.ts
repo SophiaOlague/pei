@@ -41,7 +41,7 @@ describe('Documentos legales por rol por HTTP (E2E con dobles)', () => {
   }
   function newDoctor() {
     const userId = `medico-${randomUUID()}`;
-    store.createDoctorForTest({ userId, firstName: 'Médico', lastName: 'Sintético' });
+    store.createDoctorForTest({ userId, firstName: 'Médico', lastName: 'Sintético', curp: syntheticCurp() });
     return userId;
   }
 

@@ -5,12 +5,12 @@ import { ConcurrencyConflictError } from '../../src/common/domain/persistence.er
 import { computeRegistrationStatus } from '../../src/modules/identity/domain/registration-status';
 import {
   AdminAlreadyExistsError,
-  DuplicateCurpError,
   IdentityAlreadyApprovedError,
   IdentityDocumentUnavailableError,
   IdentityVerificationAlreadyReviewedError,
   IdentityVerificationPendingError,
   LegalDocumentNotCurrentError,
+  RegistrationDataConflictError,
 } from '../../src/modules/identity/domain/identity.errors';
 import { captureError, deferred, RollbackSignal, withRollback, type Tx } from '../support/with-rollback';
 import { countM00Residue, countM02Residue } from '../support/residue';
@@ -87,7 +87,7 @@ describe('Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)',
         expect(rows).toHaveLength(1);
         const [profileRow] = (
           await transactionStorage.getStore()!.execute<{ role: string; curp: string }>(sql`
-            select up.role, pp.curp from patient_profile pp join user_profile up on up.id = pp.user_profile_id
+            select up.role, up.curp from patient_profile pp join user_profile up on up.id = pp.user_profile_id
              where pp.id = ${patient.patientProfileId}`)
         ).rows;
         expect(profileRow.role).toBe('patient');
@@ -97,7 +97,7 @@ describe('Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)',
         ]);
       }));
 
-    it('[TC-M02-101][DT-22] CURP duplicada → DuplicateCurpError (409) genérico y sin escribir', () =>
+    it('[TC-M02-101][DT-22][D-17] CURP duplicada → RegistrationDataConflictError (409) genérico y sin escribir', () =>
       withRollback(async () => {
         const useCases = identityUseCases();
         const curp = syntheticCurp();
@@ -107,7 +107,7 @@ describe('Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)',
         const error = (await captureError(
           useCases.register.execute(other, { firstName: 'Otra', lastName: 'Cuenta', curp, birthDate: '1991-02-02' }),
         )) as Error;
-        expect(error).toBeInstanceOf(DuplicateCurpError);
+        expect(error).toBeInstanceOf(RegistrationDataConflictError);
         expect(error.message).not.toContain(curp);
         expect(await useCases.userProfiles.findByUserId(other.userId)).toBeNull();
       }));
@@ -382,10 +382,11 @@ describe('Identity M02 con PostgreSQL (BD de desarrollo, siempre con rollback)',
     it('[TC-M02-116][DT-22] CHECK de la CURP: minúsculas y formato inválido → 23514', async () => {
       const insert = (curp: string) => sql`
         with u as (insert into "user" (id, name, email) values (gen_random_uuid()::text, 'x', gen_random_uuid()::text || '@m00.test.invalid') returning id),
-             p as (insert into user_profile (user_id, role, first_name, last_name) select id, 'patient', 'x', 'y' from u returning id)
-        insert into patient_profile (user_profile_id, curp) select id, ${curp} from p`;
-      await expectViolation(insert(syntheticCurp().toLowerCase()), '23514');
-      await expectViolation(insert('XBXX010101HNEXXXA4'), '23514', 'patient_profile_curp_format_chk');
+             p as (insert into user_profile (user_id, role, first_name, last_name, curp) select id, 'patient', 'x', 'y', ${curp} from u returning id)
+        insert into patient_profile (user_profile_id) select id from p`;
+      // M03 R-12: los CHECK de DT-22 viven ahora en user_profile.
+      await expectViolation(insert(syntheticCurp().toLowerCase()), '23514', 'user_profile_curp_format_chk');
+      await expectViolation(insert('XBXX010101HNEXXXA4'), '23514', 'user_profile_curp_format_chk');
     });
 
     it('[TC-M02-117][DT-2][DT-5] CHECK de claves por estado y unicidades (patient_id, attempt) y (type, published_at)', () =>

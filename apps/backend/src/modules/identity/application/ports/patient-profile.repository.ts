@@ -24,8 +24,7 @@ export interface PatientProfileRepository {
   findByUserProfileId(userProfileId: string): Promise<PatientProfileView | null>;
   // Igual que findByUserProfileId, pero bloquea la fila del perfil hasta el fin de la transacción.
   lockByUserProfileId(userProfileId: string): Promise<PatientProfileView | null>;
-  existsByCurp(curp: string): Promise<boolean>;
-  create(input: { userProfileId: string; curp: string; address: string | null }): Promise<string>;
+  create(input: { userProfileId: string; address: string | null }): Promise<string>;
   updateEditableFields(profile: PatientProfileView, fields: EditableProfileFields): Promise<void>;
   setPhotoObjectKey(patientProfileId: string, key: string): Promise<void>;
 }

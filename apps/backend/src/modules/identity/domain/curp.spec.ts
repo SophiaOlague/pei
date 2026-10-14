@@ -1,5 +1,5 @@
 import { Curp, CURP_PATTERN, curpCheckDigit, isValidCurp, normalizeCurp } from './curp';
-import { CURP_PATTERN as DB_CURP_PATTERN } from '../../../db/schema/patient';
+import { CURP_PATTERN as DB_CURP_PATTERN } from '../../../db/schema/identity';
 import { InvalidCurpError } from './identity.errors';
 
 // CURP sintéticas (ficticias, con la forma genérica XEXX/XXX), nunca de personas reales.

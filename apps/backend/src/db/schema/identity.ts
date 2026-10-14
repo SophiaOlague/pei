@@ -3,19 +3,38 @@ import { pgTable, uuid, text, varchar, date, timestamp, jsonb, index, check } fr
 import { roleEnum, auditActorTypeEnum } from './enums';
 import { user } from './auth';
 
-export const userProfile = pgTable('user_profile', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: text('user_id').notNull().unique().references(() => user.id),
-  role: roleEnum('role').notNull(),
-  firstName: varchar('first_name').notNull(),
-  lastName: varchar('last_name').notNull(),
-  phone: varchar('phone'),
-  birthDate: date('birth_date'),
-  emergencyContactName: varchar('emergency_contact_name'),
-  emergencyContactPhone: varchar('emergency_contact_phone'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+// Estructura de la CURP (RENAPO): 4 letras (la 2.ª, vocal o X), fecha AAMMDD, sexo, entidad federativa,
+// 3 consonantes internas, diferenciador y dígito verificador. La BD valida el formato; el dígito verificador
+// lo valida la aplicación (M02, DT-22).
+export const CURP_PATTERN =
+  '^[A-Z][AEIOUX][A-Z]{2}[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[HMX]' +
+  '(AS|BC|BS|CC|CL|CM|CS|CH|DF|DG|GT|GR|HG|JC|MC|MN|MS|NT|NL|OC|PL|QT|QR|SP|SL|SR|TC|TS|TL|VZ|YN|ZS|NE)' +
+  '[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9][0-9]$';
+
+// M03 R-12: la CURP vive aquí y es única entre todos los roles (D-20, D-35). Paciente y médico la requieren;
+// admin y organización no la tienen.
+export const userProfile = pgTable(
+  'user_profile',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id').notNull().unique().references(() => user.id),
+    role: roleEnum('role').notNull(),
+    firstName: varchar('first_name').notNull(),
+    lastName: varchar('last_name').notNull(),
+    curp: varchar('curp').unique(),
+    phone: varchar('phone'),
+    birthDate: date('birth_date'),
+    emergencyContactName: varchar('emergency_contact_name'),
+    emergencyContactPhone: varchar('emergency_contact_phone'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('user_profile_curp_upper_chk', sql`${t.curp} = upper(${t.curp})`),
+    check('user_profile_curp_format_chk', sql`${t.curp} ~ ${sql.raw(`'${CURP_PATTERN}'`)}`),
+    check('user_profile_curp_required_chk', sql`${t.role} not in ('patient', 'doctor') or ${t.curp} is not null`),
+  ],
+);
 
 // Append-only desde la aplicación; proteger contra UPDATE/DELETE en la base de datos.
 // La BD fija created_at y protege contra UPDATE, DELETE y TRUNCATE (triggers en migraciones SQL).

@@ -267,6 +267,19 @@ describe('Identity M02 por HTTP (E2E con dobles)', () => {
       expect(JSON.stringify(invalid.body)).not.toContain('XBXX');
     });
 
+    it('[TC-M03-054][D-17] el 409 por CURP duplicada es genérico: sin la causa ni el valor en el cuerpo', async () => {
+      const curp = syntheticCurp();
+      await as(`p-${randomUUID()}`).post('/me/patient-profile').send({ firstName: 'A', lastName: 'B', curp, birthDate: '1990-01-01' }).expect(201);
+      const dup = await as(`p-${randomUUID()}`).post('/me/patient-profile').send({ firstName: 'C', lastName: 'D', curp, birthDate: '1990-01-01' });
+      expect(dup.status).toBe(409);
+      expect(dup.body).toEqual({
+        statusCode: 409,
+        message: 'No fue posible completar el registro con los datos proporcionados',
+        error: 'RegistrationDataConflictError',
+      });
+      expect(JSON.stringify(dup.body)).not.toMatch(new RegExp(`${curp}|curp|field`, 'i'));
+    });
+
     it('[TC-M02-225][DT-7] foto privada: PUT → 200; GET transmitida con no-store; sin foto → 404', async () => {
       const userId = await newPatient();
       expect((await as(userId).get('/me/profile/photo')).status).toBe(404);
