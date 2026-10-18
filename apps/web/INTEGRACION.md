@@ -167,3 +167,117 @@ publicados, sin cuentas nuevas y sin correos.
 
 Datos que quedan en la BD de desarrollo: el perfil de paciente de la cuenta de prueba (nombre «Prueba Integracion»,
 CURP sintética `XEXX010101HNEXXXA4`; el nombre legal no es editable, DP-12), sus 2 aceptaciones y 3 eventos de auditoría.
+
+## Perfil del paciente (I3, 2026-10-18)
+
+`/perfil-usuario` conserva el diseño de la entrega (encabezado, tarjeta de foto y nombre, botón «Editar perfil» /
+«Guardar cambios», bloques «Información personal» y «Seguridad»), ahora con datos del backend.
+
+| Endpoint | Uso en la pantalla |
+|---|---|
+| `GET /me/profile` | Carga inicial y recarga tras guardar. Estados: «Cargando perfil...», error con «Reintentar», 401 → `/login` |
+| `PATCH /me/profile` | Solo `phone`, `address`, `emergencyContactName`, `emergencyContactPhone`; se envían solo los campos modificados y un campo vacío como `null` (el DTO no admite cadena vacía). «Cambios guardados» aparece solo tras la respuesta correcta; si falla, se muestra el mensaje del backend y se mantiene la edición |
+| `PUT /me/profile/photo` | `FormData` con el campo `photo` (sin forzar `Content-Type`). Antes de subir se avisa si no es JPEG/PNG o pasa de 5 MB; el backend valida el contenido real. «Foto actualizada» solo tras la respuesta correcta |
+| `GET /me/profile/photo` | Solo si `hasPhoto`; se descarga con la sesión y se muestra desde un blob local (la imagen es privada) |
+
+Solo lectura: nombre y apellidos, CURP, fecha de nacimiento (DP-12) y correo (`/change-email` desactivado).
+Ajuste al contrato: el contacto de emergencia se muestra en dos campos (nombre y teléfono), como en el backend.
+
+Pruebas: `src/features/landing/pages/perfil-usuario.test.tsx` (10): carga y campos editables, error con reintento,
+401, descarga de la foto, edición (solo cambios, vacío → `null`, confirmación tras éxito), error 400, sin cambios no
+llama al backend, subida multipart, tipo rechazado en el cliente y error del backend al subir.
+Resultado (2026-10-18): 31/31 en total (dos ejecuciones), `tsc` sin errores, `next build` correcto, Biome sin hallazgos
+en los archivos tocados.
+
+Pruebas manuales contra el backend real: ver la tabla siguiente. La subida de foto **no** se probó contra el backend
+(no hay forma de volver a «sin foto": el backend no tiene endpoint para borrarla).
+
+### Pruebas manuales del perfil contra la BD de desarrollo (2026-10-18)
+
+`production` (`br-royal-recipe-b54s5hnn`), cuenta de prueba existente. Estado inicial (lectura): los 4 campos editables
+`null`, sin foto, 3 eventos de auditoría.
+
+| Prueba | Resultado | Evidencia |
+|---|---|---|
+| P-1 carga | OK | `GET /me/profile` 200; nombre, CURP sintética y «1 de enero, 2001»; campos vacíos como «—»; sin foto |
+| P-2 error del backend | OK | Teléfono de 31 dígitos → `PATCH` 400; se muestra el mensaje, sin «Cambios guardados», sigue en edición |
+| P-3 guardar los 4 campos | OK | `PATCH` 200 + `GET` 200; «Cambios guardados»; en BD (lectura) los 4 valores y un evento `patient_profile.updated` con los 4 campos |
+| P-4 persistencia | OK | Tras recargar se ven los 4 valores |
+| P-5 foto no permitida | OK | Un GIF se rechaza en el cliente («La foto debe ser una imagen JPEG o PNG.»), 0 peticiones a `/me/profile/photo` |
+| Subida y visualización de foto | **Omitida** | Sin endpoint para borrar la foto no se puede restaurar «sin foto» |
+| Restauración | OK | Campos vaciados en la pantalla → `PATCH` con `null` 200; en BD (lectura) los 4 campos vuelven a `null`, sin foto |
+
+Cambios permanentes: 2 eventos `identity.patient_profile.updated` en `audit_log` (append-only).
+
+Incidencias:
+- Los mensajes de validación del backend llegan en inglés (texto por defecto de class-validator), p. ej. «phone must be shorter than or equal to 30 characters».
+- Un error de foto anterior seguía visible después de guardar el perfil. **Corregido** (2026-10-18): se limpia al empezar a editar y al guardar con éxito; prueba nueva en `perfil-usuario.test.tsx` (falló antes de la corrección y pasa después). Validación: Vitest 32/32 (dos ejecuciones), `tsc` sin errores, `next build` correcto, Biome sin hallazgos en los archivos tocados. Sin nuevas pruebas manuales.
+
+## Nombre en el encabezado y cambio de contraseña (2026-10-18)
+
+### Nombre real en `UserMenu`
+- Antes: «Usuario 1» fijo. Ahora: `GET /me` → `profile.firstName` + `profile.lastName` (nombre legal del perfil de
+  paciente). Si la cuenta aún no tiene perfil, el nombre que la persona escribió al registrarse (Better Auth
+  `user.name`). Mientras carga, sin sesión o si `/me` falla, no se muestra ningún nombre (nunca uno ficticio).
+- Una sola petición a `/me` por usuario mientras dura la página (`getMeCached` en `src/lib/api.ts`), aunque haya
+  varios encabezados; se descarta al cerrar sesión o si la petición falla. Sin sesión no se pide `/me`.
+- Avatar: ver «Avatar real en el encabezado».
+
+### Cambio de contraseña en `/perfil-usuario`
+- Operación de Better Auth 1.7.5 existente: `POST /api/auth/change-password` (`authClient.changePassword`), con la
+  sesión actual (cookie). No está en `disabledPaths` (solo `/update-user` y `/change-email`). Sin endpoint propio.
+- En «Seguridad», «Cambiar» abre un modal con el diseño de la entrega: contraseña actual, nueva y confirmación. Antes de
+  enviar se exigen los tres campos, coincidencia y 8–128 caracteres (mismos límites que el backend).
+- «Contraseña actualizada» solo tras la respuesta correcta. Errores: `INVALID_PASSWORD` («La contraseña actual no es
+  correcta.»), 429 (límite de Better Auth para `/change-password`: 3 cada 10 s), sin conexión. Las contraseñas no se
+  registran en consola ni se guardan.
+- `revokeOtherSessions: true` (opción por petición, no configuración global): Better Auth borra las demás sesiones
+  del usuario y crea una sesión nueva para la actual (cookie nueva). Se eligió por coherencia con
+  `revokeSessionsOnPasswordReset: true` del backend.
+
+### Pruebas y validación
+- `src/features/components/user-menu.test.tsx` (6): nombre del perfil, nombre de registro sin perfil, error sin nombre,
+  sin sesión sin petición, una sola petición para varios encabezados, caché descartada al cerrar sesión.
+- `src/features/landing/pages/change-password-modal.test.tsx` (8): campos obligatorios, no coincidencia, longitud
+  mínima, éxito con `revokeOtherSessions: true`, contraseña actual incorrecta, 429, sin conexión, sin contraseñas en consola.
+- `perfil-usuario.test.tsx` (+1): «Cambiar» abre el modal; tras un error no confirma; tras el éxito, «Contraseña actualizada».
+- Resultado: Vitest 47/47 (dos ejecuciones), `tsc` sin errores, `next build` correcto. Biome: sin hallazgos nuevos;
+  `user-menu.tsx` conserva 4 avisos de accesibilidad que ya tenía la entrega.
+- Cambio de contraseña probado contra el backend real (ver tabla siguiente). El nombre del encabezado no se verificó en
+  el navegador en esta etapa.
+
+### Prueba manual del cambio de contraseña (2026-10-18)
+
+BD de desarrollo `production` (`br-royal-recipe-b54s5hnn`), cuenta de prueba existente, con autorización. Las
+contraseñas no se registraron; la verificación en BD fue de solo lectura (conteo de sesiones, fecha de la cuenta y una
+huella corta no reversible del hash). Antes: 4 sesiones activas (2 del panel y 2 de otro navegador de la usuaria,
+que autorizó cerrarlas); ninguna sesión activa de otras cuentas.
+
+| Paso | Resultado | Evidencia |
+|---|---|---|
+| 1. Contraseña actual incorrecta | OK | `POST /api/auth/change-password` 400; «La contraseña actual no es correcta.»; sin confirmación; huella del hash y fecha de la cuenta sin cambios |
+| 2. Cambio a una contraseña temporal | OK | 200; «Contraseña actualizada»; huella del hash cambió |
+| 4. Sesiones | OK | La sesión del panel siguió válida (cookie nueva); sesiones activas 4 → 1 (`revokeOtherSessions`); otras cuentas sin cambios |
+| 3. Nuevo inicio de sesión | OK | Tras cerrar sesión: contraseña anterior → «Correo o contraseña incorrectos.»; temporal → 200 y `/landing-inicio` |
+| 5. Restauración | OK | Cambio de la temporal a la original desde el perfil (200); después: temporal → 401, original → 200 con sesión |
+
+Estado final: la cuenta vuelve a funcionar con su contraseña original; 1 sesión activa (la del panel). Sin cambios en
+el perfil ni archivos subidos. Better Auth no impide volver a una contraseña usada antes.
+
+## Avatar real en el encabezado (2026-10-18)
+
+- `UserMenu` muestra la foto privada del perfil (`GET /me/profile/photo`, con la cookie de sesión) cuando `GET /me`
+  indica `profile.hasPhoto`. Si no hay foto, no hay sesión o la descarga falla, se conserva el avatar de la entrega
+  (`/perfil-usuario.png`) con las mismas clases y dimensiones (48×48, `rounded-full`, responsivo).
+- Una sola descarga por usuario, compartida por todos los encabezados y por `/perfil-usuario`
+  (`getProfilePhotoUrlCached` en `src/lib/api.ts`). La imagen se muestra desde un blob local; la URL anterior se
+  libera (`URL.revokeObjectURL`) al reemplazarla o al cerrar sesión. Si la descarga falla, se reintenta en la
+  siguiente consulta.
+- Caché: el backend responde `Cache-Control: no-store` y la petición usa `cache: "no-store"`. Tras
+  `PUT /me/profile/photo`, `profilePhotoChanged` marca `hasPhoto` en la caché de `/me`, descarta la foto anterior y
+  avisa a los encabezados y al perfil, que piden la nueva.
+- Pruebas (`user-menu.test.tsx`, +7): foto disponible, sin foto (sin petición), error de descarga, sin sesión, una
+  descarga para varios encabezados, recarga y liberación tras una foto nueva, liberación al cerrar sesión.
+- Resultado: Vitest 54/54 (dos ejecuciones), `tsc` sin errores, `next build` correcto; Biome sin hallazgos nuevos
+  (los 4 avisos de accesibilidad de `user-menu.tsx` son de la entrega).
+- **Sin prueba manual**: subir una foto y comprobar el avatar queda a cargo de la usuaria (escribe en R2 y en la BD).

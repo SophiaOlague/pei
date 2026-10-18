@@ -20,7 +20,8 @@ export function mockFetch(routes: Record<string, Handler | Handler[]>) {
       const key = `${init?.method ?? "GET"} ${url.pathname}`;
       calls.push({
         key,
-        body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        body:
+          typeof init?.body === "string" ? JSON.parse(init.body) : init?.body,
       });
       const entry = queues.get(key);
       if (!entry) throw new Error(`Petición no simulada: ${key}`);

@@ -25,6 +25,10 @@ export function authErrorMessage(error: AuthError): string {
     case "INVALID_TOKEN":
     case "TOKEN_EXPIRED":
       return "El enlace no es válido o ya expiró. Solicita uno nuevo.";
+    case "INVALID_PASSWORD":
+      return "La contraseña actual no es correcta.";
+    case "CREDENTIAL_ACCOUNT_NOT_FOUND":
+      return "Tu cuenta no tiene una contraseña que se pueda cambiar.";
     case "PASSWORD_TOO_SHORT":
       return "La contraseña debe tener al menos 8 caracteres.";
     case "PASSWORD_TOO_LONG":
