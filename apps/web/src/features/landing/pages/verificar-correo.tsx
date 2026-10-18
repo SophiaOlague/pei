@@ -34,7 +34,7 @@ export function Landing() {
     setSeconds(WAIT);
     const { error } = await authClient.sendVerificationEmail({
       email,
-      callbackURL: appUrl("/landing-inicio"),
+      callbackURL: appUrl("/completar-registro"),
     });
     setNotice(
       error

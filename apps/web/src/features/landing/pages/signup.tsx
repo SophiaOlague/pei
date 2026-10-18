@@ -45,7 +45,7 @@ export function Landing() {
       email,
       password,
       name: `${fullName} ${lastName}`,
-      callbackURL: appUrl("/landing-inicio"),
+      callbackURL: appUrl("/completar-registro"),
     });
     setLoading(false);
 
@@ -254,22 +254,13 @@ export function Landing() {
             </div>
           </div>
 
-          <div className="w-full mt-[14px] flex items-start gap-3">
-            <input
-              type="checkbox"
-              className="w-[20px] h-[20px] mt-1 accent-[#7355F7] flex-shrink-0"
-            />
-            <p className="text-[#89898A] text-[13px] font-normal">
-              Estoy de acuerdo con los{" "}
-              <span className="text-[#7355F7] underline cursor-pointer">
-                Términos de servicio
-              </span>{" "}
-              y{" "}
-              <span className="text-[#7355F7] underline cursor-pointer">
-                Política de privacidad
-              </span>
-            </p>
-          </div>
+          {/* La aceptación legal se registra en el backend al completar el registro, ya con sesión
+              (POST /me/legal-acceptances); una casilla aquí no dejaría evidencia. */}
+          <p className="w-full mt-[14px] text-[#89898A] text-[13px] font-normal">
+            Después de verificar tu correo e iniciar sesión, deberás leer y
+            aceptar los Términos y Condiciones y el Aviso de Privacidad para
+            completar tu registro.
+          </p>
 
           <button
             onClick={handleSignUp}

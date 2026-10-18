@@ -26,7 +26,7 @@ export function Landing() {
     const { error } = await authClient.signIn.email({
       email,
       password,
-      callbackURL: appUrl("/landing-inicio"),
+      callbackURL: appUrl("/completar-registro"),
     });
     setLoading(false);
 
@@ -36,7 +36,7 @@ export function Landing() {
       return;
     }
 
-    router.push("/landing-inicio");
+    router.push("/completar-registro");
   };
 
   return (
