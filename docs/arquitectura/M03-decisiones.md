@@ -1,0 +1,120 @@
+# M03 Médicos: registro de decisiones
+
+Registro versionado de las decisiones de diseño e implementación de M03 (incluido el incremento controlado de M02, A1–A3).
+PEI es la aplicación; Gestinnovo, la empresa.
+
+> **Estas decisiones no son requisitos del Documento Maestro.** El Documento Maestro V2.2 (PDF) es la fuente normativa de
+> requisitos (R-1). Las decisiones de este registro concretan o complementan esos requisitos y se aprobaron en las
+> revisiones de diseño. Por ejemplo, la CURP no aparece en el PDF V2.2: proviene de decisiones (DT-22 de M02, D-1, D-20/D-35, R-12).
+
+## 1. Fuentes y su estado
+
+Las fuentes originales están fuera del repositorio (área de trabajo de la sesión de diseño). Este registro conserva sus
+identificadores y su estado.
+
+| Fuente | Fecha | Clasificación | Observaciones |
+|---|---|---|---|
+| Diseño M03 v3 (`M03-design-v3.md`) | 2026-10-07 | **Parcialmente definitiva**: aprobada el 2026-10-07; partes superadas por decisiones posteriores (sección 6) | Reemplaza a las v1 y v2. Su §B pone las decisiones por encima del PDF; prevalece la jerarquía vigente: **PDF V2.2 primero** |
+| Plan de implementación M03 v2 (`M03-implementation-plan-v2.md`) | 2026-10-12 | **Borrador ejecutado parcialmente**: su encabezado dice «para revisión»; las fases A1–A3 se ejecutaron con aprobación de cada punto de control | Solo se registran aquí sus desviaciones controladas (DC-1 a DC-4) y la opción A. No se versiona completo |
+| Preparación de A3 v2 (`A3-preparacion-v2.md`, §6, P1–P5) | 2026-10-12 | **Propuestas con estado individual** (sección 5) | — |
+
+## 2. Decisiones funcionales (diseño v3 §0.1)
+
+Estado: **aprobadas** con el diseño v3 (2026-10-07), salvo que la sección 6 indique lo contrario.
+
+| ID | Decisión |
+|---|---|
+| D-1 | El registro del médico requiere INE, CURP, cédula (número en string más archivo) y la aceptación legal vigente |
+| D-2 | Claves privadas de R2; nunca se guardan URLs públicas ni firmadas |
+| D-3 | Archivo de la cédula: PDF, PNG o JPG/JPEG |
+| D-4 | La cédula admite reenvíos y conserva historial |
+| D-5, D-26, D-33, D-34 | Catálogo de especialidades configurado por el admin; una especialidad por médico; desactivar no borra y quien la tiene la conserva sin pasar a `pending`; no se asigna a nuevos médicos. Catálogo inicial: Infectología, Psicología y Medicina general |
+| D-9, D-21, D-29 | Los cambios de INE, CURP, número o documento de cédula, especialidad o nombre legal se aplican de inmediato y devuelven al médico a `pending`. Bio, foto y teléfono se editan libremente |
+| D-10 | Lista mínima de eventos de auditoría (diseño v3 §I; ver la sección 6) |
+| D-13, D-23 | Si no está `approved`, el médico solo entra y consulta su estado. Las citas existentes son asunto de M08 |
+| D-16, D-22 | La cédula se conserva en R2 privado; la ven el médico dueño y el admin (con auditoría). Plazo de conservación: dependencia legal |
+| D-17 | Respuesta genérica ante duplicados; la causa solo queda internamente |
+| D-19 | La INE del médico sigue el flujo de M02 |
+| D-20, D-35 | Una persona no puede tener cuenta de paciente y de médico. **CURP única entre roles.** Sin conversión de rol |
+| D-24, D-30, D-31 | `registrationComplete` se deriva, se compone por rol y significa «entregó todo», no «aprobado» |
+| D-25 | El motivo de rechazo es obligatorio |
+| D-27 | INE y cédula se revisan por separado; `approved` exige ambas aprobadas y registro completo |
+| D-28 | Cambiar la CURP o el nombre legal lleva a `pending` y exige una INE nueva |
+| D-32 | Requisitos legales: paciente `privacy_policy` + `patient_terms`; médico `privacy_policy` + `doctor_terms` |
+| D-36 | Sin directorio, perfil público ni búsqueda de médicos en M03 |
+| Admin | Solo `admin` aprueba o rechaza; no existe un rol revisor |
+| Alcance | La agenda es de M07. Las citas, la ocupación y las consecuencias de volver a `pending` son de M08 |
+| N1 | `privacy_notice` v1 y `terms_and_conditions` v1 y sus aceptaciones se conservan; se crean los tipos nuevos |
+| N2 | `appointment_duration_minutes` es de M07; cambiarla no devuelve al médico a `pending` |
+| N3 / R-7 | Estado global derivado, sin persistir |
+| N4 | Matriz de efectos de cada cambio (diseño v3 §E.3) |
+| N5 | Sin admin permanente en producción; en pruebas, fixtures. Aprobaciones bloqueadas hasta el bootstrap real de M02 |
+
+Los identificadores D-6 a D-8, D-11, D-12, D-14, D-15 y D-18 no figuran en el diseño v3 y no se registran.
+
+## 3. Resoluciones de diseño (R-, Z-)
+
+| ID | Resolución | Estado |
+|---|---|---|
+| R-1 | El PDF V2.2 es el Maestro vigente; el DOCX es un borrador no normativo; la trazabilidad usa la numeración del PDF | Aprobada |
+| R-2 | Una revisión pendiente invalidada pasa a `superseded`; nunca vuelve a aprobarse ni rechazarse | Aprobada |
+| R-4 | El admin puede editar el nombre visible de una especialidad; `code` es inmutable | Aprobada (cerrada técnicamente en v3) |
+| R-5 | Tamaño máximo: cédula 10 MB; INE y foto 5 MB | Aprobada (cerrada técnicamente en v3) |
+| R-6 | Número de cédula: string de 1 a 20 caracteres `[0-9A-Za-z-]`; validación solo sintáctica | Aprobada (cerrada técnicamente en v3) |
+| R-8 | La aceptación legal se audita para todos los roles (cambio en M02) | Aprobada; **implementada en A2** |
+| R-10 | Trigger de coherencia `doctor_profile`/`patient_profile` con el rol | Aprobada (cerrada técnicamente en v3); prevista para A4 (0008) |
+| R-11 | Puerto de almacenamiento privado compartido en `modules/private-storage` | Aprobada; **implementada en A1** |
+| R-12 | La CURP pasa a `user_profile` con un único `UNIQUE`; no queda otra fuente de verdad; la migración conserva el dato del paciente de desarrollo | Aprobada; **implementada en A3** (`0007`) |
+| R-13 | Una versión nueva de un documento legal requerido invalida la aceptación anterior (registro incompleto) | Aprobada; **implementada en A2** |
+| R-14 | INE del médico: JPEG o PNG, frente y reverso | Aprobada (cerrada técnicamente en v3) |
+| Z-1 | Precedencia del estado global: `pending` > `rejected` > `approved` (ambas aprobadas y registro completo) > `pending` | Aprobada |
+| Z-2 | El admin puede reactivar una especialidad; nunca se elimina; activar o desactivar se audita | Aprobada |
+
+R-3 y R-9 no figuran en el diseño v3 y no se registran.
+
+## 4. Incremento controlado de M02 (diseño v3 §N)
+
+| ID | Cambio | Fase | Estado |
+|---|---|---|---|
+| M02-1 | La CURP pasa a `user_profile` (R-12) | A3 | Implementado (`779b13b`) |
+| M02-2 | Duplicados sin revelar la causa (D-17): `RegistrationDataConflictError` | A3 | Implementado (`779b13b`). **Sin el evento de auditoría** previsto en v3 (sección 6, P2) |
+| M02-3 | Aceptaciones legales auditadas (R-8) | A2 | Implementado (`b40058f`) |
+| M02-4 | Legal por rol (D-32, N1), migración 0006 | A2 | Implementado (`b40058f`) |
+| M02-5 | Almacenamiento al puerto privado compartido (R-11) | A1 | Implementado (`a176934`). El adaptador se llama `R2PrivateObjectStorage`, no `R2DocumentStorage` (sección 6) |
+| M02-6 | `/me` y estado de registro por rol (D-31) | A4 | Pendiente |
+| M02-7 | Coherencia de rol (R-10), migración 0008 | A4 | Pendiente |
+
+## 5. Desviaciones controladas y decisiones de ejecución
+
+| ID | Fase | Decisión | Estado |
+|---|---|---|---|
+| DC-1 | A1 | Los errores de almacenamiento conservan sus nombres de M02; claves como `string`; gramática general en el adaptador | Definitiva |
+| DC-2 | A2 | Se difiere el puerto `LegalRequirementsReader` hasta B5 (sin consumidor en A2) | Aprobada; diferida a B5 |
+| DC-3 | A2 | `legal:publish` permite una sola versión nueva cuando el régimen del rol ya está vigente | Definitiva |
+| DC-4 | A2 | IDs duplicados en `POST /me/legal-acceptances` → 400 en el DTO y en el caso de uso; a lo más un evento por aceptación insertada | Aprobada en la revisión de PC-A2 |
+| Opción A (plan v2 §7ter) | B | Cambio del nombre legal: ambas revisiones +1; la línea de identidad pasa a requerida; la cédula recibe una revisión `legal_name_changed` que reutiliza el documento conservado | Aprobada (2026-10-07); por implementar |
+| P1 | A3 | Vía de recuperación de `0007` tras su aplicación en la rama `production` (2026-10-17; entorno organizacional por confirmar): inverso lógico como vía principal; restauración de Neon como último recurso, al punto registrado antes de aplicarla (LSN `0/2CB7398`) | **Pendiente** de confirmación (plan, ventana de historial y punto de restauración): el inverso lógico solo se ensayó en `rama`, no en `production`, y la viabilidad de la restauración de Neon no está confirmada |
+| P2 | A3 | El conflicto de registro **no** se audita en `audit_log` (respeta M01 D1, D2 y D6); causa interna en el error y log `warn` sin datos personales | **Aprobada** (2026-10-12, fecha de la aprobación en conversación; no consta en un archivo fuente); implementada en A3 (TC-M03-052) |
+| P3 | A3 | `scripts/dev-fix-curp-dt22.mjs` se conserva sin cambios hasta cerrar M02; después, nota de obsolescencia | **Aprobada** (2026-10-12, fecha de la aprobación en conversación; no consta en un archivo fuente) |
+| P4 | A3 | El traslado de `0007` no modifica `user_profile.updated_at` | **Aprobada** (2026-10-12, fecha de la aprobación en conversación; no consta en un archivo fuente); `0007` no lo toca |
+| P5 | A3 | Integración y ensayo de `0007` antes de su aplicación en la BD de destino: rama temporal de Neon (C2) | **Ejecutada** (2026-10-14): `0007` aplicada y validada, en esa fecha, solo en la rama temporal `rama` (`br-autumn-sun-b52qoep4`), creada a partir de `production`; pruebas de integración y E2E PASS como validación interna |
+
+## 6. Previsiones superadas
+
+| Fuente | Previsión | Superada por | Motivo |
+|---|---|---|---|
+| Diseño v3 §I (evento `identity.registration.conflict`) | Auditar el conflicto de registro en una transacción separada, con `field` | **P2** | Un evento que sobrevive al rollback de la operación fallida contradice M01 D2 |
+| Diseño v3 §N, fila M02-2 | «log y evento `identity.registration.conflict` con la causa» | **P2** | Ídem: queda solo el log `warn` sin datos |
+| Plan v2 §11 (evento `identity.registration.conflict` en A3 y B5) | Evento en una UoW separada tras el 23505 o la comprobación previa | **P2** | Ídem. Para B5 (`license_number`) se aplicará el mismo criterio salvo nueva decisión |
+| Diseño v3 §N, fila M02-5 | «`R2DocumentStorage` se mueve a `private-storage`» | Implementación de A1 | El adaptador se renombró a `R2PrivateObjectStorage` |
+| Diseño v3 §B (orden de fuentes) | Decisiones por encima del PDF | Jerarquía vigente del proyecto | El PDF V2.2 prevalece; las decisiones aprobadas lo concretan sin contradecirlo |
+
+## 7. Decisiones pendientes
+
+| Tema | Pendiente |
+|---|---|
+| P1 | Confirmar la vía de recuperación de `0007`, ya aplicada en `production` (2026-10-17): viabilidad de la restauración de Neon al punto registrado y, en su caso, validación del inverso lógico fuera de `rama`. El entorno organizacional de `production` sigue por confirmar |
+| Enumeración de CURP | Con la unicidad entre roles, el 409 genérico revela que la CURP existe en cualquier rol (también médicos). Requiere aceptación explícita del riesgo; el contrato de respuesta no se cambia sin decisión |
+| Rama temporal de Neon `rama` (`br-autumn-sun-b52qoep4`) | Conservarla (necesaria para la evidencia formal) o eliminarla |
+| Evidencia formal | Procedimiento de evidencia formal en la rama temporal (E0), pendiente de autorización |
+| `admin:bootstrap` | Cierre formal de M02 con excepción documentada o esperar a la ejecución real |

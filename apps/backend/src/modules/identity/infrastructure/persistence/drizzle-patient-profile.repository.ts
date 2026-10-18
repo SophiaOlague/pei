@@ -14,7 +14,8 @@ const VIEW_COLUMNS = {
   firstName: userProfile.firstName,
   lastName: userProfile.lastName,
   birthDate: userProfile.birthDate,
-  curp: patientProfile.curp,
+  // La CURP vive en user_profile (M03 R-12). Para un paciente nunca es NULL: user_profile_curp_required_chk.
+  curp: sql<string>`${userProfile.curp}`,
   phone: userProfile.phone,
   address: patientProfile.address,
   emergencyContactName: userProfile.emergencyContactName,
@@ -45,16 +46,7 @@ export class DrizzlePatientProfileRepository implements PatientProfileRepository
     return row ?? null;
   }
 
-  async existsByCurp(curp: string): Promise<boolean> {
-    const [row] = await getDbContext()
-      .select({ id: patientProfile.id })
-      .from(patientProfile)
-      .where(eq(patientProfile.curp, curp))
-      .limit(1);
-    return !!row;
-  }
-
-  async create(input: { userProfileId: string; curp: string; address: string | null }): Promise<string> {
+  async create(input: { userProfileId: string; address: string | null }): Promise<string> {
     const [row] = await getDbContext().insert(patientProfile).values(input).returning({ id: patientProfile.id });
     return row.id;
   }

@@ -1,11 +1,11 @@
 import type { Role } from '../../../common/domain/role';
+import { evaluateLegalAcceptance, type CurrentLegalDocument, type PendingLegalDocument } from './legal-requirements';
+
+export type { CurrentLegalDocument, PendingLegalDocument } from './legal-requirements';
 
 // Estado del registro del paciente (DP-8, DT-17, DT-21). No se guarda: se calcula en cada lectura.
-//   registrationComplete = perfil && legales vigentes aceptados && identidad aprobada
+//   registrationComplete = perfil && legales vigentes del régimen del paciente aceptados && identidad aprobada
 //   canBookAppointments  = registrationComplete && rol 'patient' (M08 agrega sus propias condiciones)
-
-export const REQUIRED_LEGAL_DOCUMENT_TYPES = ['privacy_notice', 'terms_and_conditions'] as const;
-export type LegalDocumentType = (typeof REQUIRED_LEGAL_DOCUMENT_TYPES)[number];
 
 export type IdentityStatus = 'not_submitted' | 'pending' | 'rejected' | 'approved';
 
@@ -16,25 +16,12 @@ export type MissingRequirement =
   | 'identity_review'
   | 'identity_resubmission';
 
-export interface CurrentLegalDocument {
-  type: LegalDocumentType;
-  documentId: string;
-  version: string;
-  accepted: boolean;
-}
-
 // Lo que el lector obtiene de la BD en una sola consulta.
 export interface RegistrationSnapshot {
   role: Role | null; // null: la cuenta aún no tiene perfil
   hasPatientProfile: boolean;
   currentLegalDocuments: CurrentLegalDocument[];
   latestIdentityVerification: { status: Exclude<IdentityStatus, 'not_submitted'>; rejectionReason: string | null } | null;
-}
-
-export interface PendingLegalDocument {
-  type: LegalDocumentType;
-  documentId: string;
-  version: string;
 }
 
 export interface RegistrationStatus {
@@ -49,13 +36,8 @@ export interface RegistrationStatus {
 export function computeRegistrationStatus(snapshot: RegistrationSnapshot): RegistrationStatus {
   const profileCompleted = snapshot.role === 'patient' && snapshot.hasPatientProfile;
 
-  // Falla cerrado: si falta publicar un tipo requerido, los legales no se consideran aceptados.
-  const byType = new Map(snapshot.currentLegalDocuments.map((doc) => [doc.type, doc]));
-  const allTypesPublished = REQUIRED_LEGAL_DOCUMENT_TYPES.every((type) => byType.has(type));
-  const pending = snapshot.currentLegalDocuments
-    .filter((doc) => !doc.accepted)
-    .map(({ type, documentId, version }) => ({ type, documentId, version }));
-  const legalAccepted = allTypesPublished && pending.length === 0;
+  // Solo cuentan los documentos del régimen vigente del paciente; falla cerrado si no hay régimen publicado.
+  const { accepted: legalAccepted, pending } = evaluateLegalAcceptance('patient', snapshot.currentLegalDocuments);
 
   const latest = snapshot.latestIdentityVerification;
   const identityStatus: IdentityStatus = latest?.status ?? 'not_submitted';

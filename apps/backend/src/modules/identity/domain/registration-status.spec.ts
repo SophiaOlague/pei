@@ -60,6 +60,27 @@ describe('Estado del registro del paciente (DP-8, DT-17, DT-21)', () => {
     expect(status.registrationComplete).toBe(false);
   });
 
+  it('[TC-M03-008][N1][RF-04] al publicarse el régimen nuevo, el paciente con v1 aceptado queda con missing legal', () => {
+    const transition = [
+      ...legal(true, true),
+      { type: 'privacy_policy', documentId: '00000000-0000-4000-8000-000000000003', version: '2026-10', accepted: false },
+      { type: 'patient_terms', documentId: '00000000-0000-4000-8000-000000000004', version: '2026-10', accepted: false },
+    ] as const;
+    const status = computeRegistrationStatus(snapshot({ currentLegalDocuments: [...transition] }));
+    expect(status.legal.accepted).toBe(false);
+    expect(status.legal.pending.map((p) => p.type)).toEqual(['privacy_policy', 'patient_terms']);
+    expect(status.missing).toContain('legal');
+    expect(status.registrationComplete).toBe(false);
+  });
+
+  it('[TC-M03-009][N1] doctor_terms publicado no afecta al paciente', () => {
+    const withDoctorTerms = [
+      ...legal(true, true),
+      { type: 'doctor_terms', documentId: '00000000-0000-4000-8000-000000000005', version: '2026-10', accepted: false },
+    ] as const;
+    expect(computeRegistrationStatus(snapshot({ currentLegalDocuments: [...withDoctorTerms] })).legal).toEqual({ accepted: true, pending: [] });
+  });
+
   it.each(['doctor', 'admin', 'organization'] as const)('[TC-M02-015][DT-21] rol %s → no puede agendar ni tiene registro de paciente completo', (role) => {
     const status = computeRegistrationStatus(snapshot({ role }));
     expect(status.profileCompleted).toBe(false);

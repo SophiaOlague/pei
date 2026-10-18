@@ -5,6 +5,7 @@ import { AuthModule } from '../../src/auth/auth.module';
 import { CommonModule } from '../../src/common/common.module';
 import { AuditModule } from '../../src/modules/audit/audit.module';
 import { IdentityModule } from '../../src/modules/identity/identity.module';
+import { PrivateStorageModule } from '../../src/modules/private-storage/private-storage.module';
 import { AUTH_INSTANCE } from '../../src/auth/auth.config';
 import { SESSION_PROVIDER, type AuthSession, type SessionProvider } from '../../src/auth/ports/session-provider';
 import { ACTOR_PROFILE_READER, type ActorProfileReader } from '../../src/auth/ports/actor-profile-reader';
@@ -20,7 +21,7 @@ import { PATIENT_PROFILE_REPOSITORY } from '../../src/modules/identity/applicati
 import { IDENTITY_VERIFICATION_REPOSITORY } from '../../src/modules/identity/application/ports/identity-verification.repository';
 import { LEGAL_DOCUMENT_REPOSITORY } from '../../src/modules/identity/application/ports/legal-document.repository';
 import { REGISTRATION_STATUS_READER } from '../../src/modules/identity/application/ports/registration-status-reader';
-import { DOCUMENT_STORAGE } from '../../src/modules/identity/application/ports/document-storage';
+import { PRIVATE_OBJECT_STORAGE } from '../../src/modules/private-storage/application/ports/private-object-storage';
 import { ADMIN_ACCOUNT_PROVISIONER } from '../../src/modules/identity/application/ports/admin-account-provisioner';
 import { CanBookAppointmentsPolicy } from '../../src/modules/identity/application/policies/can-book-appointments';
 import { DomainExceptionFilter } from '../../src/common/filters/domain-exception.filter';
@@ -77,7 +78,7 @@ export async function createIdentityApp() {
   const store = new InMemoryIdentityStore();
   const storage = new FakeDocumentStorage();
   const moduleRef = await Test.createTestingModule({
-    imports: [CommonModule, AuthModule, AuditModule, IdentityModule],
+    imports: [CommonModule, AuthModule, AuditModule, PrivateStorageModule, IdentityModule],
     controllers: [TestBookingController],
   })
     .overrideProvider(AUTH_INSTANCE).useValue(createMemoryAuth({ relaxedRateLimit: true }).auth)
@@ -90,7 +91,7 @@ export async function createIdentityApp() {
     .overrideProvider(IDENTITY_VERIFICATION_REPOSITORY).useValue(store.verifications)
     .overrideProvider(LEGAL_DOCUMENT_REPOSITORY).useValue(store)
     .overrideProvider(REGISTRATION_STATUS_READER).useValue(store)
-    .overrideProvider(DOCUMENT_STORAGE).useValue(storage)
+    .overrideProvider(PRIVATE_OBJECT_STORAGE).useValue(storage)
     .overrideProvider(ADMIN_ACCOUNT_PROVISIONER).useValue(new FakeAdminAccountProvisioner())
     .compile();
 

@@ -20,7 +20,8 @@ import {
   PurgeReviewedIdentityDocumentsUseCase,
   ReviewIdentityVerificationUseCase,
 } from '../../src/modules/identity/application/use-cases/identity-verification-admin.use-cases';
-import { AcceptLegalDocumentsUseCase } from '../../src/modules/identity/application/use-cases/legal-documents.use-cases';
+import { AcceptLegalDocumentsUseCase, PublishLegalDocumentsUseCase } from '../../src/modules/identity/application/use-cases/legal-documents.use-cases';
+import type { LegalDocumentType } from '../../src/modules/identity/domain/legal-requirements';
 import { BootstrapAdminUseCase } from '../../src/modules/identity/application/use-cases/bootstrap-admin.use-case';
 import { FakeDocumentStorage } from './identity-in-memory';
 import { syntheticCurp } from './synthetic-identity';
@@ -76,7 +77,8 @@ export function identityUseCases() {
     reader,
     provisioner,
     register: new RegisterPatientProfileUseCase(uow, audit, { now: () => new Date() }, userProfiles, patientProfiles),
-    acceptLegal: new AcceptLegalDocumentsUseCase(uow, legalDocuments),
+    acceptLegal: new AcceptLegalDocumentsUseCase(uow, audit, legalDocuments),
+    publishLegal: new PublishLegalDocumentsUseCase(uow, audit, legalDocuments),
     submit: new SubmitIdentityVerificationUseCase(uow, audit, storage, patientProfiles, verifications),
     open: new OpenIdentityDocumentUseCase(uow, audit, storage, verifications),
     review: new ReviewIdentityVerificationUseCase(uow, audit, verifications, purger),
@@ -107,7 +109,7 @@ export async function createAdminActor(useCases: IdentityUseCases): Promise<Acto
 }
 
 // Documentos legales de prueba publicados "ahora" (now() de la transacción) o en el instante indicado.
-export async function publishLegalDocument(type: 'privacy_notice' | 'terms_and_conditions', publishedAt = sql`now()`) {
+export async function publishLegalDocument(type: LegalDocumentType, publishedAt = sql`now()`) {
   const { rows } = await getDbContext().execute<{ id: string }>(sql`
     insert into legal_document (type, version, content, published_at)
     values (${type}, ${testTag()}, 'Texto sintético de prueba M02', ${publishedAt})

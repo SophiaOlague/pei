@@ -1,6 +1,7 @@
 import { AuditEvent } from '../../audit/domain/audit-event';
 import type { AuditActor } from '../../audit/domain/audit-actor';
 import type { DocumentSide } from '../domain/identity-verification';
+import type { LegalDocumentType } from '../domain/legal-requirements';
 
 // Eventos de auditoría de Identity (DT-14). Se registran con AuditTrail dentro de la UnitOfWork del caso de uso.
 // La metadata es mínima: nunca contenido del INE, claves de objetos, URLs, CURP, nombres ni teléfonos (RN-122).
@@ -14,6 +15,8 @@ export const IDENTITY_AUDIT_ACTIONS = {
   verificationRejected: 'identity.identity_verification.rejected',
   documentViewed: 'identity.identity_document.viewed',
   adminBootstrapped: 'identity.admin.bootstrapped',
+  legalDocumentAccepted: 'identity.legal_document.accepted',
+  legalDocumentPublished: 'identity.legal_document.published',
 } as const;
 
 export type EditableFieldName = 'phone' | 'address' | 'emergencyContactName' | 'emergencyContactPhone' | 'photo';
@@ -58,6 +61,25 @@ export const IdentityAuditEvents = {
       action: IDENTITY_AUDIT_ACTIONS.documentViewed,
       entity: { type: 'patient_identity_verification', id: submissionId },
       metadata: { side },
+    }),
+
+  // R-8: aceptación de una versión legal por cualquier rol. La evidencia es user_legal_acceptance;
+  // el evento registra la acción. Solo tipo y versión, nunca el contenido.
+  legalDocumentAccepted: (actor: AuditActor, legalDocumentId: string, type: LegalDocumentType, version: string) =>
+    AuditEvent.create({
+      actor,
+      action: IDENTITY_AUDIT_ACTIONS.legalDocumentAccepted,
+      entity: { type: 'legal_document', id: legalDocumentId },
+      metadata: { type, version },
+    }),
+
+  // CLI legal:publish (actor sistema).
+  legalDocumentPublished: (actor: AuditActor, legalDocumentId: string, type: LegalDocumentType, version: string) =>
+    AuditEvent.create({
+      actor,
+      action: IDENTITY_AUDIT_ACTIONS.legalDocumentPublished,
+      entity: { type: 'legal_document', id: legalDocumentId },
+      metadata: { type, version },
     }),
 
   // actor sistema: AuditEvent agrega systemProcess a la metadata.

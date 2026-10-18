@@ -4,7 +4,7 @@ import type { UnitOfWork } from '../../src/common/application/ports/unit-of-work
 import type { Role } from '../../src/common/domain/role';
 import type { AuditTrail } from '../../src/modules/audit/application/ports/audit-trail';
 import type { AuditEvent } from '../../src/modules/audit/domain/audit-event';
-import type { DocumentStorage, StoredFile } from '../../src/modules/identity/application/ports/document-storage';
+import type { PrivateObjectStorage, StoredObject } from '../../src/modules/private-storage/application/ports/private-object-storage';
 import type { UserProfileRecord, UserProfileRepository } from '../../src/modules/identity/application/ports/user-profile.repository';
 import type {
   EditableProfileFields,
@@ -20,12 +20,14 @@ import type {
 import type {
   CurrentLegalDocumentRecord,
   LegalDocumentRepository,
+  NewLegalDocument,
+  PublishedLegalDocument,
 } from '../../src/modules/identity/application/ports/legal-document.repository';
 import type { RegistrationStatusReader } from '../../src/modules/identity/application/ports/registration-status-reader';
 import type { AdminAccountProvisioner } from '../../src/modules/identity/application/ports/admin-account-provisioner';
 import type { RegistrationSnapshot } from '../../src/modules/identity/domain/registration-status';
 import { UniqueConstraintViolationError } from '../../src/common/domain/persistence.errors';
-import { StoredFileNotFoundError } from '../../src/modules/identity/domain/identity.errors';
+import { StoredFileNotFoundError } from '../../src/modules/private-storage/domain/private-storage.errors';
 
 // Dobles EN MEMORIA de los puertos de Identity para pruebas unitarias de casos de uso y E2E sin BD.
 // Reproducen las reglas de la BD que importan a M02 (unicidades y el "solo un pending") y, con
@@ -37,6 +39,8 @@ interface UserProfileRow {
   role: Role;
   firstName: string;
   lastName: string;
+  // M03 R-12: la CURP vive en user_profile (NULL para admin).
+  curp: string | null;
   birthDate: string | null;
   phone: string | null;
   emergencyContactName: string | null;
@@ -45,7 +49,6 @@ interface UserProfileRow {
 interface PatientProfileRow {
   id: string;
   userProfileId: string;
-  curp: string;
   address: string | null;
   photoObjectKey: string | null;
 }
@@ -76,7 +79,6 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
   readonly patientProfiles: PatientProfileRepository = {
     findByUserProfileId: (id) => this.findByUserProfileId(id),
     lockByUserProfileId: (id) => this.findByUserProfileId(id),
-    existsByCurp: (curp) => this.existsByCurp(curp),
     create: (input) => this.createPatientProfile(input),
     updateEditableFields: (profile, fields) => this.updateEditableFields(profile, fields),
     setPhotoObjectKey: (id, key) => this.setPhotoObjectKey(id, key),
@@ -100,6 +102,11 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
   }
   private insertUserProfile(row: Omit<UserProfileRow, 'id'>): string {
     if (this.state.userProfiles.some((p) => p.userId === row.userId)) throw unique('user_profile_user_id_unique');
+    // Igual que en la BD (0007): CURP única entre roles y obligatoria para paciente y médico.
+    if (row.curp !== null && this.state.userProfiles.some((p) => p.curp === row.curp)) throw unique('user_profile_curp_unique');
+    if ((row.role === 'patient' || row.role === 'doctor') && row.curp === null) {
+      throw new Error('user_profile_curp_required_chk: paciente o médico sin CURP');
+    }
     const id = randomUUID();
     this.state.userProfiles.push({ id, ...row });
     return id;
@@ -108,7 +115,14 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
     return this.insertUserProfile({ ...input, role: 'patient' });
   }
   async createAdmin(input: { userId: string; firstName: string; lastName: string }): Promise<string> {
-    return this.insertUserProfile({ ...input, role: 'admin', birthDate: null, phone: null, emergencyContactName: null, emergencyContactPhone: null });
+    return this.insertUserProfile({ ...input, role: 'admin', curp: null, birthDate: null, phone: null, emergencyContactName: null, emergencyContactPhone: null });
+  }
+  // Solo pruebas: un user_profile con rol doctor (M03 creará el registro real del médico). Requiere CURP (0007).
+  createDoctorForTest(input: { userId: string; firstName: string; lastName: string; curp: string }): string {
+    return this.insertUserProfile({ ...input, role: 'doctor', birthDate: null, phone: null, emergencyContactName: null, emergencyContactPhone: null });
+  }
+  async existsByCurp(curp: string): Promise<boolean> {
+    return this.state.userProfiles.some((p) => p.curp === curp);
   }
   async lockAdminBootstrap(): Promise<void> {}
   async adminExists(): Promise<boolean> {
@@ -126,7 +140,7 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
       firstName: user.firstName,
       lastName: user.lastName,
       birthDate: user.birthDate,
-      curp: patient.curp,
+      curp: user.curp!,
       phone: user.phone,
       address: patient.address,
       emergencyContactName: user.emergencyContactName,
@@ -134,13 +148,9 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
       photoObjectKey: patient.photoObjectKey,
     };
   }
-  async existsByCurp(curp: string): Promise<boolean> {
-    return this.state.patientProfiles.some((p) => p.curp === curp);
-  }
-  async createPatientProfile(input: { userProfileId: string; curp: string; address: string | null }): Promise<string> {
-    if (this.state.patientProfiles.some((p) => p.curp === input.curp)) throw unique('patient_profile_curp_unique');
+  async createPatientProfile(input: { userProfileId: string; address: string | null }): Promise<string> {
     const id = randomUUID();
-    this.state.patientProfiles.push({ id, userProfileId: input.userProfileId, curp: input.curp, address: input.address, photoObjectKey: null });
+    this.state.patientProfiles.push({ id, userProfileId: input.userProfileId, address: input.address, photoObjectKey: null });
     return id;
   }
 
@@ -199,7 +209,7 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
       submittedAt: row.createdAt,
       reviewedAt: row.reviewedAt,
       rejectionReason: row.rejectionReason,
-      patient: { firstName: user.firstName, lastName: user.lastName, birthDate: user.birthDate, curp: patient.curp },
+      patient: { firstName: user.firstName, lastName: user.lastName, birthDate: user.birthDate, curp: user.curp! },
     };
   }
   async markReviewed(input: { id: string; status: 'approved' | 'rejected'; reviewedBy: string; rejectionReason: string | null }) {
@@ -238,10 +248,26 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
     return [...current.values()].map((doc) => ({ ...doc }));
   }
   async recordAcceptances(input: { userProfileId: string; legalDocumentIds: string[]; ipAddress: string | null; userAgent: string | null }) {
+    const recorded: string[] = [];
     for (const legalDocumentId of input.legalDocumentIds) {
       const exists = this.state.acceptances.some((a) => a.userProfileId === input.userProfileId && a.legalDocumentId === legalDocumentId);
-      if (!exists) this.state.acceptances.push({ userProfileId: input.userProfileId, legalDocumentId, ipAddress: input.ipAddress, userAgent: input.userAgent });
+      if (!exists) {
+        this.state.acceptances.push({ userProfileId: input.userProfileId, legalDocumentId, ipAddress: input.ipAddress, userAgent: input.userAgent });
+        recorded.push(legalDocumentId);
+      }
     }
+    return recorded;
+  }
+  async publish(documents: NewLegalDocument[]): Promise<PublishedLegalDocument[]> {
+    const publishedAt = this.now();
+    return documents.map((doc) => {
+      if (this.state.legalDocuments.some((d) => d.type === doc.type && d.version === doc.version)) {
+        throw unique('legal_document_type_version_uq');
+      }
+      const row = { id: randomUUID(), type: doc.type, version: doc.version, publishedAt: doc.publishedAt ?? publishedAt, content: doc.content };
+      this.state.legalDocuments.push(row);
+      return { id: row.id, type: row.type, version: row.version, publishedAt: row.publishedAt };
+    });
   }
   publishLegalDocument(type: CurrentLegalDocumentRecord['type'], version: string, publishedAt = new Date(Date.now() - 60_000)) {
     const doc = { id: randomUUID(), type, version, publishedAt, content: `Texto sintético ${type} ${version}` };
@@ -302,7 +328,7 @@ export class InMemoryAuditTrail implements AuditTrail {
   }
 }
 
-export class FakeDocumentStorage implements DocumentStorage {
+export class FakeDocumentStorage implements PrivateObjectStorage {
   objects = new Map<string, { bytes: Buffer; contentType: string }>();
   failPut = false;
   failDelete = false;
@@ -312,7 +338,7 @@ export class FakeDocumentStorage implements DocumentStorage {
     if (this.failPut) throw new Error('fallo simulado de put');
     this.objects.set(key, { bytes, contentType });
   }
-  async openForRead(key: string): Promise<StoredFile> {
+  async openForRead(key: string): Promise<StoredObject> {
     const object = this.objects.get(key);
     if (!object) throw new StoredFileNotFoundError();
     return { stream: Readable.from(object.bytes), contentLength: object.bytes.length };

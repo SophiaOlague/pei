@@ -50,7 +50,8 @@ export class DrizzleIdentityVerificationRepository implements IdentityVerificati
         firstName: userProfile.firstName,
         lastName: userProfile.lastName,
         birthDate: userProfile.birthDate,
-        curp: patientProfile.curp,
+        // La CURP vive en user_profile (M03 R-12); para un paciente nunca es NULL (user_profile_curp_required_chk).
+        curp: sql<string>`${userProfile.curp}`,
       })
       .from(verification)
       .innerJoin(patientProfile, eq(patientProfile.id, verification.patientId))

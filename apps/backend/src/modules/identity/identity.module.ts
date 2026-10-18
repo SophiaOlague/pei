@@ -5,7 +5,11 @@ import { LegalDocumentsController } from './presentation/legal-documents.control
 import { AdminIdentityVerificationsController } from './presentation/admin-identity-verifications.controller';
 import { DEFAULT_IDENTITY_RATE_LIMIT_RULES, IDENTITY_RATE_LIMIT_RULES, RateLimitGuard } from './presentation/rate-limit.guard';
 import { RegisterPatientProfileUseCase } from './application/use-cases/register-patient-profile.use-case';
-import { AcceptLegalDocumentsUseCase, GetCurrentLegalDocumentsUseCase } from './application/use-cases/legal-documents.use-cases';
+import {
+  AcceptLegalDocumentsUseCase,
+  GetCurrentLegalDocumentsUseCase,
+  PublishLegalDocumentsUseCase,
+} from './application/use-cases/legal-documents.use-cases';
 import { SubmitIdentityVerificationUseCase } from './application/use-cases/submit-identity-verification.use-case';
 import {
   GetIdentityVerificationDetailUseCase,
@@ -30,7 +34,6 @@ import { PATIENT_PROFILE_REPOSITORY } from './application/ports/patient-profile.
 import { IDENTITY_VERIFICATION_REPOSITORY } from './application/ports/identity-verification.repository';
 import { LEGAL_DOCUMENT_REPOSITORY } from './application/ports/legal-document.repository';
 import { REGISTRATION_STATUS_READER } from './application/ports/registration-status-reader';
-import { DOCUMENT_STORAGE } from './application/ports/document-storage';
 import { RATE_LIMITER } from './application/ports/rate-limiter';
 import { ADMIN_ACCOUNT_PROVISIONER } from './application/ports/admin-account-provisioner';
 import { DrizzleUserProfileRepository } from './infrastructure/persistence/drizzle-user-profile.repository';
@@ -38,18 +41,18 @@ import { DrizzlePatientProfileRepository } from './infrastructure/persistence/dr
 import { DrizzleIdentityVerificationRepository } from './infrastructure/persistence/drizzle-identity-verification.repository';
 import { DrizzleLegalDocumentRepository } from './infrastructure/persistence/drizzle-legal-document.repository';
 import { DrizzleRegistrationStatusReader } from './infrastructure/persistence/drizzle-registration-status.reader';
-import { loadR2Config, R2DocumentStorage } from './infrastructure/storage/r2-document-storage';
 import { InMemoryRateLimiter } from './infrastructure/rate-limit/in-memory-rate-limiter';
 import { BetterAuthAdminAccountProvisioner } from './infrastructure/auth/better-auth-admin-account.provisioner';
 
-// M02 Identity. UNIT_OF_WORK y CLOCK los provee CommonModule; AUDIT_TRAIL, AuditModule; AUTH_INSTANCE y
-// los guards, AuthModule (todos globales).
+// M02 Identity. UNIT_OF_WORK y CLOCK los provee CommonModule; AUDIT_TRAIL, AuditModule; PRIVATE_OBJECT_STORAGE,
+// PrivateStorageModule; AUTH_INSTANCE y los guards, AuthModule (todos globales).
 @Module({
   controllers: [AuthController, MeController, LegalDocumentsController, AdminIdentityVerificationsController],
   providers: [
     RegisterPatientProfileUseCase,
     GetCurrentLegalDocumentsUseCase,
     AcceptLegalDocumentsUseCase,
+    PublishLegalDocumentsUseCase,
     SubmitIdentityVerificationUseCase,
     GetMyIdentityVerificationUseCase,
     ListPendingIdentityVerificationsUseCase,
@@ -71,7 +74,6 @@ import { BetterAuthAdminAccountProvisioner } from './infrastructure/auth/better-
     { provide: IDENTITY_VERIFICATION_REPOSITORY, useClass: DrizzleIdentityVerificationRepository },
     { provide: LEGAL_DOCUMENT_REPOSITORY, useClass: DrizzleLegalDocumentRepository },
     { provide: REGISTRATION_STATUS_READER, useClass: DrizzleRegistrationStatusReader },
-    { provide: DOCUMENT_STORAGE, useFactory: () => new R2DocumentStorage(loadR2Config()) },
     { provide: RATE_LIMITER, useClass: InMemoryRateLimiter },
     { provide: IDENTITY_RATE_LIMIT_RULES, useValue: DEFAULT_IDENTITY_RATE_LIMIT_RULES },
     { provide: ADMIN_ACCOUNT_PROVISIONER, useClass: BetterAuthAdminAccountProvisioner },

@@ -43,6 +43,20 @@
       "when": 1791326732522,
       "tag": "0005_m02_identity_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791785211114,
+      "tag": "0006_m02_legal_document_types_by_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791827876294,
+      "tag": "0007_m02_user_profile_curp",
+      "breakpoints": true
     }
   ]
 }

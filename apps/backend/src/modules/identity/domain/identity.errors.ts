@@ -10,11 +10,23 @@ export class InvalidCurpError extends DomainError {
   }
 }
 
-// 409 genérico: no confirma que la CURP pertenezca a otra cuenta más allá de lo indispensable.
-export class DuplicateCurpError extends DomainError {
+export type RegistrationConflictField = 'curp' | 'license_number';
+
+// D-17: 409 genérico ante datos de registro que ya pertenecen a otra cuenta (CURP, y en M03 el número de cédula).
+// La respuesta no revela la causa: el mensaje y el nombre de la clase son los mismos para cualquier campo.
+// La causa queda solo para uso interno (log sin datos personales) en un campo privado: no es enumerable, no
+// forma parte de `details` y el filtro HTTP no la serializa.
+export class RegistrationDataConflictError extends DomainError {
   readonly kind = 'conflict';
-  constructor() {
+  readonly #field: RegistrationConflictField;
+
+  constructor(field: RegistrationConflictField) {
     super('No fue posible completar el registro con los datos proporcionados');
+    this.#field = field;
+  }
+
+  get conflictField(): RegistrationConflictField {
+    return this.#field;
   }
 }
 
@@ -60,6 +72,30 @@ export class LegalDocumentsNotPublishedError extends DomainError {
   }
 }
 
+// El documento está vigente, pero pertenece al régimen de otro rol (M03 D-32).
+export class LegalDocumentNotRequiredForRoleError extends DomainError {
+  readonly kind = 'conflict';
+  constructor() {
+    super('El documento legal no corresponde a tu tipo de cuenta');
+  }
+}
+
+// La petición de aceptación repite un documento (también lo rechaza el DTO con @ArrayUnique).
+export class DuplicateLegalDocumentIdsError extends DomainError {
+  readonly kind = 'validation';
+  constructor() {
+    super('Cada documento legal debe aparecer una sola vez');
+  }
+}
+
+// CLI legal:publish: el conjunto a publicar no es un régimen completo o incluye tipos de legado (plan v2 §6.4).
+export class InvalidLegalPublicationError extends DomainError {
+  readonly kind = 'validation';
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 export class LegalDocumentNotCurrentError extends DomainError {
   readonly kind = 'conflict';
   constructor() {
@@ -67,12 +103,6 @@ export class LegalDocumentNotCurrentError extends DomainError {
   }
 }
 
-export class InvalidDocumentFileError extends DomainError {
-  readonly kind = 'validation';
-  constructor(message = 'El archivo debe ser una imagen JPEG o PNG de máximo 5 MB') {
-    super(message);
-  }
-}
 
 export class IdentityVerificationPendingError extends DomainError {
   readonly kind = 'conflict';
@@ -117,12 +147,6 @@ export class InvalidRejectionReasonError extends DomainError {
   }
 }
 
-export class StoredFileNotFoundError extends DomainError {
-  readonly kind = 'not_found';
-  constructor() {
-    super('El archivo no existe');
-  }
-}
 
 export class AdminRequiredError extends DomainError {
   readonly kind = 'forbidden';

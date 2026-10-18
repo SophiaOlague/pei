@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 import { createIdentityApp, SESSION_HEADER } from './support/identity-e2e';
 import type { FakeDocumentStorage, InMemoryIdentityStore } from './support/identity-in-memory';
 import { fakePdf, syntheticCurp, syntheticJpeg, syntheticPng } from './support/synthetic-identity';
-import { MAX_IMAGE_BYTES } from '../src/modules/identity/domain/image-file';
+import { MAX_IMAGE_BYTES } from '../src/modules/private-storage/domain/file-signature';
 
 // E2E HTTP de Identity (M02) con controllers, guards, pipe y filtro reales; sesiones simuladas,
 // repositorios en memoria y almacenamiento falso. Sin BD, sin R2, sin INEs reales y sin CURP reales.
@@ -265,6 +265,19 @@ describe('Identity M02 por HTTP (E2E con dobles)', () => {
       const invalid = await as(`p-${randomUUID()}`).post('/me/patient-profile').send({ firstName: 'C', lastName: 'D', curp: 'XBXX010101HNEXXXA4', birthDate: '1990-01-01' });
       expect(invalid.status).toBe(400);
       expect(JSON.stringify(invalid.body)).not.toContain('XBXX');
+    });
+
+    it('[TC-M03-054][D-17] el 409 por CURP duplicada es genérico: sin la causa ni el valor en el cuerpo', async () => {
+      const curp = syntheticCurp();
+      await as(`p-${randomUUID()}`).post('/me/patient-profile').send({ firstName: 'A', lastName: 'B', curp, birthDate: '1990-01-01' }).expect(201);
+      const dup = await as(`p-${randomUUID()}`).post('/me/patient-profile').send({ firstName: 'C', lastName: 'D', curp, birthDate: '1990-01-01' });
+      expect(dup.status).toBe(409);
+      expect(dup.body).toEqual({
+        statusCode: 409,
+        message: 'No fue posible completar el registro con los datos proporcionados',
+        error: 'RegistrationDataConflictError',
+      });
+      expect(JSON.stringify(dup.body)).not.toMatch(new RegExp(`${curp}|curp|field`, 'i'));
     });
 
     it('[TC-M02-225][DT-7] foto privada: PUT → 200; GET transmitida con no-store; sin foto → 404', async () => {

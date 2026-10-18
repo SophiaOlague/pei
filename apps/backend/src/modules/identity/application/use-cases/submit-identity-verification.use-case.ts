@@ -6,10 +6,10 @@ import { UniqueConstraintViolationError } from '../../../../common/domain/persis
 import { AUDIT_TRAIL, type AuditTrail } from '../../../audit/application/ports/audit-trail';
 import { AuditActor } from '../../../audit/domain/audit-actor';
 import { nextSubmissionAttempt } from '../../domain/identity-verification';
-import { validateImage } from '../../domain/image-file';
+import { validateImage } from '../../../private-storage/domain/file-signature';
 import { identityDocumentKey } from '../../domain/object-keys';
 import { IdentityVerificationPendingError } from '../../domain/identity.errors';
-import { DOCUMENT_STORAGE, type DocumentStorage } from '../ports/document-storage';
+import { PRIVATE_OBJECT_STORAGE, type PrivateObjectStorage } from '../../../private-storage/application/ports/private-object-storage';
 import { PATIENT_PROFILE_REPOSITORY, type PatientProfileRepository } from '../ports/patient-profile.repository';
 import {
   IDENTITY_VERIFICATION_REPOSITORY,
@@ -34,7 +34,7 @@ export class SubmitIdentityVerificationUseCase {
   constructor(
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
     @Inject(AUDIT_TRAIL) private readonly auditTrail: AuditTrail,
-    @Inject(DOCUMENT_STORAGE) private readonly storage: DocumentStorage,
+    @Inject(PRIVATE_OBJECT_STORAGE) private readonly storage: PrivateObjectStorage,
     @Inject(PATIENT_PROFILE_REPOSITORY) private readonly patientProfiles: PatientProfileRepository,
     @Inject(IDENTITY_VERIFICATION_REPOSITORY) private readonly verifications: IdentityVerificationRepository,
   ) {}

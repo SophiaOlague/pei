@@ -15,13 +15,13 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { DomainExceptionFilter } from './domain-exception.filter';
 import {
-  DuplicateCurpError,
   InvalidCurpError,
-  InvalidDocumentFileError,
   LegalDocumentsNotPublishedError,
   ProfileAlreadyExistsError,
+  RegistrationDataConflictError,
   RegistrationIncompleteError,
 } from '../../modules/identity/domain/identity.errors';
+import { InvalidDocumentFileError } from '../../modules/private-storage/domain/private-storage.errors';
 import { DomainError, type DomainErrorKind } from '../domain/domain-error';
 
 // ArgumentsHost mínimo: solo lo que usa el filtro (switchToHttp().getResponse()).
@@ -91,10 +91,11 @@ describe('DomainExceptionFilter', () => {
   });
 
   // M02 reemplazó los errores de complete-profile (TermsNotAccepted, ProfileAlreadyCompleted,
-  // MissingIdentityDocuments) por los del nuevo flujo; DuplicateCurpError pasa a 409 (decisión de la CURP).
+  // MissingIdentityDocuments) por los del nuevo flujo; una CURP duplicada es 409 (decisión de la CURP), y desde
+  // M03 A3 (D-17) se responde con RegistrationDataConflictError, genérico para cualquier dato duplicado.
   describe('excepciones de dominio de Identity', () => {
     it.each([
-      [new DuplicateCurpError(), 409],
+      [new RegistrationDataConflictError('curp'), 409],
       [new InvalidCurpError(), 400],
       [new ProfileAlreadyExistsError(), 409],
       [new InvalidDocumentFileError(), 400],
@@ -106,6 +107,22 @@ describe('DomainExceptionFilter', () => {
 
       expect(response.status).toHaveBeenCalledWith(status);
       expect(response.json).toHaveBeenCalledWith({ statusCode: status, message: error.message, error: error.name });
+    });
+
+    it('[TC-M03-050][D-17] RegistrationDataConflictError: la respuesta es idéntica para cualquier causa y no la revela', () => {
+      const bodies = (['curp', 'license_number'] as const).map((field) => {
+        const { host, response } = mockHost();
+        filter.catch(new RegistrationDataConflictError(field), host);
+        expect(response.status).toHaveBeenCalledWith(409);
+        return response.json.mock.calls[0][0];
+      });
+      expect(bodies[0]).toEqual({
+        statusCode: 409,
+        message: 'No fue posible completar el registro con los datos proporcionados',
+        error: 'RegistrationDataConflictError',
+      });
+      expect(bodies[1]).toEqual(bodies[0]);
+      expect(JSON.stringify(bodies)).not.toMatch(/curp|license|field/i);
     });
 
     it('[TC-M02-090][DP-8] un error con details los incluye en la respuesta', () => {

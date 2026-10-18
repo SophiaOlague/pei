@@ -3,6 +3,7 @@ import { db } from '../../src/db';
 import { cancellationPolicy, medication, user, userProfile } from '../../src/db/schema';
 import type { Role } from '../../src/common/domain/role';
 import { TEST_EMAIL_DOMAIN, testTag, type Tx } from './with-rollback';
+import { syntheticCurp } from './synthetic-identity';
 
 // Datos controlados para pruebas de integración. Solo deben usarse dentro de withRollback.
 
@@ -31,7 +32,8 @@ export async function insertUserWithProfile(tx: Tx, role: Role) {
     .returning();
   const [profile] = await tx
     .insert(userProfile)
-    .values({ userId: authUser.id, role, firstName: 'Prueba', lastName: 'M00' })
+    // Desde 0007 (M03 R-12), paciente y médico requieren CURP en user_profile: se usa una sintética.
+    .values({ userId: authUser.id, role, firstName: 'Prueba', lastName: 'M00', curp: role === 'patient' || role === 'doctor' ? syntheticCurp() : null })
     .returning();
   return { user: authUser, profile };
 }

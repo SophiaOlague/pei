@@ -18,10 +18,20 @@ export class DrizzleUserProfileRepository implements UserProfileRepository {
     return row ?? null;
   }
 
+  async existsByCurp(curp: string): Promise<boolean> {
+    const [row] = await getDbContext()
+      .select({ id: userProfile.id })
+      .from(userProfile)
+      .where(eq(userProfile.curp, curp))
+      .limit(1);
+    return !!row;
+  }
+
   async createPatient(input: {
     userId: string;
     firstName: string;
     lastName: string;
+    curp: string;
     birthDate: string;
     phone: string | null;
     emergencyContactName: string | null;

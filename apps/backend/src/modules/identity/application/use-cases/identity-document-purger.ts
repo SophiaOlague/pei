@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { UNIT_OF_WORK, type UnitOfWork } from '../../../../common/application/ports/unit-of-work';
 import { isManagedObjectKey } from '../../domain/object-keys';
-import { DOCUMENT_STORAGE, type DocumentStorage } from '../ports/document-storage';
+import { PRIVATE_OBJECT_STORAGE, type PrivateObjectStorage } from '../../../private-storage/application/ports/private-object-storage';
 import {
   IDENTITY_VERIFICATION_REPOSITORY,
   type IdentityVerificationRecord,
@@ -20,7 +20,7 @@ export class IdentityDocumentPurger {
 
   constructor(
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
-    @Inject(DOCUMENT_STORAGE) private readonly storage: DocumentStorage,
+    @Inject(PRIVATE_OBJECT_STORAGE) private readonly storage: PrivateObjectStorage,
     @Inject(IDENTITY_VERIFICATION_REPOSITORY) private readonly verifications: IdentityVerificationRepository,
   ) {}
 

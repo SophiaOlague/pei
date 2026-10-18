@@ -19,6 +19,7 @@ describe('Eventos de auditoría de Identity (DT-14, RN-122)', () => {
       [IdentityAuditEvents.verificationReviewed(actor, ID, 'approved', 2), IDENTITY_AUDIT_ACTIONS.verificationApproved, 'patient_identity_verification', { attempt: 2 }],
       [IdentityAuditEvents.verificationReviewed(actor, ID, 'rejected', 1), IDENTITY_AUDIT_ACTIONS.verificationRejected, 'patient_identity_verification', { attempt: 1 }],
       [IdentityAuditEvents.documentViewed(actor, ID, 'back'), IDENTITY_AUDIT_ACTIONS.documentViewed, 'patient_identity_verification', { side: 'back' }],
+      [IdentityAuditEvents.legalDocumentAccepted(actor, ID, 'doctor_terms', '1'), IDENTITY_AUDIT_ACTIONS.legalDocumentAccepted, 'legal_document', { type: 'doctor_terms', version: '1' }],
     ] as const;
     for (const [event, action, entityType, metadata] of events) {
       expect(event).toMatchObject({ action, entityType, entityId: ID, metadata });
@@ -36,16 +37,29 @@ describe('Eventos de auditoría de Identity (DT-14, RN-122)', () => {
     expect(event.actor.type).toBe('system');
   });
 
-  it('[TC-M02-052][DT-14] las acciones son exactamente las aprobadas: no existe "resubmitted"', () => {
+  it('[TC-M02-052][DT-14][R-8] las acciones son exactamente las aprobadas: no existe "resubmitted"', () => {
     expect(Object.values(IDENTITY_AUDIT_ACTIONS).sort()).toEqual([
       'identity.admin.bootstrapped',
       'identity.identity_document.viewed',
       'identity.identity_verification.approved',
       'identity.identity_verification.rejected',
       'identity.identity_verification.submitted',
+      'identity.legal_document.accepted',
+      'identity.legal_document.published',
       'identity.patient_profile.created',
       'identity.patient_profile.updated',
     ]);
+  });
+
+  it('[TC-M03-001][R-8] legal_document.published con actor sistema, tipo y versión', () => {
+    const event = IdentityAuditEvents.legalDocumentPublished(AuditActor.system('cli.legal-publish'), ID, 'privacy_policy', '2026-10');
+    expect(event).toMatchObject({
+      action: 'identity.legal_document.published',
+      entityType: 'legal_document',
+      entityId: ID,
+      metadata: { type: 'privacy_policy', version: '2026-10', systemProcess: 'cli.legal-publish' },
+    });
+    expect(event.actor.type).toBe('system');
   });
 
   it('[TC-M02-053][RN-122] la metadata no contiene datos personales, claves de objetos ni URLs', () => {
@@ -55,6 +69,8 @@ describe('Eventos de auditoría de Identity (DT-14, RN-122)', () => {
       IdentityAuditEvents.verificationSubmitted(actor, ID, 1),
       IdentityAuditEvents.verificationReviewed(actor, ID, 'rejected', 1),
       IdentityAuditEvents.documentViewed(actor, ID, 'front'),
+      IdentityAuditEvents.legalDocumentAccepted(actor, ID, 'patient_terms', 'v1'),
+      IdentityAuditEvents.legalDocumentPublished(AuditActor.system('cli.legal-publish'), ID, 'privacy_policy', 'v1'),
     ];
     for (const event of all) {
       const serialized = JSON.stringify(event.metadata ?? {});
