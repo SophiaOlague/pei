@@ -670,12 +670,121 @@ validación interna, no una evidencia formal (`record-test-run.mjs`).
 - La evidencia de esta ejecución vive fuera del repositorio.
 - Pendiente de decidir qué hacer con `br-winter-pond-b56r7iy6`, que contiene datos reales.
 
+### Régimen legal de PRUEBA del médico en la rama `m03-flujo-medicos` (2026-10-20)
+
+Objetivo: probar el registro de médicos y la aceptación de documentos con un régimen legal de ejemplo, **sin**
+declarar vigente un régimen real. Los datos de prueba son persistentes en la rama, por decisión del usuario.
+
+**Publicación en `production`: no se hizo.** El `previo` de `production` (C2 `legal-test`, solo lectura, 10:29:55 UTC)
+pasó: inventario exacto, 2 documentos de legado y LSN `0/32F9378`. Aun así, la publicación se detuvo por la condición
+del usuario: el código no garantiza que `privacy_policy@TEST-1` no acabe usándose como política de pacientes.
+
+- `PublishLegalDocumentsUseCase` admite publicar más tarde solo `patient_terms` si ya hay un `privacy_policy` vigente.
+  Es el comportamiento intencionado N1, cubierto por TC-M03-023.
+- Ninguna comprobación distingue un `privacy_policy` de prueba.
+
+Por eso se eligió una rama de pruebas.
+
+**Rama.** Antes de elegirla se revisó `ensayo-m03-prod` (`br-winter-pond-b56r7iy6`) en solo lectura: estaba en `0008`
+(sin `0009`–`0012`), con huella idéntica a la de `production` antes de `0009` y con datos reales. Se descartó. El
+usuario creó en la consola de Neon la rama `m03-flujo-medicos`: `br-floral-mode-b5hqaix0` / `ep-cool-base-b55xjarv`.
+Es hija de `production` con datos actuales; timeline `291fdc…`.
+
+**Documentos** (fuera del repositorio, `c2/legal-test/`):
+
+| Tipo | Versión | SHA-256 |
+|---|---|---|
+| `privacy_policy` | `TEST-1` | `726d25e958d50883d58674881273dae002b4696b7e56267e1a18d29240cc6dab` |
+| `doctor_terms` | `TEST-1` | `f5f1819ef224eefca68d9f5e6c07518a665131422bc6f56b6d87ae8a3dced77b` |
+
+Los textos son ficticios. El título lleva `[TEST / NO VIGENTE]` y un aviso inicial dice: documento de prueba, sin valor
+legal, no aprobado por nadie, y su aceptación no es un consentimiento real. No tienen firmas, aprobaciones ni fechas de
+entrada en vigor.
+
+**Herramienta.** C2 `flujo-medicos` (`Start-Flujo-Medicos.ps1`), con el destino fijado en `destino-flujo.json`.
+
+- Rechaza `production`, `rama`, `br-rough-truth` y `ensayo-m03-prod` por branch, endpoint y timeline.
+- Ejecuta el CLI del repositorio `legal:publish --audience doctor`. El código del CLI está fijado por SHA: 8 archivos
+  del commit `7ab6b92`.
+- Entorno: lista blanca, URL de la rama y Resend/R2 neutralizados.
+
+Pruebas simuladas antes de ejecutar: 34/34.
+
+**Hechos verificados**
+
+| Paso | Hora (UTC) | Resultado |
+|---|---|---|
+| `previo` (solo lectura) | 10:40:27 | PASS. S1 13 migraciones con hash; S2 esquema de médicos igual al de `production` tras `0012`; S3 7 funciones y 13 triggers; S4 3 especialidades; S5 0 médicos; P1–P4 inventario legal exacto (solo `privacy_notice@1` y `terms_and_conditions@1`), sin futuros, sin publicaciones previas, `TEST-1` libre. LSN `0/332D9E0` |
+| `publicar -ConfirmBranchWrite` | 10:40:58 | Código 0. `privacy_policy` TEST-1 y `doctor_terms` TEST-1, con el mismo `published_at` (`2026-10-20T10:40:58.491Z`). **Escritura persistente en la rama** |
+| `posterior`, intento 1 | 10:41:07 | **FAIL solo en Q7** (falso fallo de la herramienta; ver abajo); Q9 devolvía un objeto en lugar de un booleano |
+| `posterior`, intento 2 | 10:43:25 | **PASS: Q1–Q10** |
+
+Resultado de `posterior` (intento 2):
+
+| Comprobación | Resultado |
+|---|---|
+| Q1 dos documentos nuevos, versión `TEST-1` | PASS |
+| Q2 contenido y `content_hash` idénticos a los archivos | PASS |
+| Q3 mismo `published_at`, vigentes | PASS |
+| Q4 documentos de legado intactos | PASS |
+| Q5 dos eventos `identity.legal_document.published` | PASS |
+| Q6 aceptaciones sin cambios | PASS |
+| Q7 solo cambian `legal_document` y `audit_log` | PASS |
+| Q8 régimen del médico completo (`privacy_policy` y `doctor_terms` en `TEST-1`) | PASS |
+| Q9 pacientes en el régimen de legado (sin `patient_terms`) | PASS |
+| Q10 esquema M03 intacto (S1–S5) | PASS |
+
+Vigentes en la rama: `privacy_policy` TEST-1, `doctor_terms` TEST-1, `privacy_notice` 1 y `terms_and_conditions` 1.
+LSN final: `0/3330F10` (10:43:25 UTC). `posterior` solo lee: dos transacciones READ ONLY con ROLLBACK, sin
+validaciones de escritura.
+
+**Falso fallo de Q7 y corrección.** El intento 1 mostró 10 diferencias, todas en `legal_document` o `audit_log` salvo
+`identity_audit_log`. Ese campo es un contador derivado de `audit_log` (acciones `identity.%`, `c2-checks.cjs`) y la
+lista de diferencias admitidas no lo incluía.
+
+Corrección en `legal-test-publish.cjs` (`q7-q9.diff`):
+
+- Q7 admite `identity_audit_log` solo si sube exactamente lo mismo que `audit_log` y que los eventos de publicación
+  nuevos, y si eso coincide con los documentos nuevos. El resto de la huella sigue estricto.
+- Q9 devuelve un booleano explícito con las mismas condiciones.
+
+Pruebas locales: **38/38**, sin red. Incluyen 4 de regresión:
+
+- el estado observado pasa, y la lista antigua no lo admitía;
+- un cambio en otra tabla o en otro campo de la huella falla;
+- `identity_audit_log` no oculta eventos ajenos, de más o de menos;
+- Q9 siempre es booleano y detecta los estados incorrectos.
+
+Sumas SHA-256 (fuera del repositorio, `c2/prod-m03/`):
+
+| Archivo | SHA-256 |
+|---|---|
+| `resultados-flujo/previo.json` | `8a23a502cb3fc1100f96e229c3c09095942af868f97130d0588e8ad57fdea9eb` |
+| `resultados-flujo/publicar.json` | `a99c6534bdd8b64dbc8235a634b36d1b59ddf6f5070353b91c206d3d63a9cde5` |
+| `resultados-flujo/posterior.json` (intento 2) | `9dc5da3be8dc04abdb45013b8fbbb0f7933adb992e4521ef95672238e47b3826` |
+| `q7-q9.diff` | `236d946bd7bad3ff81a777e6fbc77f2f893f6afca6cd782647749a9ff6089f60` |
+| `SHA256SUMS` | `17126f16250186470566b1a7381cc010a999d19ffd27eef9e8d6df9a50199833` |
+
+El `posterior.json` del intento 1 se sobrescribió; su resultado consta en esta sección. Es una validación interna, no
+una evidencia formal.
+
+**Pendientes (no realizados)**
+
+- No se ha probado el flujo de registro de médicos en la rama. Hace falta levantar el backend local contra
+  `br-floral-mode-b5hqaix0` por C2, con un procedimiento y una autorización aparte.
+- `production` sigue sin régimen legal del médico. Publicar ahí requiere documentos reales aprobados, o antes un guard
+  que impida que un `privacy_policy` de prueba quede en el régimen del paciente (riesgo 21).
+- Código de M03 sin desplegar.
+- Decidir qué hacer con `br-floral-mode-b5hqaix0` (contiene datos reales copiados de `production` y los documentos
+  TEST-1) y con `br-winter-pond-b56r7iy6` (desactualizada y con datos reales).
+
 ### Ramas temporales de Neon (revisión de solo lectura, 2026-10-20)
 
 | Rama | Origen | Estado | Evidencia que contiene | Datos persistentes conocidos | Conservar | Eliminar |
 |---|---|---|---|---|---|---|
 | `rama` (`br-autumn-sun-b52qoep4`) | Hija de `production` (2026-10-14) | `0000`–`0012` aplicadas (verificado con C2 v11.2 a las 09:11 UTC; huella sin cambios desde la concurrencia) | Ensayos y aplicaciones de `0007`–`0012`, integración de A4, `probar-m03` y la concurrencia | 9 usuarios de prueba (5 médicos, 4 administradores), 5 `doctor_profile`, 7 revisiones de INE, 8 de cédula, 10 documentos legales de prueba (régimen del médico publicado), 10 aceptaciones, 34 eventos de auditoría, además de los datos copiados de `production` | Respalda la cadena de huellas de los ensayos (las sumas viven en C2). Ocupa almacenamiento de Neon | Se pierde la posibilidad de volver a inspeccionarla; las evidencias de C2 quedan como archivos. Ya no sirve para nuevas pruebas limpias |
 | `br-winter-pond-b56r7iy6` | Hija de `production` (datos actuales, 2026-10-20) | `0000`–`0008`; el ensayo no dejó cambios. Ya no refleja `production`, que tiene `0009`–`0012` desde las 10:06 UTC | Ensayo de `0009`–`0012` sobre los datos de `production` | Copia de los datos reales de `production` (4 perfiles, 1 administrador) | Permite repetir el ensayo mientras `production` no cambie | Recomendable eliminarla tras aplicar en `production`: contiene datos reales |
+| `br-floral-mode-b5hqaix0` (`m03-flujo-medicos`) | Hija de `production` (datos actuales, 2026-10-20, creada por el usuario) | `0000`–`0012`; `privacy_policy` y `doctor_terms` en `TEST-1` publicados (10:40:58 UTC) | Publicación del régimen legal de prueba del médico (C2 `flujo-medicos`) | Copia de los datos reales de `production` (4 perfiles, 1 administrador) y los 2 documentos TEST-1 con sus 2 eventos de auditoría | Destino de las pruebas del flujo de registro de médicos | Al terminar las pruebas: contiene datos reales |
 | `br-rough-truth-b5oc81xl` | Hija de `rama` restaurada al 2026-10-20 08:55:00 UTC | `0000`–`0012` aplicadas; huella idéntica a la de `rama` tras `probar-m03`; verificada con `verificar-limpia` y `evidencia-m03` (huellas antes y después iguales) | Base de la evidencia formal de M03 | Ninguno nuevo: las pruebas revirtieron todo | Permite repetir la evidencia o regresiones limpias | Una nueva evidencia necesitaría otra restauración (si la ventana de Neon lo permite) o una rama desde `production` |
 
 ## Riesgos y decisiones pendientes
@@ -701,4 +810,5 @@ validación interna, no una evidencia formal (`record-test-run.mjs`).
 | 17 | B8 encontró en la E2E de seguridad que el doble del gateway no registraba el log del conflicto de CURP que sí registra el adaptador real; se corrigió el doble (sin cambios en producción) | Resuelto |
 | 19 | Fin de línea: con `core.autocrlf=true`, un checkout nuevo reescribía las migraciones con CRLF y cambiaba sus hashes (comprobado en un clon desechable: `0012` pasaba de `e5d24a0f…` a `a643d446…`). Resuelto con `.gitattributes`: `apps/backend/src/db/migrations/*.sql -text`. Las 13 migraciones quedan `i/lf w/lf attr/-text`, sus SHA-256 no cambian y renormalizar no modifica ningún blob (2026-10-20) | Resuelto |
 | 20 | `0009`–`0012` aplicadas en `production` el 2026-10-20 (C2 `prod-m03`: `previo` y `aplicar` PASS; `posterior` Q1–Q12 PASS en el intento 2, tras corregir un falso fallo de Q5 en la herramienta). LSN previo `0/3248F20`. Siguen abiertos: el código de M03 sin desplegar, el régimen legal del médico sin publicar, la ventana de restauración de Neon sin verificar y la evidencia fuera del repositorio | Aplicada y verificada; pendientes de despliegue y publicación |
+| 21 | `privacy_policy` es común a pacientes y médicos. Si se publica un `privacy_policy` de prueba o de un solo rol, una publicación posterior de solo `patient_terms` (admitida por N1, TC-M03-023) lo dejaría en el régimen del paciente; nada en el código, la BD ni C2 lo impide. Por eso el régimen TEST-1 se publicó solo en la rama `m03-flujo-medicos` y no en `production` | Pendiente: guard en la publicación o en la BD antes de cualquier régimen no definitivo en `production` |
 | 6 | Las etiquetas de decisión de las pruebas (D-, R-, N-, M01-D2) no están en las convenciones de `docs/testing/README.md` | Pendiente de decidir |
