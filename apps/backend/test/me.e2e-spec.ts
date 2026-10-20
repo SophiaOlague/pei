@@ -4,6 +4,11 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DomainExceptionFilter } from '../src/common/filters/domain-exception.filter';
 import { createValidationPipe } from '../src/common/validation/create-validation-pipe';
+import { assertC2BranchTarget } from './support/c2-target-guard';
+
+// Salvaguarda de destino: solo contra la rama temporal mediante C2. Ejecutado de otra forma, src/db usaría el
+// DATABASE_URL del .env (rama `production`): falla al cargar el módulo, antes de cualquier consulta.
+assertC2BranchTarget();
 
 // E2E con la aplicación real (AppModule + Better Auth): solo casos sin sesión,
 // para no crear usuarios ni sesiones en la BD de desarrollo.

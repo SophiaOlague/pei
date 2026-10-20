@@ -25,6 +25,8 @@ const config: Config = {
   ],
   coverageDirectory: './coverage',
   testEnvironment: 'node',
+  // Bloquea cualquier conexión a PostgreSQL fuera de C2 (test/support/db-tripwire.ts).
+  setupFiles: ['<rootDir>/test/support/db-tripwire.ts'],
 };
 
 export default config;

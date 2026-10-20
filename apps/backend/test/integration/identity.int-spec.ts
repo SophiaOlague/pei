@@ -15,6 +15,7 @@ import {
 import { captureError, deferred, RollbackSignal, withRollback, type Tx } from '../support/with-rollback';
 import { countM00Residue, countM02Residue } from '../support/residue';
 import { syntheticCurp, syntheticJpeg, syntheticPng } from '../support/synthetic-identity';
+import { assertC2BranchTarget } from '../support/c2-target-guard';
 import {
   auditRows,
   createAdminActor,
@@ -24,6 +25,10 @@ import {
   publishLegalDocument,
   sessionActor,
 } from '../support/identity-integration';
+
+// Salvaguarda de destino: solo contra la rama temporal mediante C2. Ejecutado de otra forma, src/db usaría el
+// DATABASE_URL del .env (rama `production`): falla al cargar el módulo, antes de cualquier consulta.
+assertC2BranchTarget();
 
 // M02 Identity contra la BD de PEI con los adaptadores reales de PostgreSQL. Todo se revierte:
 // withRollback para una conexión y, en concurrencia, dos transacciones que terminan en ROLLBACK.
