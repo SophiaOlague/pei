@@ -545,6 +545,139 @@ Rama limpia `br-rough-truth-b5oc81xl` / `ep-damp-sound-b5m0fm79`, hija de `rama`
   `291ac843…`, `c2-el-despues-evidencia.json` `08a77fdb…` (fuera del repositorio). La concurrencia (TC-M03-183 a 187) no
   forma parte de esta corrida: se ejecutó aparte en `rama` (sección anterior).
 
+### Preflight de `production` para `0009`–`0012` (2026-10-20, solo lectura)
+
+Herramienta C2 `prod-m03` (fuera del repositorio): solo el modo `preflight`, una transacción READ ONLY con ROLLBACK, sin
+`drizzle-kit`. Reutiliza la sesión y la verificación de identidad de `prod-0008` y la verificación del journal de C2 v11.3.
+Pruebas simuladas 4/4. Ejecución: código 0, `preflight.json` `79efdecf…`.
+
+| Comprobación | Resultado |
+|---|---|
+| Identidad | `br-royal-recipe-b54s5hnn` / `ep-wandering-bonus-b5kxacor` / `royal-paper-10258990`, timeline `8e2d8b…`, PostgreSQL 18 (`180006`), rol `neondb_owner` |
+| Punto de recuperación | LSN `0/321B638` (2026-10-20 09:49:44 UTC) |
+| Migraciones | 9 aplicadas (`0000`–`0008`), iguales a las locales en hash y fecha; la última es `0008` |
+| Pendientes | Exactamente `0009`–`0012`, con los SHA-256 fijados (`c2960380…`, `e0dab493…`, `4355a9d2…`, `e5d24a0f…`) |
+| `0009` | Sin tabla `specialty` |
+| `0010` | `doctor_profile` con **0 filas**; el guard de `0010` pasa; las 15 columnas heredadas, la FK del revisor y los tipos `specialty_enum` y `doctor_verification_status_enum` están presentes |
+| `0011` | Sin tablas de revisión, tipos nuevos ni índices de M03 |
+| `0012` | Sin sus funciones; en `doctor_profile` solo el trigger de `0008` |
+| Esquema | Igual al de `rama` justo antes de aplicar `0009` (migraciones, tablas, triggers, restricciones de perfiles y enum legal) |
+| Datos | 4 `user_profile` (1 admin, 3 pacientes), 0 médicos, 2 documentos legales (solo el legado), 10 eventos de auditoría, 0 usuarios de prueba |
+
+Observaciones que no bloquean la migración: (a) `production` no tiene publicado el régimen legal del médico
+(`privacy_policy`, `doctor_terms`), así que tras desplegar M03 ningún médico podrá completar su registro hasta publicarlo
+con `legal:publish`; (b) `drizzle-kit migrate` aplicaría las cuatro migraciones en una sola transacción; (c) el código de
+M03 debe desplegarse después de las migraciones (el código actual de `production` no usa las tablas de médicos).
+
+### Ensayo de `0009`–`0012` en una copia de `production` (2026-10-20)
+
+Rama temporal autorizada por el usuario, hija de `production` con datos actuales: `br-winter-pond-b56r7iy6` /
+`ep-hidden-queen-b5xmmlx5` (timeline `70d10e…`). C2 v11.4, plan `ensayar-m03-prod`, sin plan de aplicación. `production`
+no se tocó.
+
+**Intento 1: detenido** en `rehearsal-m03-prod` por un error de la herramienta (`OBJECTS12` no estaba exportado en
+`c2-0012.cjs`); la transacción terminó en ROLLBACK. Se exportó, se agregó una prueba de los símbolos usados (233/233) y
+se repitió. El intento 2 empezó comprobando la huella, que seguía idéntica.
+
+**Intento 2: PASS** (código 0).
+
+| Paso | Hora (UTC) | Resultado |
+|---|---|---|
+| `estadop antes-ensayo` | 09:59:28 | PASS. Huella **idéntica** a la del preflight de `production`; 9 migraciones (`0000`–`0008`); 0 médicos |
+| `rehearsal-m03-prod` | 09:59:36 | PASS. En una sola transacción con ROLLBACK, en orden: `0009` (3 especialidades activas; 5 restricciones y 4 índices exactos), `0010` y `0011` (catálogo de `doctor_profile` y de las tablas de revisión **idéntico** al verificado en `rama`), `0012` (7 funciones y 13 triggers idénticos a los de `rama`); tablas de médicos vacías; tras el ROLLBACK, huella idéntica y objetos ausentes |
+| `estadop despues-ensayo` | 09:59:45 | PASS. Huella idéntica a `antes-ensayo` |
+
+Sumas: `c2-ep-antes-ensayo.json` `1a46358c…`, `c2-rehearsal-m03-prod.json` `a7bdb825…`, `c2-ep-despues-ensayo.json`
+`eb8c4297…` (`c2/v11.4/ensayo/SHA256SUMS`, fuera del repositorio). Validación interna, no formal. Los ficheros se
+verificaron por SHA antes de ejecutarse (`0009` `c2960380…`, `0010` `e0dab493…`, `0011` `4355a9d2…`, `0012`
+`e5d24a0f…`). El ensayo usa las sentencias de los archivos; la aplicación real la hará `drizzle-kit migrate`, que las
+ejecuta en una sola transacción.
+
+### Aplicación de `0009`–`0012` en `production` (2026-10-20)
+
+Autorizada de forma independiente por el usuario. Herramienta C2 `prod-m03` (fuera del repositorio), lanzada con
+`Start-Prod-M03.ps1` y el entorno de lista blanca. Configuración de `drizzle-kit` fijada por SHA
+(`drizzle-prod-m03.config.cjs` `0a7207d4…`). Antes de ejecutar: pruebas simuladas 10/10, sin red.
+
+**Hechos verificados**
+
+| Paso | Hora (UTC) | Resultado |
+|---|---|---|
+| `previo` (solo lectura) | 10:06:15–10:06:24 | PASS. Identidad `br-royal-recipe-b54s5hnn` / `ep-wandering-bonus-b5kxacor` / `royal-paper-10258990`, timeline `8e2d8b…`, PostgreSQL `180006`, rol `neondb_owner`. 9 migraciones (`0000`–`0008`), `0009`–`0012` pendientes con los SHA fijados, 0 médicos, guard de `0010` pasa, esquema igual al de `rama` antes de `0009`. **Punto de recuperación: LSN `0/3248F20`** (10:06:15) |
+| `aplicar --confirm-production-write` | 10:06:43 | Compuerta PASS (previo de menos de 15 minutos, journal y configuración iguales, ensayo `a7bdb825…` PASS); identidad verificada de nuevo; `drizzle-kit migrate` aplicó `0009`–`0012` en una sola transacción, código 0. **Escritura persistente** |
+| `posterior`, intento 1 | 10:07:00 | **FAIL solo en Q5** (falso fallo de la herramienta; ver abajo). Q1–Q4 y Q6–Q12 PASS |
+| `posterior`, intento 2 | 10:12:34–10:12:46 | **PASS: Q1–Q12** |
+
+Resultado de `posterior` (intento 2):
+
+| Comprobación | Resultado |
+|---|---|
+| Q1 13 migraciones aplicadas | PASS |
+| Q2 `0000`–`0008` intactas (iguales a las del previo) | PASS |
+| Q3 hashes de `0009`–`0012` (`c2960380…`, `e0dab493…`, `4355a9d2…`, `e5d24a0f…`; ids 10–13) | PASS |
+| Q4 catálogo de especialidades (3 activas) | PASS |
+| Q5 esquema de médicos igual al ensayado | PASS |
+| Q6 7 funciones y 13 triggers iguales a los del ensayo | PASS |
+| Q7 triggers habilitados | PASS |
+| Q8 datos sin cambios (4 `user_profile`, 3 pacientes, 2 documentos legales, 10 eventos de auditoría, 4 usuarios, 1 admin) | PASS |
+| Q9 tablas de médicos vacías | PASS |
+| Q10 solo cambios de M03 respecto del previo | PASS |
+| Q11 reglas activas en transacción revertida: V1 borrar especialidad, V2 cambiar `code`, V3 `TRUNCATE` de revisiones → `P0001` | PASS |
+| Q12 sin residuos tras la validación | PASS |
+
+LSN final registrado por `posterior`: `0/3299980` (10:12:34 UTC). `posterior` solo lee (transacción READ ONLY con
+ROLLBACK) y valida en una transacción con savepoints que termina en ROLLBACK; no aplica migraciones ni repara nada.
+
+**Falso fallo de Q5 y corrección.** Q5 comparaba el catálogo de médicos leído *después de `0012`* con la referencia
+`tras_0011` del ensayo B2, tomada antes de que existieran los triggers de `0012`. Un diagnóstico de solo lectura
+(`diag-q5.cjs`, `diag-q5.json` `072f47fe…`) mostró que la única diferencia eran 9 triggers, todos de `0012` sobre
+`doctor_identity_verification`, `doctor_license_verification` y `doctor_profile`. Columnas, tipos, restricciones e
+índices eran idénticos, y Q6 ya confirmaba los 13 triggers. Corrección: la referencia de Q5 es `tras_0011` más
+exactamente esos 9 triggers, tomados del ensayo de `0012`. Ambas referencias están fijadas por SHA y nunca se leen de
+`production`. Las demás categorías se siguen comparando sin cambios, y la herramienta se detiene si el número de
+triggers añadidos no es 9.
+
+Pruebas locales de `prod-m03` tras la corrección: **15/15**, sin red ni procesos. Incluyen 5 de regresión de Q5:
+
+- la referencia y su origen;
+- el esquema esperado pasa;
+- el catálogo observado en `production` no da falso fallo, mientras que la comparación antigua sí falla;
+- falta, sobra, se renombra o se reordena un trigger → FAIL;
+- se quita, se añade o cambia una columna, un tipo, una restricción o un índice → FAIL.
+
+Las migraciones `0009`–`0012` del repositorio no cambiaron.
+
+Sumas SHA-256 (fuera del repositorio, `c2/prod-m03/`):
+
+| Archivo | SHA-256 |
+|---|---|
+| `resultados-aplicacion/previo.json` | `766e3554453e3ec4185f759b67b52461dc266a88ff269b2300515ef5e047f794` |
+| `resultados-aplicacion/aplicar.json` | `1adb4b3b7b1d632e68bb08689dd97fc8dd586e048c2893e921622f90a1b743ab` |
+| `resultados-aplicacion/posterior.json` (intento 2) | `e23779131c02eae665f85427bfe9d18199e863ba36b5663610d8725759cb4002` |
+| `resultados-aplicacion/diag-q5.json` | `072f47fe89abb40cb532a026d5aaa93f25a2bc9ce9a447ca4323f0929c397116` |
+| `SHA256SUMS` (herramienta, pruebas y resultados) | `ef2ee64833ac21d2c879a96bfe76d9284dd75c3f3527cd6934665c7a830d45a8` |
+
+El `posterior.json` del intento 1 se sobrescribió con el del intento 2; su resultado consta en esta sección. Es una
+validación interna, no una evidencia formal (`record-test-run.mjs`).
+
+**Pendientes (no realizados)**
+
+- **Código de M03 sin desplegar** en `production`; desplegarlo requiere una autorización aparte.
+- **Régimen legal del médico sin publicar** (`privacy_policy`, `doctor_terms` con `legal:publish`): hasta publicarlo,
+  ningún médico podrá completar su registro.
+- Ventana de restauración de Neon al LSN `0/3248F20` sin verificar.
+- Suites completas sin ejecutar contra `production`.
+- La evidencia de esta ejecución vive fuera del repositorio.
+- Pendiente de decidir qué hacer con `br-winter-pond-b56r7iy6`, que contiene datos reales.
+
+### Ramas temporales de Neon (revisión de solo lectura, 2026-10-20)
+
+| Rama | Origen | Estado | Evidencia que contiene | Datos persistentes conocidos | Conservar | Eliminar |
+|---|---|---|---|---|---|---|
+| `rama` (`br-autumn-sun-b52qoep4`) | Hija de `production` (2026-10-14) | `0000`–`0012` aplicadas (verificado con C2 v11.2 a las 09:11 UTC; huella sin cambios desde la concurrencia) | Ensayos y aplicaciones de `0007`–`0012`, integración de A4, `probar-m03` y la concurrencia | 9 usuarios de prueba (5 médicos, 4 administradores), 5 `doctor_profile`, 7 revisiones de INE, 8 de cédula, 10 documentos legales de prueba (régimen del médico publicado), 10 aceptaciones, 34 eventos de auditoría, además de los datos copiados de `production` | Respalda la cadena de huellas de los ensayos (las sumas viven en C2). Ocupa almacenamiento de Neon | Se pierde la posibilidad de volver a inspeccionarla; las evidencias de C2 quedan como archivos. Ya no sirve para nuevas pruebas limpias |
+| `br-winter-pond-b56r7iy6` | Hija de `production` (datos actuales, 2026-10-20) | `0000`–`0008`; el ensayo no dejó cambios. Ya no refleja `production`, que tiene `0009`–`0012` desde las 10:06 UTC | Ensayo de `0009`–`0012` sobre los datos de `production` | Copia de los datos reales de `production` (4 perfiles, 1 administrador) | Permite repetir el ensayo mientras `production` no cambie | Recomendable eliminarla tras aplicar en `production`: contiene datos reales |
+| `br-rough-truth-b5oc81xl` | Hija de `rama` restaurada al 2026-10-20 08:55:00 UTC | `0000`–`0012` aplicadas; huella idéntica a la de `rama` tras `probar-m03`; verificada con `verificar-limpia` y `evidencia-m03` (huellas antes y después iguales) | Base de la evidencia formal de M03 | Ninguno nuevo: las pruebas revirtieron todo | Permite repetir la evidencia o regresiones limpias | Una nueva evidencia necesitaría otra restauración (si la ventana de Neon lo permite) o una rama desde `production` |
+
 ## Riesgos y decisiones pendientes
 
 | # | Tema | Estado |
@@ -567,5 +700,5 @@ Rama limpia `br-rough-truth-b5oc81xl` / `ep-damp-sound-b5m0fm79`, hija de `rama`
 | 18 | Base limpia para B9 (2026-10-20): rama hija de `rama` restaurada en un punto entre 05:51:07Z y 09:01:40Z (antes de la concurrencia), creada por el usuario. Rama creada por el usuario: `br-rough-truth-b5oc81xl` / `ep-damp-sound-b5m0fm79`, punto 2026-10-20 08:55:00 UTC. C2 v11.3 `verificar-limpia` (solo lectura): identidad APROBADA y huella **idéntica** a la de `rama` tras `probar-m03` (13 migraciones, sin administradores, usuarios de prueba ni médicos); `c2-el-antes-verificar.json` `6847d64a…`. Pendiente: `probar-m03-limpia` y, tras el commit autorizado, `evidencia-m03` | Resuelto: evidencia formal registrada |
 | 17 | B8 encontró en la E2E de seguridad que el doble del gateway no registraba el log del conflicto de CURP que sí registra el adaptador real; se corrigió el doble (sin cambios en producción) | Resuelto |
 | 19 | Fin de línea: con `core.autocrlf=true`, un checkout nuevo reescribía las migraciones con CRLF y cambiaba sus hashes (comprobado en un clon desechable: `0012` pasaba de `e5d24a0f…` a `a643d446…`). Resuelto con `.gitattributes`: `apps/backend/src/db/migrations/*.sql -text`. Las 13 migraciones quedan `i/lf w/lf attr/-text`, sus SHA-256 no cambian y renormalizar no modifica ningún blob (2026-10-20) | Resuelto |
-| 20 | `production` sigue en `0008`. Aplicar `0009`–`0012` requiere su propio procedimiento C2 (precondición de `0010`: 0 médicos en `production`; `drizzle-kit migrate` aplicaría las cuatro juntas) y autorización independiente | Pendiente |
+| 20 | `0009`–`0012` aplicadas en `production` el 2026-10-20 (C2 `prod-m03`: `previo` y `aplicar` PASS; `posterior` Q1–Q12 PASS en el intento 2, tras corregir un falso fallo de Q5 en la herramienta). LSN previo `0/3248F20`. Siguen abiertos: el código de M03 sin desplegar, el régimen legal del médico sin publicar, la ventana de restauración de Neon sin verificar y la evidencia fuera del repositorio | Aplicada y verificada; pendientes de despliegue y publicación |
 | 6 | Las etiquetas de decisión de las pruebas (D-, R-, N-, M01-D2) no están en las convenciones de `docs/testing/README.md` | Pendiente de decidir |
