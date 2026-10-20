@@ -12,7 +12,7 @@ Fuente del detalle: [resumen de evidencia de M02](../ejecuciones/2026-10-07_M02-
 
 **Cierre técnico:** cumplido para el alcance técnico original de M02, previo al incremento controlado A1–A3
 (implementación, migraciones 0004/0005 aplicadas, regresión e infraestructura real).
-**Pendientes formales:** evidencia formal (etapa D), ejecución real de `admin:bootstrap` y tag de cierre. La etapa D
+**Pendientes formales:** evidencia formal (etapa D) y tag de cierre. `admin:bootstrap` ya se ejecutó en `production` (informado por la responsable del producto el 2026-10-18; sin evidencia versionada; ver «Preparación de `admin:bootstrap`»). La etapa D
 requiere además un procedimiento de ejecución seguro, pendiente de autorización; `0007` ya está aplicada en la BD
 configurada en `.env` desde el 2026-10-17 (ver «Incremento controlado»).
 
@@ -23,7 +23,7 @@ configurada en `.env` desde el 2026-10-17 (ver «Incremento controlado»).
 | Validación post-migración (etapa A) | 374/374 PASS, **validación interna** sin salida versionada; no es evidencia formal |
 | Corridas de evidencia B y C | **Descartadas** (timeouts por latencia; ver sus `DESCARTADA.md`) |
 | Evidencia formal (etapa D) | **Pendiente** por latencia de red hacia Neon |
-| `admin:bootstrap` real | **Pendiente**: faltan `APP_WEB_URL`, la integración del provisioner real y las E2E de autenticación con el flujo nuevo, y la ejecución autorizada. Las pantallas `/restablecer-contrasena` y `/admin` (provisional) ya existen; ver «Preparación de `admin:bootstrap`» |
+| `admin:bootstrap` real | **Ejecutado** en `production`: administrador creado, contraseña definida, correo verificado y acceso a `/admin` (informado por la responsable del producto el 2026-10-18; sin evidencia versionada). Implementación versionada en `5d57830`. Sigue pendiente la evidencia formal; ver «Preparación de `admin:bootstrap`» |
 | R2 real (`pei-documents-dev`) | **PASS** 10/10 |
 | Resend real | **PASS** |
 | Cierre formal (tag) | Pendiente de la etapa D |
@@ -82,7 +82,7 @@ Tipo: **RF** requisito funcional · **RN** regla de negocio · **RNF** requisito
 | RNF-08 | RNF | Acciones sensibles auditadas en la misma UoW | `AuditTrail` (M01) | TC-M02-079, 100, 108, 216 | PASS | Completa para los eventos de DT-14 |
 | RNF-10 | RNF | Validación de entrada y respuestas sin datos sensibles | DTO, pipe de M00, plantillas | TC-M02-007, 061, 201, 208, 220 | PASS | Completa |
 | DP-2 | DP | Verificación y recuperación | `createAuth`, `ResendEmailSender` | TC-M02-009, 060, 200–204 | PASS | La caducidad se probó con el token de recuperación, no con el de verificación |
-| DP-5 | DP | Rol no asignable; bootstrap por CLI | DTO sin rol, CLI, trigger | TC-M02-073, 082, 092, 112, 114, 223 | PASS | El bootstrap real está **pendiente** (dependencia del cliente web) |
+| DP-5 | DP | Rol no asignable; bootstrap por CLI | DTO sin rol, CLI, trigger | TC-M02-073, 082, 092, 112, 114, 223 | PASS | Bootstrap real ejecutado en `production` (informado por la responsable del producto el 2026-10-18; sin evidencia versionada) |
 | DP-8 | DP | Estado del registro derivado | `computeRegistrationStatus`, lector, política | TC-M02-010–014, 090, 097, 210, 211 | PASS | Completa |
 | DP-11 | DP | Un solo `pending`; reenvío tras `rejected` | Índice parcial, `nextSubmissionAttempt` | TC-M02-022, 023, 105, 106 | PASS | Completa |
 | DP-12 | DP | Solo campos editables | DTO de `PATCH`, `UpdatePatientProfile` | TC-M02-083, 084, 094, 206, 221, 222 | PASS | Completa |
@@ -98,7 +98,7 @@ Tipo: **RF** requisito funcional · **RN** regla de negocio · **RNF** requisito
 | DT-9 | DT | Resend por REST | `ResendEmailSender` | TC-M02-062–064 | PASS | Envío real PASS (resumen de evidencia, sección 5) |
 | DT-10 | DT | Destinos de los enlaces configurables | `loadAuthConfig` | TC-M02-008 | PASS | `APP_WEB_URL` aún no definida (dependencia). Destino y validación del enlace de contraseña: TC-M02-230 a 233, validación unitaria interna (ver «Preparación de `admin:bootstrap`») |
 | DT-11 | DT | Contraseña de 8 a 128 caracteres | `createAuth` | TC-M02-009, 205 | PASS | Completa |
-| DT-12 | DT | Bootstrap que falla cerrado | `BootstrapAdminUseCase`, CLI | TC-M02-051, 092, 093, 112, 113 | PASS | **Ejecución real pendiente**. Validación previa de la configuración y manejo de errores del CLI: TC-M02-233 y 234, validación unitaria interna (ver «Preparación de `admin:bootstrap`») |
+| DT-12 | DT | Bootstrap que falla cerrado | `BootstrapAdminUseCase`, CLI | TC-M02-051, 092, 093, 112, 113 | PASS | Ejecución real hecha en `production` (informado por la responsable del producto el 2026-10-18; sin evidencia versionada). Validación previa de la configuración y manejo de errores del CLI: TC-M02-233 y 234, validación unitaria interna (ver «Preparación de `admin:bootstrap`») |
 | DT-13 | DT | Endpoints antiguos eliminados | — | TC-M02-226, 228 | PASS | Completa |
 | DT-14 | DT | Eventos de auditoría aprobados | `IDENTITY_AUDIT_ACTIONS` | TC-M02-050, 052 | PASS | Completa |
 | DT-16 | DT | Sin límite de intentos; control por estado y rate limit | Transiciones, rate limit | TC-M02-021, 105, 215 | PASS | Completa |
@@ -223,9 +223,18 @@ obsolescencia en un comentario. Su retiro requiere una decisión aparte.
 
 ## Preparación de `admin:bootstrap` (posterior a A1–A3)
 
-Cambios en `feat/m03-doctors` posteriores a `0551f9e`. **No se ha ejecutado `admin:bootstrap`** y no se ha creado
-ningún administrador. Los casos de esta sección son **validaciones unitarias internas**: no se generaron con
+Cambios en `feat/m03-doctors` posteriores a `0551f9e`, versionados en `5d57830` (`feat(m02): add controlled admin bootstrap
+and setup flow`). Los casos de esta sección son **validaciones unitarias internas**: no se generaron con
 `pnpm test:evidence`, su salida no está versionada y **no constituyen evidencia formal de cierre** (etapa D).
+
+Estado, por separado:
+
+| Aspecto | Estado |
+|---|---|
+| Implementación | Versionada en `5d57830` (CLI, provisioner, flujo de correos, `/admin` provisional y pruebas) |
+| Ejecución real | `admin:bootstrap` se ejecutó en Neon `production`: el administrador inicial se creó, definió su contraseña, verificó su correo e ingresó a `/admin` (informado por la responsable del producto el 2026-10-18; sin evidencia versionada) |
+| Validación técnica disponible | Pruebas unitarias internas (abajo) y la ejecución real anterior. Las pruebas de integración y E2E del flujo siguen como se indica en esta sección |
+| Evidencia formal y cierre de M02 | **Pendientes**: etapa D y revisión de los criterios pendientes antes del tag de cierre |
 
 | Cambio | Código |
 |---|---|
@@ -287,10 +296,12 @@ contraseña, así que no les afecta (TC-M02-241), salvo una consulta más por ve
   que revisar el bloqueo.
 - Con un enlace prematuro, el cliente web recibe `/completar-registro?error=EMAIL_VERIFICATION_REQUIRES_PASSWORD` sin
   sesión y envía a `/login` sin mostrar el motivo.
-- La espera de los correos antes de salir y la experiencia completa del administrador están validadas solo con dobles
-  y Better Auth en memoria: con Resend, la BD y el navegador reales no se han observado.
+- En las pruebas automatizadas, la espera de los correos antes de salir y la experiencia completa del administrador
+  están validadas solo con dobles y Better Auth en memoria. Con Resend, la BD y el navegador reales, el recorrido se
+  completó en la ejecución en `production` (informado por la responsable del producto el 2026-10-18; sin evidencia
+  versionada).
 
-**Pendiente para el bootstrap real:** `APP_WEB_URL` en la configuración del backend y la ejecución autorizada.
+**Bootstrap real:** ejecutado en `production` (informado por la responsable del producto el 2026-10-18; sin evidencia versionada). Como el CLI exige `APP_WEB_URL` antes de cualquier operación, esa variable estaba definida en el entorno de ejecución, que no está versionado. El recorrido real del administrador no está documentado como evidencia formal.
 
 ## Infraestructura real
 
@@ -298,7 +309,7 @@ contraseña, así que no les afecta (TC-M02-241), salvo una consulta más por ve
 |---|---|
 | R2 `pei-documents-dev` | PASS 10/10 |
 | Resend | PASS (HTTP 200) |
-| `admin:bootstrap` | **Pendiente**: faltan `APP_WEB_URL`, la integración del provisioner real y las E2E de autenticación con el flujo nuevo, y la ejecución autorizada. Las pantallas `/restablecer-contrasena` y `/admin` (provisional) ya existen; ver «Preparación de `admin:bootstrap`» |
+| `admin:bootstrap` | **Ejecutado** en `production` (informado por la responsable del producto el 2026-10-18; sin evidencia versionada); implementación en `5d57830`. Pendientes: evidencia formal y, si no constan, la integración del provisioner real y las E2E de autenticación con el flujo nuevo; ver «Preparación de `admin:bootstrap`» |
 
 ## Límites de cobertura
 
@@ -306,7 +317,7 @@ contraseña, así que no les afecta (TC-M02-241), salvo una consulta más por ve
 2. La transmisión del INE por el endpoint del administrador se probó con almacenamiento falso. R2 real se validó con el
    adaptador directamente.
 3. El acceso por `r2.dev` del bucket nuevo no se comprobó: está desactivado según el panel.
-4. El bootstrap real no se ejecutó; solo con dobles y con rollback.
+4. El bootstrap real se ejecutó en `production` (informado por la responsable del producto el 2026-10-18; sin evidencia versionada); sus pruebas automatizadas son con dobles y con rollback.
 5. Las carreras entre dos conexiones que requieren datos confirmados (el mismo paciente) se simulan en una conexión.
    La garantía final la dan el índice parcial y el `UPDATE … WHERE status = 'pending'`.
 
@@ -314,7 +325,7 @@ contraseña, así que no les afecta (TC-M02-241), salvo una consulta más por ve
 
 | # | Elemento | Estado |
 |---|---|---|
-| 1 | `APP_WEB_URL`, la integración del provisioner real y las E2E de autenticación con el flujo nuevo | Dependencias que desbloquean `admin:bootstrap` (las pantallas del cliente web ya existen) |
+| 1 | La integración del provisioner real y las E2E de autenticación con el flujo nuevo | Validación técnica pendiente del flujo de `admin:bootstrap`, ya ejecutado en `production`; no bloquea la ejecución, sí la evidencia formal |
 | 2 | Rate limit distribuido (Better Auth `secondary-storage` y adaptador de `RateLimiter`) | Obligatorio antes de tener varias instancias |
 | 3 | Conciliación de objetos huérfanos sin fila en la BD | Deuda (DT-6) |
 | 4 | `trust proxy` e IP detrás de un proxy | Deuda M00 #3 |
