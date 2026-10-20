@@ -778,13 +778,124 @@ una evidencia formal.
 - Decidir qué hacer con `br-floral-mode-b5hqaix0` (contiene datos reales copiados de `production` y los documentos
   TEST-1) y con `br-winter-pond-b56r7iy6` (desactualizada y con datos reales).
 
+### Flujo de registro de un médico de prueba en `m03-flujo-medicos` (2026-10-20)
+
+Recorrido por HTTP del registro de un médico con el backend local de `feat/m03-doctors` (`ec6a220`), conectado solo a
+`br-floral-mode-b5hqaix0` / `ep-cool-base-b55xjarv` (timeline `291fdc…`). La cuenta de prueba y sus filas son
+permanentes en la rama, por decisión del usuario. No se desplegó código ni se tocó `production`.
+
+**Herramienta**
+
+- **Runner** en `apps/backend/test/flujo/` (sin commit):
+  - `doctor-registration.flow-spec.ts`, `flow-guard.ts` y `jest-flujo.json`;
+  - lo excluyen las suites unitaria y E2E, por su `testRegex`.
+- **Arranque:** `Test.createTestingModule` con el `AppModule` real (Drizzle, Better Auth, UnitOfWork y auditoría
+  reales), escuchando solo en `127.0.0.1`.
+- **Dobles:**
+  - almacén privado en memoria (`FakeDocumentStorage`): nada va a R2;
+  - captura del enlace de verificación en memoria: nada va a Resend.
+- **`flow-guard.ts`** se importa antes que el backend. Exige la rama fijada y `C2_COMMITTED_FIXTURES=flujo-medicos-accepted`.
+- **Identidad:** el runner comprueba la identidad del pool del propio backend al arrancar y antes de cada paso que
+  escribe.
+- **Wrapper:** C2 `flujo-registro` (`Start-Flujo-Registro.ps1`): `previo`, `flujo -ConfirmBranchWrite`, `posterior`.
+  - Entorno de lista blanca, URL de la rama y Resend/R2 neutralizados.
+  - Runner fijado por SHA.
+  - La salida completa del runner se guarda sin mostrarse y se analiza en busca de correos ajenos, CURP reales y
+    secretos.
+- **Comprobaciones previas:** pruebas simuladas 46/46. Fuera de C2 (sin identidad, con la de `production` o sin el
+  marcador), el runner se rechaza al cargar, sin conexiones.
+
+**Recorrido real** (`me-doctor.controller.ts`, `me.controller.ts`, Better Auth):
+
+1. Documentos legales vigentes del médico.
+2. Alta de la cuenta en Better Auth y verificación del correo.
+3. Especialidades (requieren sesión).
+4. Perfil de médico.
+5. Aceptación de `privacy_policy` y `doctor_terms` TEST-1.
+6. INE y cédula sintéticas.
+7. Consulta del estado.
+
+La aceptación va antes de los envíos para que el último envío registre `doctor.registration.completed`.
+
+**Hechos verificados**
+
+| Paso | Hora (UTC) | Resultado |
+|---|---|---|
+| `previo`, intento 1 | 10:57:40 | PASS (S1–S5; régimen TEST-1 del médico; pacientes en legado; 0 cuentas de prueba). LSN `0/335B4D0` |
+| `flujo`, intento 1 | entre 10:57:40 y 10:58:38 | **Detenido en el paso 2, sin escrituras**: `GET /specialties` respondió 401 porque el controlador usa `SessionGuard`, y el runner la trataba como pública. Un `previo` repetido (10:58:38) confirmó 0 cuentas de prueba y 0 médicos. Corrección autorizada: la consulta pasa a hacerse con sesión, después de verificar el correo |
+| `previo`, intento 2 | 11:10:08 | PASS. LSN `0/3385BC0` |
+| `flujo -ConfirmBranchWrite`, intento 2 | entre 11:10:08 y 11:10:56 | Los 10 pasos con los códigos esperados: legales 200, alta 200, verificación 200, especialidades 200, perfil 201, aceptaciones 201, INE 201, cédula 201 (`initial`), estado 200 y `/me` 200. Identidad del pool comprobada en cada escritura. Salida: 0 correos ajenos, 0 CURP, 0 secretos; logger con 60 líneas sin datos ajenos. **Escritura persistente en la rama: una cuenta de prueba.** Código de Jest 1: la última aserción del runner buscaba `canOperate` en `/me/doctor/status` (ver abajo) |
+| `posterior`, intento 1 | 11:10:56 | **FAIL en R8 y R9** (falsos fallos de la herramienta; ver abajo). R1–R7, R10 y R11 PASS |
+| `posterior`, intento 2 | 13:04:02 | **PASS: R1–R11** |
+
+Resultado de `posterior` (intento 2):
+
+| Comprobación | Resultado |
+|---|---|
+| R1 identidad y timeline iguales a los de `previo` | PASS |
+| R2 los 10 pasos con los códigos HTTP esperados | PASS |
+| R3 exactamente una cuenta nueva `@m00.test.invalid`, con el correo verificado | PASS |
+| R4 `user_profile` con rol doctor y `doctor_profile` con la especialidad elegida (`medicina_general`) | PASS |
+| R5 dos aceptaciones, exactamente `doctor_terms@TEST-1` y `privacy_policy@TEST-1` | PASS |
+| R6 INE y cédula, una de cada, en `pending` | PASS |
+| R7 exactamente 6 eventos: `doctor.profile.created`, 2 × `identity.legal_document.accepted`, `doctor.identity_verification.submitted`, `doctor.license_verification.submitted` y `doctor.registration.completed` | PASS |
+| R8 estado derivado: `pending` en las dos líneas, `registrationComplete=true`, `missing=[]`; en `GET /me`, rol doctor y `canOperate=false` | PASS |
+| R9 ningún cambio fuera de las tablas que el registro debía tocar | PASS |
+| R10 esquema M03 (S1–S4), migraciones y documentos legales intactos | PASS |
+| R11 la salida sin datos ajenos | PASS |
+
+LSN final: `0/33B55B8` (13:04:02 UTC). `posterior` solo lee: tres transacciones READ ONLY con ROLLBACK, sin escrituras
+ni procesos. No se volvió a ejecutar `flujo`.
+
+**Falsos fallos de R8 y R9 y corrección** (`flujo-registro.cjs`, `r8-r9.diff`):
+
+- **R8.** Buscaba `canOperate` en `GET /me/doctor/status`, que no lo devuelve. Ese campo lo añade `GET /me`:
+  `registrationStatus.canOperate = status === 'approved'` (`doctor-profile-section.provider.ts`). Ahora se lee de
+  `GET /me` y debe ser exactamente `false`; si es `true` o falta, R8 falla. El resto de condiciones del estado no cambió.
+- **R9.** La huella guarda, por campo crítico, sus no nulos y las versiones de su tabla. El filtro no las cubría para
+  `user`, `account`, `session` y `user_profile`. Ahora se admiten solo para esas cuatro tablas; los demás campos y tablas
+  siguen estrictos. La referencia sigue siendo `previo.json` y no se regeneró.
+
+Pruebas locales: **50/50**, sin red. Incluyen 4 de regresión:
+
+- R8 pasa con el resultado real del runner y falla si `canOperate` es `true`, falta o solo aparece en
+  `/me/doctor/status`;
+- R9 admite solo las 11 diferencias de campos críticos observadas en las cuatro tablas;
+- una diferencia en cualquier otra tabla o campo crítico ajeno hace fallar R9;
+- las referencias salen de `previo.json` y la evaluación no muta sus entradas.
+
+Sumas SHA-256 (fuera del repositorio, `c2/prod-m03/`):
+
+| Archivo | SHA-256 |
+|---|---|
+| `resultados-registro/previo.json` (intento 2) | `0fdf96b800a40714dae87682367cf73b9435a7d703ba6b482d3b0d13c5bdf382` |
+| `resultados-registro/flujo.json` | `11867a63c0a1a49cff9b0bec152c8552183bea3d159cef36fc811829215d6ff5` |
+| `resultados-registro/salida-runner.log` (no se muestra) | `bb486761cb282501d4601ae4eff3e12e315372e573941827061b82f371f0703c` |
+| `resultados-registro/posterior.json` (intento 2) | `dee7b9cfc5dd38f0b7c5636b98c265e6994eae22ac4c08cc1344e30c8ddddd2a` |
+| `r8-r9.diff` | `19ce9070456163314184af13352bcd10385232a2fdd6568f9c8cfc9e5930cff7` |
+| `SHA256SUMS` | `e86c657aeeb74b52b8fac97b8b699fb8f8ef5233b5318c7fe6da9eaf0f305416` |
+
+Los `previo.json` y `posterior.json` de los primeros intentos se sobrescribieron; sus resultados constan en esta
+sección. Es una validación interna, no una evidencia formal.
+
+**Pendientes (no realizados)**
+
+- La última aserción del runner (`doctor-registration.flow-spec.ts`) sigue buscando `canOperate` en
+  `/me/doctor/status`. Se corregirá antes de cualquier nueva ejecución (cambia su SHA fijado en C2).
+- El runner en `apps/backend/test/flujo/` no está en ningún commit: decidir si se versiona.
+- No se probó la revisión del admin (aprobar o rechazar la INE y la cédula). Además, los documentos de la cuenta de
+  prueba apuntan a claves que no existen en R2, porque el almacén estaba en memoria.
+- `production` sigue sin régimen legal del médico (riesgo 21) y sin el código de M03 desplegado.
+- Decidir qué hacer con `br-floral-mode-b5hqaix0` (datos reales copiados de `production`, documentos TEST-1 y la cuenta
+  de prueba) y con `br-winter-pond-b56r7iy6`.
+
 ### Ramas temporales de Neon (revisión de solo lectura, 2026-10-20)
 
 | Rama | Origen | Estado | Evidencia que contiene | Datos persistentes conocidos | Conservar | Eliminar |
 |---|---|---|---|---|---|---|
 | `rama` (`br-autumn-sun-b52qoep4`) | Hija de `production` (2026-10-14) | `0000`–`0012` aplicadas (verificado con C2 v11.2 a las 09:11 UTC; huella sin cambios desde la concurrencia) | Ensayos y aplicaciones de `0007`–`0012`, integración de A4, `probar-m03` y la concurrencia | 9 usuarios de prueba (5 médicos, 4 administradores), 5 `doctor_profile`, 7 revisiones de INE, 8 de cédula, 10 documentos legales de prueba (régimen del médico publicado), 10 aceptaciones, 34 eventos de auditoría, además de los datos copiados de `production` | Respalda la cadena de huellas de los ensayos (las sumas viven en C2). Ocupa almacenamiento de Neon | Se pierde la posibilidad de volver a inspeccionarla; las evidencias de C2 quedan como archivos. Ya no sirve para nuevas pruebas limpias |
 | `br-winter-pond-b56r7iy6` | Hija de `production` (datos actuales, 2026-10-20) | `0000`–`0008`; el ensayo no dejó cambios. Ya no refleja `production`, que tiene `0009`–`0012` desde las 10:06 UTC | Ensayo de `0009`–`0012` sobre los datos de `production` | Copia de los datos reales de `production` (4 perfiles, 1 administrador) | Permite repetir el ensayo mientras `production` no cambie | Recomendable eliminarla tras aplicar en `production`: contiene datos reales |
-| `br-floral-mode-b5hqaix0` (`m03-flujo-medicos`) | Hija de `production` (datos actuales, 2026-10-20, creada por el usuario) | `0000`–`0012`; `privacy_policy` y `doctor_terms` en `TEST-1` publicados (10:40:58 UTC) | Publicación del régimen legal de prueba del médico (C2 `flujo-medicos`) | Copia de los datos reales de `production` (4 perfiles, 1 administrador) y los 2 documentos TEST-1 con sus 2 eventos de auditoría | Destino de las pruebas del flujo de registro de médicos | Al terminar las pruebas: contiene datos reales |
+| `br-floral-mode-b5hqaix0` (`m03-flujo-medicos`) | Hija de `production` (datos actuales, 2026-10-20, creada por el usuario) | `0000`–`0012`; `privacy_policy` y `doctor_terms` en `TEST-1` publicados (10:40:58 UTC) | Publicación del régimen legal de prueba del médico (C2 `flujo-medicos`) | Copia de los datos reales de `production` (4 perfiles, 1 administrador), los 2 documentos TEST-1 con sus 2 eventos de auditoría y una cuenta de médico de prueba (`@m00.test.invalid`) con 2 aceptaciones, INE y cédula `pending` y 6 eventos | Destino de las pruebas del flujo de registro de médicos | Al terminar las pruebas: contiene datos reales |
 | `br-rough-truth-b5oc81xl` | Hija de `rama` restaurada al 2026-10-20 08:55:00 UTC | `0000`–`0012` aplicadas; huella idéntica a la de `rama` tras `probar-m03`; verificada con `verificar-limpia` y `evidencia-m03` (huellas antes y después iguales) | Base de la evidencia formal de M03 | Ninguno nuevo: las pruebas revirtieron todo | Permite repetir la evidencia o regresiones limpias | Una nueva evidencia necesitaría otra restauración (si la ventana de Neon lo permite) o una rama desde `production` |
 
 ## Riesgos y decisiones pendientes
