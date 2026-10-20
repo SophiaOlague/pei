@@ -61,6 +61,7 @@ const GUARDED_DB_SPECS = [
   'test/integration/audit-trail.int-spec.ts',
   'test/integration/concurrency.int-spec.ts',
   'test/integration/curp-user-profile.int-spec.ts',
+  'test/integration/doctors.int-spec.ts',
   'test/integration/identity.int-spec.ts',
   'test/integration/legal-acceptance-audit.int-spec.ts',
   'test/integration/legal-regime.int-spec.ts',
@@ -80,6 +81,9 @@ const DOUBLES_E2E_SPECS = [
   'test/auth-rate-limit.e2e-spec.ts',
   'test/identity.e2e-spec.ts',
   'test/legal-regime.e2e-spec.ts',
+  'test/doctors-security.e2e-spec.ts',
+  'test/doctors.e2e-spec.ts',
+  'test/specialties.e2e-spec.ts',
 ];
 const ROOT = join(__dirname, '..', '..');
 

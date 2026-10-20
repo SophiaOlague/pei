@@ -6,12 +6,19 @@ import { pgEnum } from 'drizzle-orm/pg-core';
 
 export const roleEnum = pgEnum('role_enum', ['patient', 'doctor', 'admin', 'organization']);
 
-export const specialtyEnum = pgEnum('specialty_enum', ['infectologia', 'psicologia', 'medicina_general']);
 
-export const doctorVerificationStatusEnum = pgEnum('doctor_verification_status_enum', [
-  'pending',
-  'approved',
-  'rejected',
+// M03 (plan v2 §7 y §8): estados de las revisiones de INE y cédula del médico. `superseded` = una revisión pendiente
+// invalidada por un cambio posterior (R-2); nunca vuelve a aprobarse ni rechazarse.
+export const doctorReviewStatusEnum = pgEnum('doctor_review_status_enum', ['pending', 'approved', 'rejected', 'superseded']);
+
+// M03 (plan v2 §7bis.1): por qué existe cada revisión de cédula. Lo deduce el caso de uso, nunca el cliente.
+export const doctorLicenseReviewReasonEnum = pgEnum('doctor_license_review_reason_enum', [
+  'initial',
+  'resubmission',
+  'license_number_changed',
+  'license_document_changed',
+  'specialty_changed',
+  'legal_name_changed',
 ]);
 
 export const identityVerificationStatusEnum = pgEnum('identity_verification_status_enum', [

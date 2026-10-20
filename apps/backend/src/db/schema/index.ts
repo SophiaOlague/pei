@@ -4,6 +4,7 @@ export * from './identity';
 export * from './organization';
 export * from './patient';
 export * from './doctor';
+export * from './specialty';
 export * from './inventory';
 export * from './appointment';
 export * from './clinical-record';

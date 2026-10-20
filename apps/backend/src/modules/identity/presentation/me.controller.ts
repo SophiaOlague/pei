@@ -25,6 +25,7 @@ import { RegisterPatientProfileUseCase } from '../application/use-cases/register
 import { AcceptLegalDocumentsUseCase } from '../application/use-cases/legal-documents.use-cases';
 import { SubmitIdentityVerificationUseCase } from '../application/use-cases/submit-identity-verification.use-case';
 import { GetRegistrationStatusUseCase } from '../application/use-cases/registration-status.use-cases';
+import { RoleProfileSectionRegistry } from '../application/role-profile-section.registry';
 import {
   GetMyIdentityVerificationUseCase,
   GetPatientProfileUseCase,
@@ -44,6 +45,7 @@ export class MeController {
   constructor(
     private readonly registerProfile: RegisterPatientProfileUseCase,
     private readonly registrationStatus: GetRegistrationStatusUseCase,
+    private readonly sections: RoleProfileSectionRegistry,
     private readonly getProfile: GetPatientProfileUseCase,
     private readonly updateProfile: UpdatePatientProfileUseCase,
     private readonly updatePhoto: UpdateProfilePhotoUseCase,
@@ -54,13 +56,16 @@ export class MeController {
   ) {}
 
   // RF-02: cuenta, rol, perfil y estado del registro compuesto por rol (M03 A4; hoy solo pacientes o cuentas sin perfil).
+  // D-31 (M03 B7): el paciente y la cuenta sin perfil los resuelve Identity; el médico, la sección que registra M03.
+  // Admin y organización reciben null.
   @Get()
   async me(@CurrentActor() actor: Actor, @CurrentSession() session: AuthSession) {
+    const section = actor.role === 'patient' ? null : this.sections.sectionFor(actor.role);
     return {
       user: { id: session.user.id, email: session.user.email },
       role: actor.role,
-      profile: actor.role === 'patient' ? await this.getProfile.execute(actor) : null,
-      registrationStatus: await this.registrationStatus.executeForActor(actor),
+      profile: actor.role === 'patient' ? await this.getProfile.execute(actor) : section ? await section.profile(actor) : null,
+      registrationStatus: section ? await section.registrationStatus(actor) : await this.registrationStatus.executeForActor(actor),
     };
   }
 

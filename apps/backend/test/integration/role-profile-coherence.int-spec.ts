@@ -25,9 +25,11 @@ async function pgError(statement: ReturnType<typeof sql>) {
 }
 
 const insertPatientProfile = (userProfileId: string) => sql`insert into patient_profile (user_profile_id) values (${userProfileId})`;
+// M03 B2: desde 0010/0011 la especialidad es specialty_id (catálogo de 0009); la columna enum `specialty` ya no existe.
+// REQUIERE 0009–0011 aplicadas, además de 0008.
 const insertDoctorProfile = (userProfileId: string) => sql`
-  insert into doctor_profile (user_profile_id, specialty, license_number)
-  values (${userProfileId}, 'medicina_general', ${`A4-${userProfileId.slice(0, 8)}`})`;
+  insert into doctor_profile (user_profile_id, specialty_id, license_number)
+  values (${userProfileId}, (select id from specialty where code = 'medicina_general'), ${`A4-${userProfileId.slice(0, 8)}`})`;
 
 // El bloque de precondiciones de 0008, leído del archivo de la migración (sin duplicarlo aquí).
 function preconditionsBlock(): string {

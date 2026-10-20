@@ -8,6 +8,7 @@ import { CommonModule } from './common/common.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { PrivateStorageModule } from './modules/private-storage/private-storage.module';
+import { DoctorsModule } from './modules/doctors/doctors.module';
 
 
 @Module({
@@ -20,7 +21,8 @@ import { PrivateStorageModule } from './modules/private-storage/private-storage.
     AuthModule,
     AuditModule,
     PrivateStorageModule,
-    IdentityModule],
+    IdentityModule,
+    DoctorsModule],
   controllers: [AppController],
   providers: [AppService],
 })

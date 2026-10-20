@@ -3,7 +3,8 @@ import { user, account, session } from './auth';
 import { userProfile, auditLog } from './identity';
 import { organization } from './organization';
 import { patientProfile, patientIdentityVerification, patientHealthSummary } from './patient';
-import { doctorProfile, doctorAvailability, doctorTimeOff } from './doctor';
+import { doctorProfile, doctorAvailability, doctorTimeOff, doctorIdentityVerification, doctorLicenseVerification } from './doctor';
+import { specialty } from './specialty';
 import { medication, medicationPresentation, inventory, inventoryHold, inventoryMovement } from './inventory';
 import { appointment, appointmentStatusHistory, meeting, meetingSessionEvent, review } from './appointment';
 import { medicalRecord, medicalRecordEntry, labDocument } from './clinical-record';
@@ -69,7 +70,6 @@ export const userProfileRelations = relations(userProfile, ({ one, many }) => ({
     references: [doctorProfile.userProfileId],
     relationName: 'doctor_profile_user',
   }),
-  reviewedDoctorProfiles: many(doctorProfile, { relationName: 'doctor_profile_reviewer' }),
   legalAcceptances: many(userLegalAcceptance),
   notifications: many(notification),
   pushNotificationTokens: many(pushNotificationToken),
@@ -131,11 +131,9 @@ export const doctorProfileRelations = relations(doctorProfile, ({ one, many }) =
     references: [userProfile.id],
     relationName: 'doctor_profile_user',
   }),
-  reviewer: one(userProfile, {
-    fields: [doctorProfile.reviewedBy],
-    references: [userProfile.id],
-    relationName: 'doctor_profile_reviewer',
-  }),
+  specialty: one(specialty, { fields: [doctorProfile.specialtyId], references: [specialty.id] }),
+  identityVerifications: many(doctorIdentityVerification),
+  licenseVerifications: many(doctorLicenseVerification),
   availability: many(doctorAvailability),
   timeOff: many(doctorTimeOff),
   appointments: many(appointment),
@@ -146,6 +144,23 @@ export const doctorProfileRelations = relations(doctorProfile, ({ one, many }) =
   payments: many(payment),
   payouts: many(doctorPayout),
   payoutAdjustments: many(doctorPayoutAdjustment),
+}));
+
+export const specialtyRelations = relations(specialty, ({ many }) => ({
+  doctors: many(doctorProfile),
+  licenseVerifications: many(doctorLicenseVerification),
+}));
+
+// El revisor es el user_profile del admin; sin relación inversa en userProfile (Identity no conoce M03).
+export const doctorIdentityVerificationRelations = relations(doctorIdentityVerification, ({ one }) => ({
+  doctor: one(doctorProfile, { fields: [doctorIdentityVerification.doctorId], references: [doctorProfile.id] }),
+  reviewer: one(userProfile, { fields: [doctorIdentityVerification.reviewedBy], references: [userProfile.id] }),
+}));
+
+export const doctorLicenseVerificationRelations = relations(doctorLicenseVerification, ({ one }) => ({
+  doctor: one(doctorProfile, { fields: [doctorLicenseVerification.doctorId], references: [doctorProfile.id] }),
+  specialty: one(specialty, { fields: [doctorLicenseVerification.specialtyId], references: [specialty.id] }),
+  reviewer: one(userProfile, { fields: [doctorLicenseVerification.reviewedBy], references: [userProfile.id] }),
 }));
 
 export const doctorAvailabilityRelations = relations(doctorAvailability, ({ one }) => ({
