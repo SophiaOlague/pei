@@ -322,6 +322,18 @@ Rutas relativas a `apps/backend`; la línea es la del primer uso del identificad
 | TC-M03-190 | B8 | E2E | ídem | [DT-8] | cuarto envío de INE en una hora → 429 |
 | TC-M03-191 | B8 | E2E | ídem | [DT-4][R-5] | archivo mayor al límite 413; campo inesperado 400 |
 | TC-M03-192 | B8 | E2E | ídem | [RN-122] | auditoría sin CURP, nombres, número, claves ni URLs |
+| TC-M03-193 | Flujo | Unitaria | `test/flujo/flow-checks.spec.ts` | [D-13] | tras registrarse, canOperate=false leído de GET /me pasa |
+| TC-M03-194 | Flujo | Unitaria | ídem | [D-13] | canOperate true, ausente, null o texto en GET /me → falla |
+| TC-M03-195 | Flujo | Unitaria | ídem | [D-13] | sin registrationStatus en /me falla aunque /me/doctor/status trajera canOperate |
+| TC-M03-196 | Flujo | Unitaria | ídem | [Z-1] | estado derivado distinto del esperado tras registrarse → falla |
+| TC-M03-197 | Flujo | Unitaria | ídem | [D-31] | rol de /me distinto de doctor → falla |
+| TC-M03-198 | Flujo | Unitaria | `test/flujo/review-checks.spec.ts` | [Z-1] | cada etapa de la revisión acepta exactamente su estado esperado |
+| TC-M03-199 | Flujo | Unitaria | ídem | [D-13][D-30] | solo la etapa final opera; los rechazos cuentan como entregados |
+| TC-M03-200 | Flujo | Unitaria | ídem | [Z-1] | estado, línea, registro o pendientes distintos → falla |
+| TC-M03-201 | Flujo | Unitaria | ídem | [R-8] | cinco eventos de revisión, con la vuelta a pending, sin lecturas de documentos |
+| TC-M03-202 | Flujo | Unitaria | ídem | [R-7] | detecta claves de objetos y URLs firmadas en una respuesta |
+| TC-M03-203 | Flujo | Flujo (C2) | `test/flujo/doctor-registration.flow-spec.ts` | [RF-05][D-32] | registro HTTP de un médico de prueba con el régimen TEST-1 en la rama de pruebas (solo mediante C2 `flujo-registro`) |
+| TC-M03-204 | Flujo | Flujo (C2) | `test/flujo/doctor-review.flow-spec.ts` | [RF-06][D-25][D-30] | revisión HTTP del admin: INE aprobada, cédula rechazada, reenviada y aprobada (solo mediante C2 `revision-admin`) |
 | RT-M03-14 | B8 | Unitaria | `test/architecture.spec.ts` | [P.7] | doctors solo usa de identity dominio, puertos, registro y módulo |
 | RT-M03-15 | B8 | Unitaria | ídem | [R-11] | doctors sin SDK de AWS ni infraestructura de private-storage |
 | RT-M03-16 | B8 | Unitaria | ídem | [B8] | el spec de concurrencia exige C2, rechaza `rama` y la marca de rama desechable |
