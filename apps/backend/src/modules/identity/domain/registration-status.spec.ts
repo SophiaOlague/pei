@@ -1,4 +1,10 @@
-import { computeRegistrationStatus, type CurrentLegalDocument, type RegistrationSnapshot } from './registration-status';
+import {
+  composeRegistrationStatus,
+  composesRegistrationStatus,
+  computeRegistrationStatus,
+  type CurrentLegalDocument,
+  type RegistrationSnapshot,
+} from './registration-status';
 
 const legal = (privacyAccepted: boolean, termsAccepted: boolean): CurrentLegalDocument[] => [
   { type: 'privacy_notice', documentId: '00000000-0000-4000-8000-000000000001', version: 'v2', accepted: privacyAccepted },
@@ -85,5 +91,31 @@ describe('Estado del registro del paciente (DP-8, DT-17, DT-21)', () => {
     const status = computeRegistrationStatus(snapshot({ role }));
     expect(status.profileCompleted).toBe(false);
     expect(status.canBookAppointments).toBe(false);
+  });
+});
+
+describe('Estado del registro compuesto por rol (M03 A4)', () => {
+  it.each([
+    ['completo', {}],
+    ['cuenta sin perfil', { role: null, hasPatientProfile: false, currentLegalDocuments: legal(false, false), latestIdentityVerification: null }],
+    ['INE rechazada', { latestIdentityVerification: { status: 'rejected' as const, rejectionReason: 'Imagen ilegible' } }],
+  ])('[TC-M03-060][M02-6][D-31] paciente (%s): el estado compuesto es idéntico al del paciente', (_case, overrides) => {
+    const s = snapshot(overrides as Partial<RegistrationSnapshot>);
+    expect(composeRegistrationStatus(s)).toEqual(computeRegistrationStatus(s));
+  });
+
+  it('[TC-M03-061][M02-6][D-A4-2] médico → null hasta la fase B, aunque tenga legales aceptados', () => {
+    expect(composeRegistrationStatus(snapshot({ role: 'doctor', hasPatientProfile: false }))).toBeNull();
+  });
+
+  it.each(['admin', 'organization'] as const)('[TC-M03-062][M02-6][D-A4-2] %s → null: no tiene registro', (role) => {
+    expect(composeRegistrationStatus(snapshot({ role, hasPatientProfile: false }))).toBeNull();
+  });
+
+  it('[TC-M03-063][M02-6] solo el paciente y la cuenta sin perfil componen estado', () => {
+    expect([null, 'patient', 'doctor', 'admin', 'organization'].filter((r) => composesRegistrationStatus(r as never))).toEqual([
+      null,
+      'patient',
+    ]);
   });
 });

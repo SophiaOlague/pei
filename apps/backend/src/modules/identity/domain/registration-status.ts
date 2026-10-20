@@ -61,3 +61,15 @@ export function computeRegistrationStatus(snapshot: RegistrationSnapshot): Regis
     missing,
   };
 }
+
+// M03 A4 (M02-6; D-24, D-30, D-31): el estado del registro se compone por rol.
+//   patient, o cuenta sin perfil (el perfil que crea es de paciente) → estado del paciente, sin cambios en su contrato.
+//   doctor → null hasta la fase B, que añade sus requisitos (INE, cédula, especialidad) (D-A4-2).
+//   admin, organization → null: no tienen registro.
+export function composesRegistrationStatus(role: Role | null): boolean {
+  return role === null || role === 'patient';
+}
+
+export function composeRegistrationStatus(snapshot: RegistrationSnapshot): RegistrationStatus | null {
+  return composesRegistrationStatus(snapshot.role) ? computeRegistrationStatus(snapshot) : null;
+}

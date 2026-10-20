@@ -1,10 +1,6 @@
 # Trazabilidad M03: Médicos (registro y verificación) de PEI (EN CURSO)
 
-> **En curso.** M03 no está implementado completo: solo el incremento controlado de M02 (fases A1–A3). Ninguna prueba
-> de esta página tiene todavía **evidencia formal** (corrida de `pnpm test:evidence` versionada). Los resultados
-> documentados proceden de pruebas unitarias locales sin BD, E2E locales con dobles, la integración en la BD configurada
-> en `.env` durante A2 y la **validación interna** posterior en una rama temporal de Neon, `rama` (`br-autumn-sun-b52qoep4`), creada a
-> partir de `production` (ver «Ejecución»).
+> **Estado:** En curso. Las fases A1–A4 están implementadas en el árbol de trabajo. A1–A3 tienen commits; A4 está implementada, validada internamente en la rama temporal `rama` y pendiente de commit. La migración `0008` está aplicada y verificada tanto en `rama` como en `production`. M03 todavía no está completo: la fase B sigue pendiente y la evidencia formal no se ha cerrado.
 
 Gestinnovo es la empresa; PEI es la aplicación.
 Decisiones: [registro de decisiones de M03](../../arquitectura/M03-decisiones.md). Incremento sobre M02: [M02](M02-identity.md#incremento-controlado-a1a3-posterior-a-la-etapa-a).
@@ -22,7 +18,7 @@ revisión por el administrador y estado derivado. Fuera de alcance:
 | A1 | Almacenamiento privado compartido (R-11, M02-5) | `a176934` | Implementada |
 | A2 | Legales por rol y aceptación auditada (D-32, N1, R-8, R-13; M02-3, M02-4); migración `0006` | `b40058f` | Implementada; `0006` aplicada en la BD configurada en `.env` (rama `production` de Neon; entorno por confirmar) |
 | A3 | CURP en `user_profile`, única entre roles; conflicto genérico (R-12, D-20/D-35, D-17; M02-1, M02-2); migración `0007` | `779b13b` | Implementada; `0007` aplicada en la rama temporal `rama` (`br-autumn-sun-b52qoep4`, 2026-10-14) y en `production` (`br-royal-recipe-b54s5hnn`, 2026-10-17; Q1–Q9 PASS verificadas en esa BD; entorno por confirmar) |
-| A4 | Coherencia de rol (R-10, `0008`) y `/me` por rol (M02-6, M02-7) | — | Pendiente |
+| A4 | Coherencia de rol (R-10, `0008`) y `/me` por rol (M02-6, M02-7); decisiones D-A4-1 y D-A4-2 | — (sin commit) | Implementada en el árbol de trabajo, sin commit. `0008` ensayada y aplicada en la rama temporal `rama` (2026-10-20, C2 v10), con la integración de A4 8/8 **en `rama`** (C2 v10.1). `0008` aplicada en `production` (2026-10-20, C2 prod-0008) con controles previo y posterior PASS; en `production` **no** se ejecutó la suite de integración |
 | B | Módulo de médicos (especialidades, revisiones, estado del médico; `0009`–`0012`) | — | Pendiente |
 
 ## Fuentes funcionales
@@ -68,11 +64,13 @@ evidencia versionada (ninguna todavía).
 | P2 (M01 D2) | A3 | Log `warn` sin datos; sin evento de auditoría | TC-M03-052 (`[D-17][M01-D2]`; P2 no figura como etiqueta) | `probar` | Interna |
 | Concurrencia (23505 → 409) | A3 | Caso de uso de registro | Asociación inferida: TC-M02-102 (`[DT-22]`) | `probar` | Interna |
 | `0007` (F1–F10, V1–V5, transaccional) | A3 | `src/db/migrations/0007_m02_user_profile_curp.sql` | Ensayo C2 en la rama temporal `rama` (`br-autumn-sun-b52qoep4`) (fallos provocados, introspección, inverso) | Resultados C2 fuera del repositorio (ensayo e inverso solo en `rama`); aplicación en `production` verificada con el registro de migración y Q1–Q9 PASS | Interna |
-| RF-05, RF-06, RF-09, RN-004, RN-005, D-3 a D-36, R-2, R-4 a R-6, R-10, R-14, Z-1, Z-2 | A4/B | — | — | — | Pendiente de implementar |
+| M02-6 (D-24, D-30, D-31), D-A4-2 | A4 | `composeRegistrationStatus` en `domain/registration-status.ts`; `GetRegistrationStatusUseCase.executeForActor`; `GET /me` | TC-M03-060 a 067 (unitarias) | Unitarias locales (sin BD, `db-tripwire`) | Interna |
+| R-10 (RN-001, RN-139), M02-7, D-A4-1 | A4 | `src/db/migrations/0008_m03_role_profile_coherence.sql` (precondiciones, `gst_profile_role_matches`, dos triggers) | TC-M03-068 a 074 (integración, solo en `rama`) | `rama`: ensayo C2 v10 `verificar-0008` (PASS), `aplicar-0008` (PASS, `post-0008` Q1–Q7) y C2 v10.1 `probar-a4` (8/8, huellas idénticas). `production`: aplicación con C2 prod-0008 (`previo`, `aplicar` y `posterior` PASS; T1–T6 en transacción revertida), sin la suite de integración. Ver «Ejecución de A4 en la rama temporal» y «Ejecución de `0008` en `production`» | Interna (no formal) |
+| RF-05, RF-06, RF-09, RN-004, RN-005, D-3 a D-36, R-2, R-4 a R-6, R-14, Z-1, Z-2 | B | — | — | — | Pendiente de implementar |
 
 ## Casos de prueba
 
-62 casos: 52 TC-M03 (001–032 y 040–059; los números 033–039 no existen) y 10 RT-M03. Por fase y suite: A1, 10
+77 casos: 67 TC-M03 (001–032 y 040–074; los números 033–039 no existen) y 10 RT-M03. A4: 8 unitarios (060–067) y 7 de integración (068–074, ejecutados en `rama` con C2 v10.1). Por fase y suite: A1, 10
 unitarios; A2, 30 unitarios, 8 de integración y 4 E2E; A3, 4 unitarios, 5 de integración y 1 E2E.
 
 **Ejecución:**
@@ -169,17 +167,87 @@ Rutas relativas a `apps/backend`; la línea es la del primer uso del identificad
 | TC-M03-057 | A3 | Integración | `test/integration/curp-user-profile.int-spec.ts:79` | [D-1] | paciente o médico sin CURP → 23514 user_profile_curp_required_chk |
 | TC-M03-058 | A3 | Integración | `test/integration/curp-user-profile.int-spec.ts:84` | [D-20] | CURP repetida entre roles → 23505 user_profile_curp_unique |
 | TC-M03-059 | A3 | Integración | `test/integration/curp-user-profile.int-spec.ts:95` | [R-12] | admin sin CURP se acepta, y varios NULL no chocan con la unicidad |
+| TC-M03-060 | A4 | Unitaria | `src/modules/identity/domain/registration-status.spec.ts` | [M02-6][D-31] | paciente (%s): el estado compuesto es idéntico al del paciente |
+| TC-M03-061 | A4 | Unitaria | `src/modules/identity/domain/registration-status.spec.ts` | [M02-6][D-A4-2] | médico → null hasta la fase B, aunque tenga legales aceptados |
+| TC-M03-062 | A4 | Unitaria | `src/modules/identity/domain/registration-status.spec.ts` | [M02-6][D-A4-2] | %s → null: no tiene registro |
+| TC-M03-063 | A4 | Unitaria | `src/modules/identity/domain/registration-status.spec.ts` | [M02-6] | solo el paciente y la cuenta sin perfil componen estado |
+| TC-M03-064 | A4 | Unitaria | `src/modules/identity/application/use-cases/registration-status.use-cases.spec.ts` | [M02-6][D-31] | paciente: GET /me recibe exactamente el estado del paciente |
+| TC-M03-065 | A4 | Unitaria | ídem | [M02-6] | cuenta sin perfil: recibe el estado del paciente |
+| TC-M03-066 | A4 | Unitaria | ídem | [M02-6][D-A4-2] | %s: null sin consultar la BD |
+| TC-M03-067 | A4 | Unitaria | ídem | [D-A4-2] | GET /me/registration-status sigue reservado al paciente |
+| TC-M03-068 | A4 | Integración | `test/integration/role-profile-coherence.int-spec.ts` | [R-10] | los dos triggers existen y están habilitados |
+| TC-M03-069 | A4 | Integración | ídem | [R-10][RN-139][D-A4-1] | patient_profile sobre un usuario médico → P0001 |
+| TC-M03-070 | A4 | Integración | ídem | [R-10][RN-139][D-A4-1] | doctor_profile sobre un usuario paciente → P0001 |
+| TC-M03-071 | A4 | Integración | ídem | [R-10][RN-001] | admin u organización no pueden tener perfil de paciente ni de médico |
+| TC-M03-072 | A4 | Integración | ídem | [R-10] | UPDATE de user_profile_id hacia un rol incorrecto → P0001 |
+| TC-M03-073 | A4 | Integración | ídem | [R-10] | cada rol con su perfil se acepta |
+| TC-M03-074 | A4 | Integración | ídem | [R-10] | las precondiciones de 0008 pasan con los datos actuales (solo lectura) |
 
-Todos los casos: estado **Interna** (incluidos en suites que terminaron sin fallos en las ejecuciones descritas
-arriba; acreditación agregada, no individual); evidencia formal **pendiente**.
+Casos A1–A3 y TC-M03-060 a 067: estado **Interna** (incluidos en suites que terminaron sin fallos en las ejecuciones descritas
+arriba; acreditación agregada, no individual). TC-M03-068 a 074: **Interna**, ejecutados en la rama temporal `rama` con C2 v10.1 (8/8; acreditación agregada, sin evidencia formal). Evidencia formal **pendiente** para todos; A4 no cierra la evidencia formal de M02.
+
+### Ensayo C2 de `0008` (comprobación negativa de las precondiciones)
+
+Se ejecuta en la rama temporal **antes** de aplicar `0008`, porque después los triggers impiden crear el dato
+incoherente. No desactiva triggers. Todo dentro de una transacción que se revierte:
+
+1. `BEGIN`.
+2. Crear un `user` y un `user_profile` con rol `doctor` (CURP sintética) e insertar un `patient_profile` para él.
+3. Ejecutar el bloque `DO` de precondiciones de `0008`: debe fallar con `P0001`, con el mensaje
+   `A4/0008 precondiciones` y `paciente_con_rol_distinto=1`, sin ids.
+4. `ROLLBACK`, y comprobar que no quedan residuos.
+
+Resultado: **PASS** (2026-10-20, C2 v10, plan `verificar-0008`; ver abajo).
+
+### Ejecución de A4 en la rama temporal (2026-10-20)
+
+Rama temporal `rama` de Neon, identidad verificada en cada paso: `br-autumn-sun-b52qoep4` / `ep-noisy-pond-b5owxox3` / `royal-paper-10258990` (timeline `201103…`). Herramienta C2 fuera del
+repositorio (v10 y v10.1, con sumas SHA-256; v9 intacta). Ninguna operación de esta ejecución tocó `production`. Validación **interna**:
+no es evidencia formal (`pnpm test:evidence`) y no cierra M02.
+
+| Plan (C2) | Hora (UTC) | Código | Resultado |
+|---|---|---|---|
+| `verificar-0008` (v10) | 01:35 | 0 | Huella inicial = referencia v9; precondiciones con los datos reales PASS. Comprobación negativa, sin desactivar triggers y en una transacción revertida: N1 paciente sobre médico, N2 médico sobre paciente, N3 ambos perfiles y N4 paciente sobre admin → `P0001` con el conteo exacto. 0008 aplicada dentro de la transacción: función y 2 triggers con la definición esperada; T1–T5 → `P0001`, T6 (roles correctos) aceptado; catálogo intacto; inverso validado en un SAVEPOINT. Huella final idéntica; 0008 no quedó aplicada |
+| `aplicar-0008` (v10) | 01:38 | 0 | `antes-aplicar` PASS (16 s antes de `post`; compuerta < 15 min): 8 migraciones, última 0007, 0008 única pendiente con SHA `2576bf98…`. `drizzle-kit migrate` aplicó solo 0008. `post-0008` Q1–Q7 PASS: 9 migraciones, previas intactas, hash de 0008, función y 2 triggers habilitados, sin incoherencias. Únicas diferencias de huella: `migrations` 8→9, `triggers` 29→31 y `last_migration_hash` |
+| `probar-a4` (v10.1) | 01:43–01:44 | 0 | Huella previa = post-0008 (SHA fijado). Solo `role-profile-coherence.int-spec.ts`: TC-M03-068 a 074, **8/8**. Huella final idéntica a la previa (sin residuos) |
+
+Observación: Jest avisó de que no terminó un segundo después de las pruebas (manejadores abiertos, como en el resto de
+la integración); el plan terminó con código 0.
+
+Distinción: la migración `0008` está **aplicada en `rama`** y su comportamiento en la BD está validado (A4). No es una
+validación funcional completa: no se ejecutaron en `rama` las suites completas (unitarias, integración y E2E) con 0008,
+y M03 B sigue pendiente. La aplicación en `production` se registra en la sección siguiente.
+
+### Ejecución de `0008` en `production` (2026-10-20)
+
+Herramienta C2 prod-0008 (fuera del repositorio), derivada de C2 v10/v10.1 con la terna de `production` y el SHA de
+`0008` fijados, compuerta de 15 minutos y sin reintentos; C2 v10 y v10.1 no se modificaron. Validación **interna**, no
+formal. Los valores de esta sección proceden del informe de la ejecución; los artefactos están en `scratchpad/c2/prod-0008/resultados/` (`previo.json`, `aplicar.json`, `posterior.json`, salidas y `SHA256SUMS`), fuera
+del repositorio y sin versionar: deben verificarse (sumas incluidas) antes de atribuirles carácter de evidencia versionada.
+
+| Elemento | Resultado |
+|---|---|
+| Destino | Proyecto `royal-paper-10258990`, rama `br-royal-recipe-b54s5hnn`, endpoint `ep-wandering-bonus-b5kxacor`, timeline `8e2d8b…`; PostgreSQL 18 (`180006`); rol `neondb_owner`, no superusuario. Verificado antes de cada paso |
+| Migración | Solo `0008_m03_role_profile_coherence`, SHA-256 `2576bf987d09f4b2629cb5f21d1c5982ebd7e1c0a8844abcb47aa33b1f111fab` (igual al del repositorio) |
+| `previo` (02:02 UTC, código 0) | 8 migraciones iguales a las locales, la última 0007 y 0008 única pendiente; sin aplicación parcial; sin perfiles incoherentes; precondiciones de 0008 PASS; esquema igual al de `rama` antes de aplicar (datos distintos por diseño) |
+| `aplicar` (02:03 UTC, código 0) | 38 s después de `previo`; identidad verificada justo antes; una sola ejecución de `drizzle-kit migrate` («migrations applied successfully») |
+| `posterior` (02:03 UTC, código 0) | Q1–Q12 PASS: 9 migraciones, previas intactas, hash de 0008; función `gst_profile_role_matches` y triggers `patient_profile_role_matches` y `doctor_profile_role_matches` presentes y habilitados; sin perfiles incoherentes; T1–T5 rechazados con `P0001` y T6 admitido, en una transacción revertida |
+| Huella | Frente a `previo`, solo `migrations` 8→9, `triggers` 29→31 y `last_migration_hash`; restricciones y conteos de perfiles iguales; sin residuos tras la validación |
+| LSN | Previo `0/31E3B68` (02:02:31 UTC); posterior `0/31E7BF0` (02:03:48 UTC) |
+
+Advertencias: **no se verificó la ventana de restauración de Neon** (no es visible por SQL); la vía de recuperación de
+`0008` es su inverso lógico (sin datos), validado solo en `rama`. **No se ejecutaron en `production` las suites
+completas** de unitarias, integración y E2E, ni la integración de A4: esta sección acredita la aplicación y el estado de
+la BD, no una validación funcional completa.
 
 ## Riesgos y decisiones pendientes
 
 | # | Tema | Estado |
 |---|---|---|
-| 1 | `0007` se aplicó el 2026-10-17 (05:10–05:11 UTC) en la rama `production` de Neon (branch ID `br-royal-recipe-b54s5hnn`, endpoint `ep-wandering-bonus-b5kxacor`; la BD configurada en `.env`; entorno por confirmar); Q1–Q9 PASS verificadas en esa BD. La recuperación sigue sin cerrarse: el inverso lógico solo se validó en `rama` y la viabilidad de una restauración de Neon no está confirmada. Desplegar HEAD requiere una autorización aparte | Pendiente: P1 |
+| 1 | `0007` se aplicó el 2026-10-17 (05:10–05:11 UTC) en la rama `production` de Neon (branch ID `br-royal-recipe-b54s5hnn`, endpoint `ep-wandering-bonus-b5kxacor`; la BD configurada en `.env`; entorno por confirmar); Q1–Q9 PASS verificadas en esa BD. La recuperación de `0007` sigue sin cerrarse: el inverso lógico solo se validó en `rama` y la viabilidad de una restauración de Neon no está confirmada. `0008` (aplicada en `production` el 2026-10-20) tiene un inverso lógico sin datos, validado solo en `rama`, y un LSN previo registrado (`0/31E3B68`); la ventana de restauración de Neon tampoco está verificada para `0008`. Desplegar HEAD requiere una autorización aparte | `0007`: pendiente (P1). `0008`: recuperación por inverso lógico; restauración de Neon sin verificar |
 | 2 | Evidencia formal en la rama temporal sin usar la BD de `.env` | Procedimiento propuesto, pendiente de autorización |
 | 3 | Enumeración de CURP: el 409 genérico revela que una CURP existe en cualquier rol, también de médicos | Pendiente de aceptación explícita del riesgo |
-| 4 | Rama temporal `rama` (`br-autumn-sun-b52qoep4`) con `0007` aplicada | Pendiente: conservar o eliminar |
+| 4 | Rama temporal `rama` (`br-autumn-sun-b52qoep4`) con `0007` y `0008` aplicadas (0008 desde el 2026-10-20) | Pendiente: conservar o eliminar |
+| 7 | `0008` aplicada y verificada en `production` el 2026-10-20 (C2 prod-0008: `previo`, `aplicar` y `posterior` PASS). Siguen abiertos: la ventana de restauración de Neon sin verificar, las suites completas sin ejecutar en `production`, el código de A4 sin commit ni despliegue (desplegar requiere autorización aparte) y la evidencia de la ejecución fuera del repositorio | Aplicada; pendientes de recuperación, despliegue y evidencia |
 | 5 | Las fuentes originales de diseño están fuera del repositorio; el registro de decisiones conserva sus identificadores y su estado | Mitigado por el registro de decisiones |
 | 6 | Las etiquetas de decisión de las pruebas (D-, R-, N-, M01-D2) no están en las convenciones de `docs/testing/README.md` | Pendiente de decidir |

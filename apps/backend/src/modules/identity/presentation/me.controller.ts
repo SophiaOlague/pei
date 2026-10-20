@@ -53,14 +53,14 @@ export class MeController {
     private readonly myVerification: GetMyIdentityVerificationUseCase,
   ) {}
 
-  // RF-02: cuenta, rol, perfil y estado del registro (solo para pacientes o cuentas sin perfil).
+  // RF-02: cuenta, rol, perfil y estado del registro compuesto por rol (M03 A4; hoy solo pacientes o cuentas sin perfil).
   @Get()
   async me(@CurrentActor() actor: Actor, @CurrentSession() session: AuthSession) {
     return {
       user: { id: session.user.id, email: session.user.email },
       role: actor.role,
       profile: actor.role === 'patient' ? await this.getProfile.execute(actor) : null,
-      registrationStatus: await this.registrationStatus.executeIfPatient(actor),
+      registrationStatus: await this.registrationStatus.executeForActor(actor),
     };
   }
 
