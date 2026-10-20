@@ -889,13 +889,129 @@ sección. Es una validación interna, no una evidencia formal.
 - Decidir qué hacer con `br-floral-mode-b5hqaix0` (datos reales copiados de `production`, documentos TEST-1 y la cuenta
   de prueba) y con `br-winter-pond-b56r7iy6`.
 
+### Revisión del admin sobre el médico de prueba en `m03-flujo-medicos` (2026-10-20)
+
+Recorrido por HTTP de la revisión de la INE y la cédula del médico de prueba ya registrado (sección anterior), con el
+backend local de `feat/m03-doctors` conectado solo a `br-floral-mode-b5hqaix0` / `ep-cool-base-b55xjarv` (timeline
+`291fdc…`). Datos permanentes en la rama, por decisión del usuario. No se desplegó código ni se tocó `production`.
+
+**Cambios previos en el runner** (`apps/backend/test/flujo/`, sin commit):
+
+- La aserción final del registro lee `canOperate` de `GET /me` mediante `flow-checks.ts`. Sus pruebas unitarias están
+  en `flow-checks.spec.ts` (11): `false` pasa; `true`, ausente, `null` o texto fallan.
+- La salvaguarda `flow-guard.ts` se generalizó a los dos runners.
+- `jest-flujo.json` encuentra los dos `*.flow-spec.ts`. Por eso cada wrapper de C2 ejecuta solo el suyo
+  (`--runTestsByPath`): un registro accidental habría creado otra cuenta.
+- Revisión de los archivos: sin secretos, credenciales ni datos personales. La contraseña y los tokens se generan en
+  tiempo de ejecución y no se imprimen; correos `@m00.test.invalid` y CURP sintética.
+- Validación local: oxlint y `tsc` limpios; suite unitaria 50/50 suites y 614/614 pruebas.
+
+**Herramienta**
+
+- **Runner:** `doctor-review.flow-spec.ts`, con el `AppModule` real y el almacén y el correo en memoria. Las
+  comprobaciones puras están en `review-checks.ts`, con su `review-checks.spec.ts` (15).
+- **Wrapper:** C2 `revision-admin` (`Start-Revision-Admin.ps1`: `previo`, `revision -ConfirmBranchWrite` y
+  `posterior`), con el runner fijado por SHA. Plan: `PLAN-revision-admin.md`.
+- **Actor administrador**, aprobado por el usuario: una cuenta `@m00.test.invalid` dada de alta y verificada por HTTP,
+  y promovida con `createAdmin`, sin endpoint. Es una excepción de prueba a DT-12, solo en esta rama: `admin:bootstrap`
+  falla porque la rama ya tiene el admin copiado de `production`, que no se usó.
+- **Acceso del médico:** su contraseña nunca se guardó. Se recuperó con el flujo real de recuperación de contraseña
+  (enlace capturado en memoria); Better Auth revoca sus sesiones anteriores.
+- **Exclusiones:** no se abren documentos, porque eso registraría `*_document.viewed` de objetos que no existen.
+- **Pruebas simuladas** antes de ejecutar: 58/58. Fuera de C2, el runner se rechaza al cargar.
+
+**Hechos verificados**
+
+| Paso | Hora (UTC) | Resultado |
+|---|---|---|
+| `previo` | 13:23:04 | PASS: esquema S1–S4; un solo médico de prueba, con INE 1 y cédula 1 pendientes (los ids del registro); 0 admins de prueba; huella y admin heredado registrados. LSN `0/33DFD78` |
+| `revision -ConfirmBranchWrite` | entre 13:23:04 y 13:24:10 | Código 0. 18 pasos con los códigos esperados: recuperación del médico (200, 200; inicio de sesión 200); alta y verificación del admin (200, 200) y promoción; negativos N1 403 (médico en ruta del admin), N2 400 (id no UUID), N3 404 (UUID inexistente) y N4 400 (motivo corto); A1 aprobar INE 1 → 200; A2 repetir → 409; R1 rechazar cédula 1 → 200; S1 reenvío de cédula → 201 (intento 2, `resubmission`); A3 aprobar cédula 2 → 200; historial y colas → 200. Los 5 estados derivados coincidieron exactamente; `canOperate=true` solo al final. **Escritura persistente en la rama** |
+| `posterior`, intento 1 | 13:24:10 | **FAIL en V6 y V10** (ver abajo). V1–V5 y V7–V9 PASS |
+| `posterior`, intento 2 | 13:35:24 | **PASS: V1–V10** |
+
+Estados derivados observados (de `/me/doctor/status` y `canOperate` de `/me`):
+
+| Etapa | status | identity | professional | canOperate |
+|---|---|---|---|---|
+| inicial | `pending` | `pending` | `pending` | `false` |
+| INE aprobada | `pending` | `approved` | `pending` | `false` |
+| cédula rechazada | `rejected` | `approved` | `rejected` | `false` |
+| cédula reenviada | `pending` | `approved` | `pending` | `false` |
+| aprobado | `approved` | `approved` | `approved` | `true` |
+
+En todas las etapas, `registrationComplete=true` y `missing=[]`: un rechazo cuenta como entregado (D-30).
+
+Resultado de `posterior` (intento 2):
+
+| Comprobación | Resultado |
+|---|---|
+| V1 identidad y timeline iguales a los de `previo` | PASS |
+| V2 todos los pasos y los 5 estados | PASS |
+| V3 exactamente un admin de prueba; sigue habiendo un solo médico de prueba | PASS |
+| V4 INE 1 `approved` por el admin de prueba y purgada (claves NULL, `documents_deleted_at`) | PASS |
+| V5 cédula 1 `rejected` con el motivo `TEST: documento ilegible (prueba M03)`; cédula 2 `approved` (`resubmission`); ambas revisadas por el admin de prueba | PASS |
+| V6 exactamente 5 eventos: `doctor.identity_verification.approved`, `doctor.license_verification.rejected` y `doctor.license_verification.approved` del admin; `doctor.license_verification.submitted` y `doctor.status.returned_to_pending` del médico, este último sobre su `doctor_profile` con `{from:'rejected', cause:'license_resubmitted'}` | PASS |
+| V7 admin heredado intacto (perfil y sesiones) | PASS |
+| V8 ninguna diferencia fuera de las tablas de la revisión; `doctor_profile` y aceptaciones sin cambios | PASS |
+| V9 esquema M03 y documentos legales intactos | PASS |
+| V10 salida sin datos ajenos, sin secretos y sin claves de objetos en las respuestas | PASS |
+
+LSN final: `0/340F2D0` (13:35:24 UTC). `posterior` solo lee (transacciones READ ONLY con ROLLBACK). No se volvió a
+ejecutar `revision`.
+
+**Falsos fallos de V6 y V10 y corrección** (`revision-admin.cjs`, `flujo-registro.cjs` y `review-checks.ts`;
+`v6-v10.diff`):
+
+- **V6.** El plan esperaba 4 eventos. Al reenviar la cédula rechazada, el dominio registra además
+  `doctor.status.returned_to_pending` (`recordStatusTransition` en `doctor-submissions.use-cases.ts`; diseño v3 §I).
+  Ahora se esperan 5 y se comprueban el actor, la entidad y los metadatos de ese evento.
+- **V10.** El análisis de la salida contaba la etiqueta del tipo de correo `"password_reset"` (lista `correos_capturados`)
+  como un posible secreto. Se revisó su contexto con los valores tachados: no había contraseña, token ni URL. Ahora se
+  quita solo ese literal entre comillas; `password`, `token=` y las URLs de conexión siguen contando.
+- `posterior` vuelve a analizar el archivo de salida guardado con el análisis vigente y registra su SHA.
+
+Pruebas locales: **62/62** de C2 y **26/26** unitarias de `test/flujo`. Las de regresión cubren:
+
+- V6 con los 5 eventos observados; la lista antigua de 4 ya no basta;
+- V6 con eventos de más o de menos, actores cambiados, otra entidad o metadatos distintos;
+- V10 con la etiqueta frente a secretos reales;
+- V10 con la salida real analizada de nuevo: 0 correos ajenos, 0 CURP, 0 secretos.
+
+Sumas SHA-256 (fuera del repositorio, `c2/prod-m03/`):
+
+| Archivo | SHA-256 |
+|---|---|
+| `resultados-revision/previo.json` | `5acb3d8f1bca6cca24ea5080306c253fc206bcdc3dfe05a21dcbe7ed5daf8140` |
+| `resultados-revision/revision.json` | `deb02d34202397298f3fe39752944c7a9de987246534de8082b4202985a27381` |
+| `resultados-revision/salida-runner.log` (no se muestra) | `0cf1fadd8a88bd6df08be1dae3d80c10cb069a6fb279f39afa60fe760dd1b123` |
+| `resultados-revision/posterior.json` (intento 2) | `d41ced681c09f2e1d89990fded2b9b8e1642f99bc626c8f9f1eef358f12b731a` |
+| `v6-v10.diff` | `f57050f979ce065592f3a626c885096e44203a505d215487bd730a5cbaec94a5` |
+| `SHA256SUMS` | `a2740fc5ac43a5f83ac1353faf8a18730956bd4392d1473a55114ea9e0c6e24d` |
+
+El `posterior.json` del intento 1 se sobrescribió; su resultado consta en esta sección. Es una validación interna, no
+una evidencia formal.
+
+**Pendientes (no realizados)**
+
+- Los runners y las pruebas de `apps/backend/test/flujo/` siguen sin commit.
+  - Recomendación: versionarlos, con etiquetas `TC-M03-nnn` en los títulos, la categoría `*.flow-spec.ts` documentada
+    en `docs/testing/README.md` y la nota de que solo se ejecutan mediante C2.
+  - Solo son reproducibles con C2 y una rama preparada (régimen TEST-1, sin cuentas de prueba previas), y cada ejecución
+    deja datos permanentes.
+- No se probaron la apertura de documentos por el admin ni la purga sobre objetos reales de R2: los objetos de la cuenta
+  de prueba no existen.
+- El médico de prueba queda `approved`, con `canOperate=true`, en la rama. El admin de prueba queda como cuenta
+  permanente.
+- `production` sigue sin régimen legal del médico (riesgo 21) y sin el código de M03 desplegado.
+- Decidir qué hacer con `br-floral-mode-b5hqaix0` y `br-winter-pond-b56r7iy6`.
+
 ### Ramas temporales de Neon (revisión de solo lectura, 2026-10-20)
 
 | Rama | Origen | Estado | Evidencia que contiene | Datos persistentes conocidos | Conservar | Eliminar |
 |---|---|---|---|---|---|---|
 | `rama` (`br-autumn-sun-b52qoep4`) | Hija de `production` (2026-10-14) | `0000`–`0012` aplicadas (verificado con C2 v11.2 a las 09:11 UTC; huella sin cambios desde la concurrencia) | Ensayos y aplicaciones de `0007`–`0012`, integración de A4, `probar-m03` y la concurrencia | 9 usuarios de prueba (5 médicos, 4 administradores), 5 `doctor_profile`, 7 revisiones de INE, 8 de cédula, 10 documentos legales de prueba (régimen del médico publicado), 10 aceptaciones, 34 eventos de auditoría, además de los datos copiados de `production` | Respalda la cadena de huellas de los ensayos (las sumas viven en C2). Ocupa almacenamiento de Neon | Se pierde la posibilidad de volver a inspeccionarla; las evidencias de C2 quedan como archivos. Ya no sirve para nuevas pruebas limpias |
 | `br-winter-pond-b56r7iy6` | Hija de `production` (datos actuales, 2026-10-20) | `0000`–`0008`; el ensayo no dejó cambios. Ya no refleja `production`, que tiene `0009`–`0012` desde las 10:06 UTC | Ensayo de `0009`–`0012` sobre los datos de `production` | Copia de los datos reales de `production` (4 perfiles, 1 administrador) | Permite repetir el ensayo mientras `production` no cambie | Recomendable eliminarla tras aplicar en `production`: contiene datos reales |
-| `br-floral-mode-b5hqaix0` (`m03-flujo-medicos`) | Hija de `production` (datos actuales, 2026-10-20, creada por el usuario) | `0000`–`0012`; `privacy_policy` y `doctor_terms` en `TEST-1` publicados (10:40:58 UTC) | Publicación del régimen legal de prueba del médico (C2 `flujo-medicos`) | Copia de los datos reales de `production` (4 perfiles, 1 administrador), los 2 documentos TEST-1 con sus 2 eventos de auditoría y una cuenta de médico de prueba (`@m00.test.invalid`) con 2 aceptaciones, INE y cédula `pending` y 6 eventos | Destino de las pruebas del flujo de registro de médicos | Al terminar las pruebas: contiene datos reales |
+| `br-floral-mode-b5hqaix0` (`m03-flujo-medicos`) | Hija de `production` (datos actuales, 2026-10-20, creada por el usuario) | `0000`–`0012`; `privacy_policy` y `doctor_terms` en `TEST-1` publicados (10:40:58 UTC) | Publicación del régimen legal de prueba del médico (C2 `flujo-medicos`) | Copia de los datos reales de `production` (4 perfiles, 1 administrador), los 2 documentos TEST-1 con sus 2 eventos de auditoría y una cuenta de médico de prueba (`@m00.test.invalid`) con 2 aceptaciones, 6 eventos de registro y, tras la revisión, INE 1 aprobada y purgada, cédula 1 rechazada y cédula 2 aprobada (estado `approved`), más un admin de prueba (`@m00.test.invalid`, promovido directamente) y 5 eventos de revisión | Destino de las pruebas del flujo de registro de médicos | Al terminar las pruebas: contiene datos reales |
 | `br-rough-truth-b5oc81xl` | Hija de `rama` restaurada al 2026-10-20 08:55:00 UTC | `0000`–`0012` aplicadas; huella idéntica a la de `rama` tras `probar-m03`; verificada con `verificar-limpia` y `evidencia-m03` (huellas antes y después iguales) | Base de la evidencia formal de M03 | Ninguno nuevo: las pruebas revirtieron todo | Permite repetir la evidencia o regresiones limpias | Una nueva evidencia necesitaría otra restauración (si la ventana de Neon lo permite) o una rama desde `production` |
 
 ## Riesgos y decisiones pendientes
