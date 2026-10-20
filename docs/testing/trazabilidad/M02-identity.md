@@ -268,7 +268,7 @@ Estado, por separado:
 | TC-M02-246 | `test/support/c2-target-guard.spec.ts` (12) | Salvaguarda de destino de los specs que solo deben ejecutarse contra la rama temporal mediante C2: sin identidad esperada, con la de la rama original, con un `DATABASE_URL` de otro endpoint o con Resend o R2 sin neutralizar, falla antes de cualquier consulta y sin mostrar valores. Además se comprobó en el propio spec de integración, con un host `.invalid`, que se detiene al cargarse | PASS, interna |
 | TC-M02-247 | `test/support/c2-target-guard.spec.ts` (23) | Inventario completo: los 13 specs que requieren PostgreSQL (10 de integración, `audit-db`, `me` y `app`) llaman a la salvaguarda en el nivel superior del módulo, antes de cualquier `describe`; los 6 E2E con dobles no la llevan ni importan `src/db`; las tres configuraciones de Jest cargan el interceptor `db-tripwire`. Ejecutados con Jest sin identidad de C2 y con la URL del endpoint de `production` (hosts `.invalid`), los 13 se detienen al cargar (0 pruebas, ningún intento de red); los 6 con dobles pasan sin C2 (65/65) sin ningún intento de conexión | PASS, interna |
 | TC-M02-248 | `test/support/db-tripwire.spec.ts` (5) | Interceptor de conexiones (`setupFiles` de las tres configuraciones): sin identidad de C2 válida (ejecución manual, URL de la rama original o Resend sin neutralizar), `connect` y `query` de `Pool` y `Client` del driver de Neon fallan antes de abrir la red y sin mostrar valores; con la identidad de la rama temporal no intercepta nada | PASS, interna |
-| TC-M02-118 a 121 | `test/integration/admin-bootstrap-better-auth.int-spec.ts` | Provisioner real con el esquema de Drizzle y Better Auth sobre la transacción de la prueba (todo revertido): alta sin credencial, recorrido completo, enlace prematuro, caso de uso con Drizzle y H1 | **No ejecutado**: fase remota en la rama temporal, pendiente de autorización |
+| TC-M02-118 a 121 | `test/integration/admin-bootstrap-better-auth.int-spec.ts` | Provisioner real con el esquema de Drizzle y Better Auth sobre la transacción de la prueba (todo revertido): alta sin credencial, recorrido completo, enlace prematuro, caso de uso con Drizzle y H1 | **Ejecución interna, sin evidencia versionada**: C2 v9 `probar-bootstrap` en la rama temporal `rama` (2026-10-19 UTC), sobre el árbol de trabajo previo a A4 (no sobre un commit identificable), paso `test-int-bootstrap`: `admin-bootstrap-better-auth.int-spec.ts` PASS (con `identity.int-spec.ts`, 26/26 en 2 suites; la salida no desglosa los casos). En esa corrida el paso final `estado-despues` se detuvo por una desconexión (código 1); una huella posterior separada coincide con la previa. El registro está fuera del repositorio (`probar-bootstrap-2026-10-19.log` del espacio de trabajo de C2) y debe verificarse antes de usarlo como evidencia. El código del bootstrap y este spec no cambiaron después de esa ejecución; aun así, no valida el HEAD actual ni es evidencia formal de cierre. Evidencia formal pendiente |
 
 Condiciones de la última ejecución: solo la configuración unitaria de Jest, sin `DATABASE_URL`, `RESEND_API_KEY`,
 `EMAIL_FROM`, las variables `R2_*`, `APP_WEB_URL` ni `BETTER_AUTH_SECRET` en el entorno. Better Auth real con el
@@ -277,6 +277,20 @@ adaptador en memoria y un `EmailSender` falso; CLI con dependencias falsas. Ning
 completa del backend, **38 suites, 410/410 PASS** (con TC-M02-244 a 248), igual sin C2 y con un entorno de C2 simulado. Desde TC-M02-247 y 248, ninguna prueba con PostgreSQL puede ejecutarse fuera de C2: `pnpm test:int`, `pnpm test:e2e` (en sus specs con BD) y `pnpm test:evidence` manuales se detienen antes de conectar; las pruebas unitarias y los E2E con dobles siguen funcionando sin C2. No se
 ejecutaron suites de integración ni E2E (en particular, `auth-flows.e2e-spec.ts` no se ejecutó con el bloqueo); el
 doble `TxAdminAccountProvisioner` de integración solo se compiló.
+
+> **Antecedente técnico interno posterior (no es evidencia formal ni validación del HEAD actual).** C2 v9, plan
+> `probar-bootstrap`, rama temporal `rama`, el 2026-10-19 UTC (la noche del 2026-10-18 en hora local UTC−6):
+> - paso `test-e2e-auth`: `auth-flows`, `me` y `app`, **24/24 PASS** con el tripwire activo. `auth-flows` usó dobles;
+>   `me` y `app` usaron la BD de `rama`;
+> - se ejecutó sobre un árbol de trabajo previo a A4, no sobre un commit identificable. Después, A4 modificó
+>   `me.controller.ts` y `registration-status.use-cases.ts`, que afectan a `GET /me`;
+> - la salida no desglosa los resultados por caso, y el registro (`probar-bootstrap-2026-10-19.log`) está fuera del
+>   repositorio;
+> - el paso `estado-despues` terminó con código 1 por una desconexión. Una huella posterior, tomada aparte, coincidió
+>   con las anteriores; por sí sola no demuestra la integridad total de la ejecución.
+>
+> **Pendiente:** la ejecución formal mediante C2 y `pnpm test:evidence` sobre el HEAD vigente, con la integración del
+> bootstrap (TC-M02-118 a 121) y las suites E2E `auth-flows`, `me` y `app`.
 
 **Cliente web (`apps/web`):** `/completar-registro` consulta primero el rol (`GET /me`) y envía al administrador a
 `/admin`, una pantalla provisional sin funciones de administración, sin consultar `registration-status` ni mostrar el

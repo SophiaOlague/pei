@@ -310,5 +310,11 @@ El administrador no completa el registro de paciente ni pasa por sus pasos de pe
   consulta del rol; 401 y reintento) y `admin-home.test.tsx` (mensaje, correo y solo «Cerrar sesión»; otros roles;
   401; reintento; exige sesión). Resultado: Vitest 73/73, `tsc` sin errores, Biome sin hallazgos en los archivos
   tocados. Validación interna.
-- **Sin prueba manual ni E2E**: el recorrido real del administrador (correo, navegador y backend reales) depende de
-  la ejecución autorizada de `admin:bootstrap`.
+- Estado del recorrido real del administrador:
+  - **Implementación versionada:** `admin:bootstrap` y estas pantallas están en el commit `5d57830`.
+  - **Ejecución real reportada:** el responsable del proyecto informó el 2026-10-18 que el administrador inicial se creó
+    en `production`, definió su contraseña, verificó su correo e inició sesión en `/admin`. Para ejecutarlo hace falta
+    `APP_WEB_URL` correctamente configurada en el backend.
+  - **Evidencia técnica versionada:** ninguna del recorrido real; en este repositorio solo constan las pruebas de Vitest
+    con HTTP simulado. No hay prueba E2E del cliente web.
+  - **Evidencia formal de cierre de M02:** pendiente.
