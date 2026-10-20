@@ -187,3 +187,13 @@ export class BootstrapAccountHasProfileError extends DomainError {
     super('La cuenta indicada ya tiene un perfil');
   }
 }
+
+// DT-12, opción C: solo se reanuda una cuenta sin contraseña (la que crea el propio bootstrap). Una cuenta con
+// contraseña pudo crearla otra persona por el registro público, y esa contraseña seguiría siendo válida para el
+// administrador. El mensaje no incluye el correo ni datos de la cuenta.
+export class BootstrapAccountHasCredentialError extends DomainError {
+  readonly kind = 'conflict';
+  constructor() {
+    super('La cuenta indicada ya tiene una contraseña y no se puede reanudar: revísala antes de repetir el bootstrap');
+  }
+}

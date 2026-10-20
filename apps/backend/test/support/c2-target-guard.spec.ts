@@ -57,6 +57,7 @@ describe('assertC2BranchTarget (salvaguarda de destino de C2)', () => {
 // del módulo, ANTES de su primer describe/beforeAll: si falla, Jest no llega a definir ni ejecutar ninguna prueba.
 const GUARDED_DB_SPECS = [
   'test/integration/actor-profile-reader.int-spec.ts',
+  'test/integration/admin-bootstrap-better-auth.int-spec.ts',
   'test/integration/audit-trail.int-spec.ts',
   'test/integration/concurrency.int-spec.ts',
   'test/integration/curp-user-profile.int-spec.ts',

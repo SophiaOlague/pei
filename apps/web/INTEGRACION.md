@@ -109,8 +109,9 @@ después de iniciar sesión; el estado de las casillas en React no es evidencia.
 
 | Ruta | Protección en la interfaz |
 |---|---|
-| `(dashboard)/*` (incluye `/perfil-usuario`, `/mis-citas`, …) y `/landing-inicio` | `RequireSession` + `RequireRegistration`: sin sesión → `/login`; falta perfil o aceptación → `/completar-registro`; si la consulta falla, muestra el error (no redirige) |
-| `/completar-registro` | Solo `RequireSession` (sin `RequireRegistration`, para no crear un bucle) |
+| `(dashboard)/*` (incluye `/perfil-usuario`, `/mis-citas`, …) y `/landing-inicio` | `RequireSession` + `RequireRegistration`: sin sesión → `/login`; administrador → `/admin` (ver «Navegación por rol»); falta perfil o aceptación → `/completar-registro`; si la consulta falla, muestra el error (no redirige) |
+| `/completar-registro` | Solo `RequireSession` (sin `RequireRegistration`, para no crear un bucle). Administrador → `/admin` antes de cualquier paso |
+| `/admin` | `RequireSession` y comprobación del rol: **pantalla provisional**; otro rol → `/completar-registro` |
 | `/login`, `/signup`, `/verificar-correo`, `/olvide-contrasena`, `/restablecer-contrasena` | Públicas |
 | `/citas-admin`, `/citas-perfil-doctor`, `/expediente`, `/expediente-vista-doctor`, `/historial-medico`, `/historial-prescripciones`, `/informacion-medica-vista-doctor`, `/laboratorio`, `/mis-pacientes`, `/mis-prescripciones`, `/more-ets`, `/nueva-receta-*`, `/prevencion-fam`, `/refill-entregas`, `/completa-cita-emergencia` | Sin guard; estáticas y **sin backend** |
 
@@ -281,3 +282,33 @@ el perfil ni archivos subidos. Better Auth no impide volver a una contraseña us
 - Resultado: Vitest 54/54 (dos ejecuciones), `tsc` sin errores, `next build` correcto; Biome sin hallazgos nuevos
   (los 4 avisos de accesibilidad de `user-menu.tsx` son de la entrega).
 - **Sin prueba manual**: subir una foto y comprobar el avatar queda a cargo de la usuaria (escribe en R2 y en la BD).
+
+## Navegación por rol y pantalla provisional del administrador (2026-10-18)
+
+Preparación de `admin:bootstrap` (ver `docs/testing/trazabilidad/M02-identity.md`, «Preparación de `admin:bootstrap`»).
+El administrador no completa el registro de paciente ni pasa por sus pasos de perfil o aceptación legal.
+
+- `/completar-registro` es el destino compartido tras iniciar sesión y tras verificar el correo. Antes de consultar el
+  registro, pide el rol con `GET /me` (sin caché, una vez por montaje):
+  - `admin` → `/admin`, **sin** consultar `GET /me/registration-status` ni mostrar ningún paso;
+  - paciente o cuenta sin perfil → el flujo de registro de siempre;
+  - otro rol (médico, organización) → sin cambios: el backend responde 403 a `registration-status` y se muestra el error.
+    No se envía a `/admin`.
+- `RequireRegistration` hace la misma comprobación en las rutas protegidas: un administrador nunca entra al registro
+  de pacientes.
+- `/admin` (`src/app/admin/page.tsx`, `src/features/admin/admin-home.tsx`) es una **pantalla provisional**, no un panel:
+  muestra «El panel de administración de PEI está en preparación», el correo de la cuenta y «Cerrar sesión». **No tiene
+  funciones de administración.** Exige sesión; otro rol se envía a `/completar-registro`.
+- Todo esto es navegación de la interfaz: la autorización la sigue haciendo el backend (`SessionGuard`, `RolesGuard`).
+- Flujo previsto del administrador: enlace de contraseña (`/restablecer-contrasena`) → `/login` → el backend responde
+  `EMAIL_NOT_VERIFIED` y envía la verificación → al verificar, `/completar-registro` → `/admin`.
+- Limitación conocida: si el administrador abre un enlace de verificación antes de definir su contraseña, el backend
+  lo rechaza y redirige a `/completar-registro?error=EMAIL_VERIFICATION_REQUIRES_PASSWORD`; sin sesión, la pantalla
+  envía a `/login` sin mostrar el motivo.
+- Pruebas (Vitest, HTTP simulado): `complete-registration.test.tsx` y `guards.test.tsx` (rol antes del registro;
+  administrador sin consultar `registration-status`; paciente, cuenta sin perfil y médico sin cambios; una sola
+  consulta del rol; 401 y reintento) y `admin-home.test.tsx` (mensaje, correo y solo «Cerrar sesión»; otros roles;
+  401; reintento; exige sesión). Resultado: Vitest 73/73, `tsc` sin errores, Biome sin hallazgos en los archivos
+  tocados. Validación interna.
+- **Sin prueba manual ni E2E**: el recorrido real del administrador (correo, navegador y backend reales) depende de
+  la ejecución autorizada de `admin:bootstrap`.

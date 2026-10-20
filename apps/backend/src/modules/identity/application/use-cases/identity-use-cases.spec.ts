@@ -18,12 +18,13 @@ import {
   ReviewIdentityVerificationUseCase,
 } from './identity-verification-admin.use-cases';
 import { IdentityDocumentPurger } from './identity-document-purger';
-import { BootstrapAdminUseCase } from './bootstrap-admin.use-case';
+import { AdminPasswordSetupRequestFailedError, BootstrapAdminUseCase } from './bootstrap-admin.use-case';
 import { UpdatePatientProfileUseCase, UpdateProfilePhotoUseCase } from './patient-profile.use-cases';
 import { AcceptLegalDocumentsUseCase } from './legal-documents.use-cases';
 import { CanBookAppointmentsPolicy } from '../policies/can-book-appointments';
 import {
   AdminAlreadyExistsError,
+  BootstrapAccountHasCredentialError,
   BootstrapAccountHasProfileError,
   IdentityDocumentUnavailableError,
   LegalDocumentNotCurrentError,
@@ -265,6 +266,69 @@ describe('Casos de uso de Identity con dobles en memoria (M02)', () => {
       await other.store.createPatient({ userId: 'ba-paciente', firstName: 'P', lastName: 'Q', curp: syntheticCurp(), birthDate: '1990-01-01', phone: null, emergencyContactName: null, emergencyContactPhone: null });
       await expect(other.useCase.execute(input)).rejects.toThrow(BootstrapAccountHasProfileError);
       expect(store.state.userProfiles.filter((p) => p.role === 'admin')).toHaveLength(1);
+    });
+
+    it('[TC-M02-233][DT-10][DT-12] la configuración del enlace se valida primero; si falla, no hay lecturas, cuenta, perfil, auditoría ni correos', async () => {
+      const { store, accounts, useCase } = bootstrapSetup();
+      const adminExists = jest.spyOn(store, 'adminExists');
+      accounts.configError = new Error('El enlace para definir la contraseña no está configurado: falta APP_WEB_URL');
+
+      await expect(useCase.execute(input)).rejects.toThrow('falta APP_WEB_URL');
+
+      expect(accounts.calls).toEqual(['assertPasswordSetupConfigured']);
+      expect(adminExists).not.toHaveBeenCalled();
+      expect(accounts.accounts.size).toBe(0);
+      expect(accounts.passwordSetups).toEqual([]);
+      expect(store.state.userProfiles).toEqual([]);
+      expect(store.state.audit).toEqual([]);
+    });
+
+    it('[TC-M02-233][DT-12] con configuración válida, la validación es la primera operación y el enlace la última', async () => {
+      const { accounts, useCase } = bootstrapSetup();
+      await useCase.execute(input);
+      expect(accounts.calls).toEqual(['assertPasswordSetupConfigured', 'findUserIdByEmail', 'createAccount', 'sendPasswordSetup']);
+    });
+
+    it('[TC-M02-242][DT-12] una cuenta existente CON contraseña no se reanuda: aborta antes de asignar el rol, crear el perfil o enviar correos', async () => {
+      const { store, accounts, useCase } = bootstrapSetup();
+      accounts.accounts.set('admin@example.test', 'ba-registro-publico');
+      accounts.passwordCredentials.add('ba-registro-publico');
+
+      const error = await useCase.execute(input).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(BootstrapAccountHasCredentialError);
+      expect((error as Error).message).not.toContain('admin@example.test');
+
+      expect(accounts.calls).toEqual(['assertPasswordSetupConfigured', 'findUserIdByEmail', 'hasPasswordCredential']);
+      expect(store.state.userProfiles).toEqual([]);
+      expect(store.state.audit).toEqual([]);
+      expect(accounts.passwordSetups).toEqual([]);
+    });
+
+    it('[TC-M02-242][DT-12] una cuenta existente SIN contraseña ni perfil se reanuda (la dejó una ejecución interrumpida)', async () => {
+      const { store, accounts, useCase } = bootstrapSetup();
+      accounts.accounts.set('admin@example.test', 'ba-interrumpida');
+
+      expect(await useCase.execute(input)).toMatchObject({ resumedExistingAccount: true });
+      expect(accounts.calls).toEqual(['assertPasswordSetupConfigured', 'findUserIdByEmail', 'hasPasswordCredential', 'sendPasswordSetup']);
+      expect(store.state.userProfiles).toEqual([expect.objectContaining({ userId: 'ba-interrumpida', role: 'admin' })]);
+      expect(accounts.passwordSetups).toEqual(['admin@example.test']);
+    });
+
+    it('[TC-M02-243][DT-12] si falla la solicitud del enlace tras crear el administrador: error tipado con el perfil creado, y repetir el bootstrap aborta', async () => {
+      const { store, accounts, useCase } = bootstrapSetup();
+      const cause = new Error('fallo al guardar el token');
+      accounts.passwordSetupError = cause;
+
+      const error = await useCase.execute(input).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(AdminPasswordSetupRequestFailedError);
+      const failed = error as AdminPasswordSetupRequestFailedError;
+      expect(failed.cause).toBe(cause);
+      expect(store.state.userProfiles).toEqual([expect.objectContaining({ id: failed.userProfileId, role: 'admin' })]);
+      expect(store.state.audit).toEqual([expect.objectContaining({ action: 'identity.admin.bootstrapped' })]);
+
+      accounts.passwordSetupError = null;
+      await expect(useCase.execute(input)).rejects.toThrow(AdminAlreadyExistsError);
+      expect(accounts.passwordSetups).toEqual([]);
     });
   });
 

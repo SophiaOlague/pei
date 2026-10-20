@@ -1,7 +1,16 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mockFetch, ok, pendingOf, privacy, status, terms } from "@/test/http";
+import { ADMIN_HOME_PATH } from "@/features/components/require-registration";
+import {
+  meAs,
+  mockFetch,
+  ok,
+  pendingOf,
+  privacy,
+  status,
+  terms,
+} from "@/test/http";
 import {
   CompleteRegistration,
   REGISTRATION_DONE_PATH,
@@ -26,6 +35,7 @@ describe("CompleteRegistration: paso legal", () => {
 
   it("las casillas empiezan desmarcadas y no se puede continuar sin todas", async () => {
     mockFetch({
+      "GET /me": ok(meAs("patient")),
       "GET /me/registration-status": ok(legalPending(terms, privacy)),
       "GET /legal-documents/current": ok([terms, privacy]),
     });
@@ -46,6 +56,7 @@ describe("CompleteRegistration: paso legal", () => {
 
   it("cada documento muestra su título, su versión y su contenido", async () => {
     mockFetch({
+      "GET /me": ok(meAs("patient")),
       "GET /me/registration-status": ok(legalPending(terms, privacy)),
       "GET /legal-documents/current": ok([terms, privacy]),
     });
@@ -67,6 +78,7 @@ describe("CompleteRegistration: paso legal", () => {
 
   it("envía exactamente los IDs devueltos por /legal-documents/current", async () => {
     const { calls } = mockFetch({
+      "GET /me": ok(meAs("patient")),
       "GET /me/registration-status": [
         ok(legalPending(terms, privacy)),
         ok(status()),
@@ -92,6 +104,7 @@ describe("CompleteRegistration: paso legal", () => {
 
   it("muestra el error si fallan los documentos y permite reintentar", async () => {
     mockFetch({
+      "GET /me": ok(meAs("patient")),
       "GET /me/registration-status": ok(legalPending(terms, privacy)),
       "GET /legal-documents/current": [
         { status: 500, body: { statusCode: 500, message: "x" } },
@@ -109,6 +122,7 @@ describe("CompleteRegistration: paso legal", () => {
 
   it("muestra el error si falla la aceptación y no avanza", async () => {
     mockFetch({
+      "GET /me": ok(meAs("patient")),
       "GET /me/registration-status": ok(legalPending(terms, privacy)),
       "GET /legal-documents/current": ok([terms, privacy]),
       "POST /me/legal-acceptances": {
@@ -141,6 +155,7 @@ describe("CompleteRegistration: paso legal", () => {
       version: "2.0",
     };
     const { calls } = mockFetch({
+      "GET /me": ok(meAs("patient")),
       "GET /me/registration-status": [ok(legalPending(newTerms)), ok(status())],
       "GET /legal-documents/current": ok([newTerms, privacy]),
       "POST /me/legal-acceptances": ok({ accepted: [] }),
@@ -168,6 +183,7 @@ describe("CompleteRegistration: paso legal", () => {
 
   it("sin documentos publicados no ofrece continuar", async () => {
     mockFetch({
+      "GET /me": ok(meAs("patient")),
       "GET /me/registration-status": ok(
         status({ legal: { accepted: false, pending: [] }, missing: ["legal"] }),
       ),
@@ -189,6 +205,7 @@ describe("CompleteRegistration: perfil y orden", () => {
 
   it("crea el perfil antes de registrar las aceptaciones", async () => {
     const { calls } = mockFetch({
+      "GET /me": ok(meAs("patient")),
       "GET /me/registration-status": [
         ok(
           status({
@@ -253,6 +270,7 @@ describe("CompleteRegistration: perfil y orden", () => {
 
   it("muestra el error del backend al crear el perfil", async () => {
     mockFetch({
+      "GET /me": ok(meAs("patient")),
       "GET /me/registration-status": ok(
         status({ profileCompleted: false, missing: ["profile"] }),
       ),
@@ -283,6 +301,7 @@ describe("CompleteRegistration: perfil y orden", () => {
 
   it("si el registro ya está completo, redirige al inicio sin pedir documentos", async () => {
     const { calls } = mockFetch({
+      "GET /me": ok(meAs("patient")),
       "GET /me/registration-status": ok(status()),
     });
     render(<CompleteRegistration />);
@@ -290,11 +309,15 @@ describe("CompleteRegistration: perfil y orden", () => {
     await waitFor(() =>
       expect(replace).toHaveBeenCalledWith(REGISTRATION_DONE_PATH),
     );
-    expect(calls.map((c) => c.key)).toEqual(["GET /me/registration-status"]);
+    expect(calls.map((c) => c.key)).toEqual([
+      "GET /me",
+      "GET /me/registration-status",
+    ]);
   });
 
   it("sin sesión en el backend (401) envía a /login", async () => {
     mockFetch({
+      "GET /me": ok(meAs("patient")),
       "GET /me/registration-status": {
         status: 401,
         body: { statusCode: 401, message: "x" },
@@ -303,5 +326,112 @@ describe("CompleteRegistration: perfil y orden", () => {
     render(<CompleteRegistration />);
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
+  });
+});
+
+describe("CompleteRegistration: rol antes del registro", () => {
+  beforeEach(() => replace.mockReset());
+
+  it("un administrador va a /admin sin consultar ni mostrar nada del registro de pacientes", async () => {
+    const { calls } = mockFetch({
+      "GET /me": ok(meAs("admin", "admin@example.test")),
+    });
+    render(<CompleteRegistration />);
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(ADMIN_HOME_PATH));
+    expect(calls.map((c) => c.key)).toEqual(["GET /me"]);
+    expect(screen.queryByText("Completa tu registro")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("CURP")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["sin perfil todavía (rol null)", null],
+    ["paciente", "patient"],
+  ] as const)("%s: sigue el flujo del registro", async (_, role) => {
+    mockFetch({
+      "GET /me": ok(meAs(role)),
+      "GET /me/registration-status": ok(
+        status({ profileCompleted: false, missing: ["profile"] }),
+      ),
+    });
+    render(<CompleteRegistration />);
+
+    expect(await screen.findByLabelText("CURP")).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalledWith(ADMIN_HOME_PATH);
+  });
+
+  it("otro rol (médico) no se envía a /admin: conserva el comportamiento actual", async () => {
+    mockFetch({
+      "GET /me": ok(meAs("doctor")),
+      "GET /me/registration-status": {
+        status: 403,
+        body: {
+          statusCode: 403,
+          message: "El estado del registro solo aplica a pacientes",
+        },
+      },
+    });
+    render(<CompleteRegistration />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "El estado del registro solo aplica a pacientes",
+    );
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("el rol se consulta una sola vez: los pasos del registro no repiten GET /me", async () => {
+    const { calls } = mockFetch({
+      "GET /me": ok(meAs(null)),
+      "GET /me/registration-status": [
+        ok(status({ profileCompleted: false, missing: ["profile"] })),
+        ok(status()),
+      ],
+      "POST /me/patient-profile": ok({
+        patientProfileId: "p",
+        userProfileId: "u",
+      }),
+    });
+    render(<CompleteRegistration />);
+
+    await userEvent.type(await screen.findByLabelText("Nombre(s)"), "Ana");
+    await userEvent.type(screen.getByLabelText("Apellidos"), "Pérez");
+    await userEvent.type(screen.getByLabelText("CURP"), "PEAA000101MDFRNNA1");
+    await userEvent.type(
+      screen.getByLabelText("Fecha de nacimiento"),
+      "2000-01-01",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Continuar" }));
+
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(REGISTRATION_DONE_PATH),
+    );
+    expect(calls.filter((c) => c.key === "GET /me")).toHaveLength(1);
+  });
+
+  it("sin sesión al consultar el rol (401) envía a /login sin consultar el registro", async () => {
+    const { calls } = mockFetch({
+      "GET /me": { status: 401, body: { statusCode: 401 } },
+    });
+    render(<CompleteRegistration />);
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
+    expect(calls.map((c) => c.key)).toEqual(["GET /me"]);
+  });
+
+  it("si falla la consulta del rol, muestra el error sin mostrar el registro y el reintento vuelve a consultarlo", async () => {
+    const { calls } = mockFetch({
+      "GET /me": [
+        { status: 500, body: { statusCode: 500 } },
+        ok(meAs("admin")),
+      ],
+    });
+    render(<CompleteRegistration />);
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByLabelText("CURP")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(ADMIN_HOME_PATH));
+    expect(calls.map((c) => c.key)).toEqual(["GET /me", "GET /me"]);
   });
 });

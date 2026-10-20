@@ -1,13 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthShell, btnCls, inputCls } from "@/features/components/auth-shell";
+import { ADMIN_HOME_PATH } from "@/features/components/require-registration";
 import {
   ApiError,
   acceptLegalDocuments,
   createPatientProfile,
   getCurrentLegalDocuments,
+  getMe,
   getRegistrationStatus,
   type LegalDocument,
   type LegalDocumentType,
@@ -49,11 +51,23 @@ export function CompleteRegistration() {
   const router = useRouter();
   const [status, setStatus] = useState<RegistrationStatus | null>(null);
   const [loadError, setLoadError] = useState("");
+  // /completar-registro es también el destino de los enlaces de verificación de cualquier rol. El rol se
+  // comprueba antes que el registro: el administrador va a /admin sin consultar ni mostrar nada del registro
+  // de pacientes. Una vez por montaje (los pasos del registro no cambian el rol); si falla, se repite al reintentar.
+  const roleChecked = useRef(false);
 
   // El estado del registro siempre se pide al backend; el frontend nunca lo marca como completo.
   const refresh = useCallback(async () => {
     setLoadError("");
     try {
+      if (!roleChecked.current) {
+        const me = await getMe();
+        if (me.role === "admin") {
+          router.replace(ADMIN_HOME_PATH);
+          return;
+        }
+        roleChecked.current = true;
+      }
       const next = await getRegistrationStatus();
       if (pendingRegistrationStep(next) === null) {
         router.replace(REGISTRATION_DONE_PATH);

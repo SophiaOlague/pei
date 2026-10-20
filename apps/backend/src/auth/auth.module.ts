@@ -9,6 +9,7 @@ import { DrizzleActorProfileReader } from './drizzle-actor-profile.reader';
 import { SessionGuard } from './session.guard';
 import { RolesGuard } from './roles.guard';
 import { AUTH_INSTANCE, createAuth, loadAuthConfig } from './auth.config';
+import { EMAIL_DISPATCHES, EmailDispatchRegistry } from './email-dispatches';
 import { EMAIL_SENDER, type EmailSender } from '../modules/identity/application/ports/email-sender';
 import { loadResendConfig, ResendEmailSender } from '../modules/identity/infrastructure/email/resend-email-sender';
 
@@ -19,10 +20,12 @@ import { loadResendConfig, ResendEmailSender } from '../modules/identity/infrast
 @Module({
   providers: [
     { provide: EMAIL_SENDER, useFactory: () => new ResendEmailSender(loadResendConfig()) },
+    // Sin registro activo no guarda nada; solo los CLI lo activan para esperar los correos (email-dispatches.ts).
+    { provide: EMAIL_DISPATCHES, useValue: new EmailDispatchRegistry() },
     {
       provide: AUTH_INSTANCE,
-      inject: [EMAIL_SENDER],
-      useFactory: (emailSender: EmailSender) =>
+      inject: [EMAIL_SENDER, EMAIL_DISPATCHES],
+      useFactory: (emailSender: EmailSender, emailDispatches: EmailDispatchRegistry) =>
         createAuth({
           database: drizzleAdapter(db, {
             provider: 'pg',
@@ -30,6 +33,7 @@ import { loadResendConfig, ResendEmailSender } from '../modules/identity/infrast
           }),
           emailSender,
           config: loadAuthConfig(),
+          emailDispatches,
         }),
     },
     { provide: SESSION_PROVIDER, useClass: BetterAuthSessionProvider },
@@ -37,6 +41,6 @@ import { loadResendConfig, ResendEmailSender } from '../modules/identity/infrast
     SessionGuard,
     RolesGuard,
   ],
-  exports: [AUTH_INSTANCE, EMAIL_SENDER, SESSION_PROVIDER, ACTOR_PROFILE_READER, SessionGuard, RolesGuard],
+  exports: [AUTH_INSTANCE, EMAIL_SENDER, EMAIL_DISPATCHES, SESSION_PROVIDER, ACTOR_PROFILE_READER, SessionGuard, RolesGuard],
 })
 export class AuthModule {}

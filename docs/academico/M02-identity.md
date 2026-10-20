@@ -21,7 +21,7 @@ Fuentes: [resumen de evidencia de M02](../testing/ejecuciones/2026-10-07_M02-val
 | Validación post-migración (etapa A) | 374/374 PASS, **validación interna** sin salida versionada; no es evidencia formal |
 | Corridas de evidencia B y C | **Descartadas** (timeouts por latencia; ver sus `DESCARTADA.md`) |
 | Evidencia formal (etapa D) | **Pendiente** por latencia de red hacia Neon |
-| `admin:bootstrap` real | **Pendiente** por dependencia del frontend (pantalla para establecer la contraseña) y de `APP_WEB_URL` |
+| `admin:bootstrap` real | **Pendiente**: faltan `APP_WEB_URL`, la validación de integración y E2E del flujo nuevo, y la ejecución autorizada (ver la trazabilidad, «Preparación de `admin:bootstrap`») |
 | R2 real (`pei-documents-dev`) | **PASS** 10/10 |
 | Resend real | **PASS** |
 | Cierre formal (tag) | Pendiente de la etapa D |
@@ -69,8 +69,9 @@ Fuentes: [resumen de evidencia de M02](../testing/ejecuciones/2026-10-07_M02-val
 
 - **R2** (`pei-documents-dev`): PASS 10/10. El objeto sintético no fue accesible de forma anónima y no quedaron residuos.
 - **Resend:** PASS. Un envío a la dirección de prueba del proveedor respondió HTTP 200.
-- **Bootstrap del administrador:** pendiente. Depende de `APP_WEB_URL` y de la pantalla del cliente web para establecer
-  la contraseña.
+- **Bootstrap del administrador:** pendiente; no se ha ejecutado. El cliente web ya tiene la pantalla para establecer la
+  contraseña y una pantalla provisional para el administrador; el flujo está validado solo con pruebas unitarias
+  internas. Faltan `APP_WEB_URL`, la integración y las E2E del flujo, y la ejecución autorizada.
 
 ### Escaneo de dependencias
 
@@ -110,7 +111,7 @@ M02 no agregó dependencias. Resend se usa por su API REST con `fetch`, sin SDK 
 - Se aplicó un único ajuste autorizado: `testTimeout` en la configuración E2E.
 
 **Ruta crítica:** M02 es predecesor de M08 (agendar) y modelo de registro por rol para M03 y M04. El bootstrap real
-depende del cliente web.
+depende de `APP_WEB_URL`, de la validación de integración y E2E del flujo y de su ejecución autorizada.
 
 ---
 
