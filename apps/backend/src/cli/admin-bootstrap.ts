@@ -2,65 +2,38 @@
 //
 //   pnpm admin:bootstrap --email <correo> --first-name <nombre> --last-name <apellidos>
 //
-// No acepta un parámetro de rol ni existe un endpoint equivalente. Crea la cuenta con una contraseña
-// aleatoria que se descarta; el administrador recibe el correo de verificación y el enlace para definir
-// su contraseña. Escribe en la BD configurada en DATABASE_URL: ejecutarlo requiere autorización.
+// No acepta un parámetro de rol ni existe un endpoint equivalente. Crea la cuenta sin contraseña y envía un
+// único correo: el enlace para definir la contraseña. La verificación del correo llega en el primer inicio de
+// sesión. Escribe en la BD configurada en DATABASE_URL: ejecutarlo requiere autorización.
+// Argumentos, mensajes y códigos de salida: admin-bootstrap.run.ts.
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { CliModule } from './cli.module';
 import { BootstrapAdminUseCase } from '../modules/identity/application/use-cases/bootstrap-admin.use-case';
 import { db } from '../db';
-
-const USAGE = 'Uso: pnpm admin:bootstrap --email <correo> --first-name <nombre> --last-name <apellidos>';
-const ALLOWED = new Set(['--email', '--first-name', '--last-name']);
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function parseArgs(argv: string[]): { email: string; firstName: string; lastName: string } {
-  const values = new Map<string, string>();
-  for (let i = 0; i < argv.length; i += 2) {
-    const flag = argv[i];
-    const value = argv[i + 1];
-    if (!ALLOWED.has(flag) || value === undefined || value.startsWith('--') || values.has(flag)) {
-      throw new Error(`Argumento no permitido o incompleto: ${flag}. ${USAGE}`);
-    }
-    values.set(flag, value.trim());
-  }
-  const email = values.get('--email')?.toLowerCase() ?? '';
-  const firstName = values.get('--first-name') ?? '';
-  const lastName = values.get('--last-name') ?? '';
-  if (!EMAIL.test(email)) throw new Error(`Correo inválido. ${USAGE}`);
-  if (firstName.length < 1 || firstName.length > 100 || lastName.length < 1 || lastName.length > 100) {
-    throw new Error(`Nombre y apellidos deben tener entre 1 y 100 caracteres. ${USAGE}`);
-  }
-  return { email, firstName, lastName };
-}
-
-async function main(): Promise<number> {
-  let input: ReturnType<typeof parseArgs>;
-  try {
-    input = parseArgs(process.argv.slice(2));
-  } catch (error) {
-    console.error((error as Error).message);
-    return 2;
-  }
-
-  const app = await NestFactory.createApplicationContext(CliModule, { logger: ['error', 'warn'] });
-  try {
-    const result = await app.get(BootstrapAdminUseCase).execute(input);
-    console.log(
-      `Administrador creado (user_profile ${result.userProfileId}${result.resumedExistingAccount ? ', cuenta existente reanudada' : ''}). ` +
-        'Se enviaron el correo de verificación y el enlace para definir la contraseña.',
-    );
-    return 0;
-  } catch (error) {
-    console.error(`Bootstrap abortado: ${(error as Error).message}`);
-    return 1;
-  } finally {
-    await app.close();
-    await db.$client.end();
-  }
-}
+import { EMAIL_DISPATCHES, type EmailDispatchRegistry } from '../auth/email-dispatches';
+import { contextFromApp, runAdminBootstrap } from './admin-bootstrap.run';
 
 if (require.main === module) {
-  void main().then((code) => process.exit(code));
+  void runAdminBootstrap(process.argv.slice(2), {
+    createContext: async (onCleanupError) => {
+      // abortOnError: false para que un fallo de arranque o de app.get se propague a runAdminBootstrap (con el
+      // valor por defecto, Nest termina el proceso con abort o exit(1) por su cuenta).
+      const app = await NestFactory.createApplicationContext(CliModule, { logger: ['error', 'warn'], abortOnError: false });
+      return contextFromApp(
+        app,
+        () => {
+          // Registra los correos desde ahora para esperarlos antes de cerrar el contexto y salir.
+          const emails = app.get<EmailDispatchRegistry>(EMAIL_DISPATCHES);
+          const useCase = app.get(BootstrapAdminUseCase);
+          emails.record();
+          return { bootstrap: (input) => useCase.execute(input), settleEmails: () => emails.settle() };
+        },
+        onCleanupError,
+      );
+    },
+    closeDatabase: () => db.$client.end(),
+    log: (line) => console.log(line),
+    error: (line) => console.error(line),
+  }).then((code) => process.exit(code));
 }

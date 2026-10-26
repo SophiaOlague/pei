@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 import type {
   LegalDocument,
+  Me,
   PendingLegalDocument,
   RegistrationStatus,
 } from "@/lib/api";
@@ -78,3 +79,13 @@ export function status(
 }
 
 export const ok = (body: unknown): Reply => ({ status: 200, body });
+
+// Respuesta de GET /me para un rol (el perfil y el estado del registro solo existen para pacientes).
+export function meAs(role: Me["role"], email = "persona@example.test"): Me {
+  return {
+    user: { id: "user-1", email },
+    role,
+    profile: null,
+    registrationStatus: role === "patient" || role === null ? status() : null,
+  };
+}

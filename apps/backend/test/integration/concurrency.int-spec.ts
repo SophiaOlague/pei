@@ -6,6 +6,11 @@ import { ConcurrencyConflictError } from '../../src/common/domain/persistence.er
 import { captureError, deferred, RollbackSignal, testTag, type Tx } from '../support/with-rollback';
 import { insertUserWithProfile, policyDatesBeforeExisting } from '../support/fixtures';
 import { countM00Residue } from '../support/residue';
+import { assertC2BranchTarget } from '../support/c2-target-guard';
+
+// Salvaguarda de destino: solo contra la rama temporal mediante C2. Ejecutado de otra forma, src/db usaría el
+// DATABASE_URL del .env (rama `production`): falla al cargar el módulo, antes de cualquier consulta.
+assertC2BranchTarget();
 
 // Concurrencia real con dos conexiones a PostgreSQL. Ninguna transacción se confirma:
 // la conexión A inserta y espera sin COMMIT; la conexión B intenta lo mismo. Al final ambas

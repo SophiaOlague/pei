@@ -1,0 +1,11 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "../..",
+  "testEnvironment": "node",
+  "setupFiles": ["<rootDir>/test/support/db-tripwire.ts"],
+  "testRegex": "test/flujo/.*\\.flow-spec\\.ts$",
+  "testTimeout": 120000,
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  }
+}

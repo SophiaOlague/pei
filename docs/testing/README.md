@@ -10,6 +10,15 @@ Convenciones para las pruebas automatizadas y su evidencia. Se completa módulo 
 | Integración | `pnpm test:int` | `test/integration/**/*.int-spec.ts` | BD de desarrollo, **siempre con rollback** |
 | E2E / API | `pnpm test:e2e` | `test/**/*.e2e-spec.ts` | Solo lecturas (sesiones simuladas o rutas sin sesión) |
 | Evidencia | `pnpm test:evidence -- <etiqueta>` | Ejecuta las tres y guarda resultados | — |
+| Flujo (C2) | Solo mediante C2 (`flujo-registro`, `revision-admin`), fuera del repositorio | `test/flujo/**/*.flow-spec.ts`, config `test/flujo/jest-flujo.json` | Rama de pruebas de Neon fijada; **confirma datos permanentes** |
+
+## Pruebas de flujo (`*.flow-spec.ts`)
+
+- No son pruebas Jest convencionales: ninguna suite las incluye (`pnpm test` busca `*.spec.ts`, `test:e2e` `*.e2e-spec.ts`) y no forman parte de `test:evidence`.
+- Solo se ejecutan mediante C2, que verifica la identidad de la rama de Neon antes de arrancar y antes de cada escritura, inyecta la URL de esa rama y neutraliza Resend y R2. Cada wrapper ejecuta un solo spec (`--runTestsByPath`).
+- `test/flujo/flow-guard.ts` se importa primero y detiene el spec al cargar, sin conexiones, si falta la identidad de C2, si es la rama original o si no está el marcador `C2_COMMITTED_FIXTURES=flujo-medicos-accepted`.
+- Confirman datos permanentes en la rama (cuentas `@m00.test.invalid`, revisiones, auditoría). Nunca se ejecutan contra `production` ni contra la BD de `.env`.
+- Sus comprobaciones puras (`test/flujo/*-checks.ts`) se prueban en `test/flujo/*.spec.ts`, que sí forman parte de `pnpm test`.
 
 ## Reglas para la BD de desarrollo
 

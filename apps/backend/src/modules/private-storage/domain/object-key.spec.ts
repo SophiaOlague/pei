@@ -10,10 +10,17 @@ describe('Claves del bucket privado: gramática compartida (R-11, DT-18)', () =>
     expect(isPrivateObjectKey(`profile-photos/${A}/${B}.png`)).toBe(true);
   });
 
+  it('[RT-M03-13][R-11] acepta las claves de M03 (INE, cédula y foto del médico)', () => {
+    expect(isPrivateObjectKey(`doctor-identity/${A}/${B}/front.jpg`)).toBe(true);
+    expect(isPrivateObjectKey(`doctor-licenses/${A}/${B}.pdf`)).toBe(true);
+    expect(isPrivateObjectKey(`doctor-photos/${A}/${B}.png`)).toBe(true);
+  });
+
   it.each([
     ['una URL', 'https://example.test/a.jpg'],
     ['una ruta relativa', '../otro/front.jpg'],
-    ['un espacio no registrado', `doctor-licenses/${A}/${B}.pdf`],
+    // M03 B5 registró doctor-licenses: el ejemplo de espacio no registrado pasa a ser otro.
+    ['un espacio no registrado', `otro-espacio/${A}/${B}.pdf`],
     ['un formato anterior a M02', 'patient-ine/a.jpeg'],
     ['una CURP', `identity/XEXX010101HNEXXXA4/${B}/front.jpg`],
     ['un UUID en mayúsculas', `identity/${A.toUpperCase()}/${B}/front.jpg`],

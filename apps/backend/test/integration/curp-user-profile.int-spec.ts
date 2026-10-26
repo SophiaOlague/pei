@@ -7,6 +7,11 @@ import { insertUserWithProfile } from '../support/fixtures';
 import { countM00Residue, countM02Residue } from '../support/residue';
 import { syntheticCurp } from '../support/synthetic-identity';
 import { createPatient, identityUseCases, insertAuthUser, sessionActor } from '../support/identity-integration';
+import { assertC2BranchTarget } from '../support/c2-target-guard';
+
+// Salvaguarda de destino: solo contra la rama temporal mediante C2. Ejecutado de otra forma, src/db usaría el
+// DATABASE_URL del .env (rama `production`): falla al cargar el módulo, antes de cualquier consulta.
+assertC2BranchTarget();
 
 // M03 A3: la CURP vive en user_profile (R-12), única entre roles (D-20, D-35) y obligatoria para paciente y médico.
 // REQUIERE 0007_m02_user_profile_curp aplicada. Contra la BD con rollback; CURP sintéticas.

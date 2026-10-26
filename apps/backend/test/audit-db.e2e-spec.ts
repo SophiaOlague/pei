@@ -15,6 +15,11 @@ import { DomainExceptionFilter } from '../src/common/filters/domain-exception.fi
 import { AuditModule } from '../src/modules/audit/audit.module';
 import { ApproveProbeUseCase, AuditProbeController, PROBE_ACTION } from './support/audit-probe';
 import { RollbackSignal, TEST_EMAIL_DOMAIN, testTag } from './support/with-rollback';
+import { assertC2BranchTarget } from './support/c2-target-guard';
+
+// Salvaguarda de destino: solo contra la rama temporal mediante C2. Ejecutado de otra forma, src/db usaría el
+// DATABASE_URL del .env (rama `production`): falla al cargar el módulo, antes de cualquier consulta.
+assertC2BranchTarget();
 
 // E2E con PostgreSQL real y el DrizzleAuditTrail real, SIN commits: la UnitOfWork de esta prueba
 // crea el usuario de prueba, ejecuta el caso de uso, lee la fila de audit_log y hace ROLLBACK.

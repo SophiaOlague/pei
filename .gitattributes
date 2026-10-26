@@ -1,0 +1,3 @@
+# Migraciones de Drizzle: sin conversión de fin de línea. El hash que Drizzle guarda en __drizzle_migrations (y los
+# SHA-256 que verifica C2) se calculan sobre los bytes del archivo; un checkout con CRLF los cambiaría.
+apps/backend/src/db/migrations/*.sql -text

@@ -62,7 +62,7 @@ Los identificadores D-6 a D-8, D-11, D-12, D-14, D-15 y D-18 no figuran en el di
 | R-5 | Tamaño máximo: cédula 10 MB; INE y foto 5 MB | Aprobada (cerrada técnicamente en v3) |
 | R-6 | Número de cédula: string de 1 a 20 caracteres `[0-9A-Za-z-]`; validación solo sintáctica | Aprobada (cerrada técnicamente en v3) |
 | R-8 | La aceptación legal se audita para todos los roles (cambio en M02) | Aprobada; **implementada en A2** |
-| R-10 | Trigger de coherencia `doctor_profile`/`patient_profile` con el rol | Aprobada (cerrada técnicamente en v3); prevista para A4 (0008) |
+| R-10 | Trigger de coherencia `doctor_profile`/`patient_profile` con el rol | Aprobada (cerrada técnicamente en v3); implementada en A4 (`0008`): aplicada en la rama temporal `rama` y en `production` (2026-10-20) |
 | R-11 | Puerto de almacenamiento privado compartido en `modules/private-storage` | Aprobada; **implementada en A1** |
 | R-12 | La CURP pasa a `user_profile` con un único `UNIQUE`; no queda otra fuente de verdad; la migración conserva el dato del paciente de desarrollo | Aprobada; **implementada en A3** (`0007`) |
 | R-13 | Una versión nueva de un documento legal requerido invalida la aceptación anterior (registro incompleto) | Aprobada; **implementada en A2** |
@@ -81,8 +81,8 @@ R-3 y R-9 no figuran en el diseño v3 y no se registran.
 | M02-3 | Aceptaciones legales auditadas (R-8) | A2 | Implementado (`b40058f`) |
 | M02-4 | Legal por rol (D-32, N1), migración 0006 | A2 | Implementado (`b40058f`) |
 | M02-5 | Almacenamiento al puerto privado compartido (R-11) | A1 | Implementado (`a176934`). El adaptador se llama `R2PrivateObjectStorage`, no `R2DocumentStorage` (sección 6) |
-| M02-6 | `/me` y estado de registro por rol (D-31) | A4 | Pendiente |
-| M02-7 | Coherencia de rol (R-10), migración 0008 | A4 | Pendiente |
+| M02-6 | `/me` y estado de registro por rol (D-31) | A4 | Implementado en el árbol de trabajo, sin commit (opción (a) de D-A4-2) |
+| M02-7 | Coherencia de rol (R-10), migración 0008 | A4 | Implementado en el árbol de trabajo, sin commit. `0008` ensayada (C2 v10 `verificar-0008`), aplicada en `rama` (`aplicar-0008`, 2026-10-20) y validada con la integración de A4 (C2 v10.1 `probar-a4`, 8/8, solo en `rama`). Aplicada en `production` el 2026-10-20 (C2 prod-0008; controles previo y posterior PASS, sin ejecutar allí la integración) |
 
 ## 5. Desviaciones controladas y decisiones de ejecución
 
@@ -98,6 +98,12 @@ R-3 y R-9 no figuran en el diseño v3 y no se registran.
 | P3 | A3 | `scripts/dev-fix-curp-dt22.mjs` se conserva sin cambios hasta cerrar M02; después, nota de obsolescencia | **Aprobada** (2026-10-12, fecha de la aprobación en conversación; no consta en un archivo fuente) |
 | P4 | A3 | El traslado de `0007` no modifica `user_profile.updated_at` | **Aprobada** (2026-10-12, fecha de la aprobación en conversación; no consta en un archivo fuente); `0007` no lo toca |
 | P5 | A3 | Integración y ensayo de `0007` antes de su aplicación en la BD de destino: rama temporal de Neon (C2) | **Ejecutada** (2026-10-14): `0007` aplicada y validada, en esa fecha, solo en la rama temporal `rama` (`br-autumn-sun-b52qoep4`), creada a partir de `production`; pruebas de integración y E2E PASS como validación interna |
+| D-A4-1 | A4 | Los triggers de coherencia rol-perfil de `0008` fallan con `P0001`, como `0005` (A7). Ningún endpoint lo provoca: el rol lo fija el caso de uso; es una defensa en la BD | **Aprobada** (2026-10-18, en conversación; no consta en un archivo fuente); implementada en `0008`; comprobada en `rama` (P0001 en N1–N4 y T1–T5, 2026-10-20) y en `production` (P0001 en T1–T5, transacción revertida, 2026-10-20) |
+| D-A4-2 | A4 | Opción (a): el estado de registro se compone por rol; el paciente conserva su contrato actual; el médico sigue recibiendo `null` hasta la fase B (sus requisitos necesitan `0009`–`0012`); admin y organización reciben `null`. `GET /me/registration-status` sigue reservado al paciente | **Aprobada** (2026-10-18, en conversación; no consta en un archivo fuente); implementada en A4 (sin commit) |
+| DC-5 | B1 | `0009` sin los triggers de `specialty` (DELETE, TRUNCATE y `code` inmutable): siguen el plan v2 (0012, B3) y no el diseño v3 §L (0009). Mientras tanto, la aplicación no expone borrado y el DTO de edición no admite `code` | Sigue el plan v2 §3; sin decisión nueva |
+| DC-6 | B4 | Interpretaciones del dominio: `*_resubmission` en `missing` con línea `required` e historial; envío de cédula con línea `required` e historial = `resubmission`; la versión profesional sube siempre que cambia el número del perfil (también el inicial); `registrationComplete` sigue a plan v2 §7bis.2 | **Aprobada** (2026-10-20, en conversación) |
+| DC-7 | B5 | DC-2 se resuelve con el puerto restringido `DOCTOR_IDENTITY_GATEWAY` de Identity (crear el `user_profile` del médico, leer y cambiar su identidad legal y teléfono, y `doctorLegalAccepted`) en lugar de un `LegalRequirementsReader` separado | Implementada (sin commit) |
+| DC-8 | B7 | La sección del médico en `GET /me` se registra en `RoleProfileSectionRegistry` de Identity al iniciar `DoctorsModule` (Identity no depende de M03). Cumple el «hasta la fase B» de D-A4-2 | Implementada (sin commit) |
 
 ## 6. Previsiones superadas
 
@@ -115,6 +121,7 @@ R-3 y R-9 no figuran en el diseño v3 y no se registran.
 |---|---|
 | P1 | Confirmar la vía de recuperación de `0007`, ya aplicada en `production` (2026-10-17): viabilidad de la restauración de Neon al punto registrado y, en su caso, validación del inverso lógico fuera de `rama`. El entorno organizacional de `production` sigue por confirmar |
 | Enumeración de CURP | Con la unicidad entre roles, el 409 genérico revela que la CURP existe en cualquier rol (también médicos). Requiere aceptación explícita del riesgo; el contrato de respuesta no se cambia sin decisión |
-| Rama temporal de Neon `rama` (`br-autumn-sun-b52qoep4`) | Conservarla (necesaria para la evidencia formal) o eliminarla |
+| Rama temporal de Neon `rama` (`br-autumn-sun-b52qoep4`) | Conservarla (necesaria para la evidencia formal; tiene `0007` y `0008` aplicadas) o eliminarla |
+| `0008` en `production` | Aplicada y verificada el 2026-10-20 (C2 prod-0008). Pendiente: ventana de restauración de Neon sin verificar (recuperación por inverso lógico, validado solo en `rama`), evidencia de la ejecución fuera del repositorio y despliegue del código de A4 (sin commit) |
 | Evidencia formal | Procedimiento de evidencia formal en la rama temporal (E0), pendiente de autorización |
 | `admin:bootstrap` | Cierre formal de M02 con excepción documentada o esperar a la ejecución real |

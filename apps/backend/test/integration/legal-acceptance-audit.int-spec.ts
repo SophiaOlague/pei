@@ -7,6 +7,11 @@ import { DrizzleLegalDocumentRepository } from '../../src/modules/identity/infra
 import { captureError, withRollback } from '../support/with-rollback';
 import { countM00Residue, countM02Residue } from '../support/residue';
 import { createPatient, identityUseCases, publishLegalDocument } from '../support/identity-integration';
+import { assertC2BranchTarget } from '../support/c2-target-guard';
+
+// Salvaguarda de destino: solo contra la rama temporal mediante C2. Ejecutado de otra forma, src/db usaría el
+// DATABASE_URL del .env (rama `production`): falla al cargar el módulo, antes de cualquier consulta.
+assertC2BranchTarget();
 
 // M03 A2, R-8: la aceptación legal y su evento de auditoría van en la misma UnitOfWork. Contra la BD de PEI,
 // con rollback, y solo con tipos de legado: NO requiere 0006.

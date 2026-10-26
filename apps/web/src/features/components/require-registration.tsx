@@ -5,14 +5,18 @@ import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { btnCls } from "@/features/components/auth-shell";
 import {
   ApiError,
+  getMe,
   getRegistrationStatus,
   pendingRegistrationStep,
 } from "@/lib/api";
 
 export const COMPLETE_REGISTRATION_PATH = "/completar-registro";
+// Pantalla provisional del administrador (app/admin).
+export const ADMIN_HOME_PATH = "/admin";
 
-// Redirección de la interfaz según GET /me/registration-status: si falta el perfil o la aceptación legal,
-// se envía a /completar-registro (que no usa este guard, así que no hay bucle). Si la consulta falla, se
+// Redirección de la interfaz. Primero el rol (GET /me): el administrador va a /admin sin consultar el registro
+// de pacientes. Para los demás, según GET /me/registration-status: si falta el perfil o la aceptación legal,
+// se envía a /completar-registro (que no usa este guard, así que no hay bucle). Si una consulta falla, se
 // muestra el error en lugar de redirigir. La autorización real la hace el backend en cada endpoint.
 export function RequireRegistration({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -22,6 +26,11 @@ export function RequireRegistration({ children }: { children: ReactNode }) {
   const check = useCallback(async () => {
     setState("checking");
     try {
+      const me = await getMe();
+      if (me.role === "admin") {
+        router.replace(ADMIN_HOME_PATH);
+        return;
+      }
       const status = await getRegistrationStatus();
       if (pendingRegistrationStep(status) !== null) {
         router.replace(COMPLETE_REGISTRATION_PATH);

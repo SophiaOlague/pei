@@ -57,6 +57,41 @@
       "when": 1791827876294,
       "tag": "0007_m02_user_profile_curp",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792387906016,
+      "tag": "0008_m03_role_profile_coherence",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792467492419,
+      "tag": "0009_m03_specialty_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792469198642,
+      "tag": "0010_m03_doctor_profile_drop_legacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792469302013,
+      "tag": "0011_m03_doctor_verifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792471523747,
+      "tag": "0012_m03_doctor_guards",
+      "breakpoints": true
     }
   ]
 }

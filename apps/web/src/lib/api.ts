@@ -233,6 +233,12 @@ function fetchMe(): Promise<Me> {
   return request("/me");
 }
 
+// GET /me sin caché, para decidir la navegación por rol (el administrador no entra al registro de pacientes).
+// No usa getMeCached: durante el registro el perfil cambia y la caché del encabezado quedaría desactualizada.
+export function getMe(): Promise<Me> {
+  return fetchMe();
+}
+
 export function clearMeCache(): void {
   meCache = null;
   clearPhotoCache();

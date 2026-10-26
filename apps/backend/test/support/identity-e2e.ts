@@ -74,11 +74,20 @@ class TestBookingController {
   }
 }
 
-export async function createIdentityApp() {
-  const store = new InMemoryIdentityStore();
+// `configure` permite a otros módulos (M03) montar sus controllers sobre la misma app y sustituir sus proveedores.
+type TestingBuilder = ReturnType<typeof Test.createTestingModule>;
+export interface IdentityAppOptions {
+  imports?: any[];
+  // M03: un almacén compartido con los dobles del módulo de médicos.
+  store?: InMemoryIdentityStore;
+  configure?: (builder: TestingBuilder) => TestingBuilder;
+}
+
+export async function createIdentityApp(options: IdentityAppOptions = {}) {
+  const store = options.store ?? new InMemoryIdentityStore();
   const storage = new FakeDocumentStorage();
-  const moduleRef = await Test.createTestingModule({
-    imports: [CommonModule, AuthModule, AuditModule, PrivateStorageModule, IdentityModule],
+  const builder = Test.createTestingModule({
+    imports: [CommonModule, AuthModule, AuditModule, PrivateStorageModule, IdentityModule, ...(options.imports ?? [])],
     controllers: [TestBookingController],
   })
     .overrideProvider(AUTH_INSTANCE).useValue(createMemoryAuth({ relaxedRateLimit: true }).auth)
@@ -92,8 +101,8 @@ export async function createIdentityApp() {
     .overrideProvider(LEGAL_DOCUMENT_REPOSITORY).useValue(store)
     .overrideProvider(REGISTRATION_STATUS_READER).useValue(store)
     .overrideProvider(PRIVATE_OBJECT_STORAGE).useValue(storage)
-    .overrideProvider(ADMIN_ACCOUNT_PROVISIONER).useValue(new FakeAdminAccountProvisioner())
-    .compile();
+    .overrideProvider(ADMIN_ACCOUNT_PROVISIONER).useValue(new FakeAdminAccountProvisioner());
+  const moduleRef = await (options.configure ? options.configure(builder) : builder).compile();
 
   const app: INestApplication = moduleRef.createNestApplication({ logger: false });
   app.useGlobalFilters(new DomainExceptionFilter());

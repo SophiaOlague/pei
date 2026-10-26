@@ -16,6 +16,11 @@ import { translatePostgresError } from '../../src/common/infrastructure/postgres
 import { captureError, deferred, RollbackSignal, testTag, withRollback, type Tx } from '../support/with-rollback';
 import { insertUserWithProfile } from '../support/fixtures';
 import { countM00Residue } from '../support/residue';
+import { assertC2BranchTarget } from '../support/c2-target-guard';
+
+// Salvaguarda de destino: solo contra la rama temporal mediante C2. Ejecutado de otra forma, src/db usaría el
+// DATABASE_URL del .env (rama `production`): falla al cargar el módulo, antes de cualquier consulta.
+assertC2BranchTarget();
 
 // Requiere las migraciones 0002_audit_log_actor y 0003_audit_log_guards.
 // Todas las escrituras ocurren dentro de transacciones que terminan en ROLLBACK.

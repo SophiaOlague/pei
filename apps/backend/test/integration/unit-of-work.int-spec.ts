@@ -7,6 +7,11 @@ import { UniqueConstraintViolationError } from '../../src/common/domain/persiste
 import { captureError, testTag, withRollback } from '../support/with-rollback';
 import { insertMedication } from '../support/fixtures';
 import { countM00Residue } from '../support/residue';
+import { assertC2BranchTarget } from '../support/c2-target-guard';
+
+// Salvaguarda de destino: solo contra la rama temporal mediante C2. Ejecutado de otra forma, src/db usaría el
+// DATABASE_URL del .env (rama `production`): falla al cargar el módulo, antes de cualquier consulta.
+assertC2BranchTarget();
 
 class FalloDelCasoDeUso extends Error {}
 

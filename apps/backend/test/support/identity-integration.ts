@@ -43,9 +43,17 @@ export const sessionActor = (userId: string): Actor => ({ userId, userProfileId:
 // Provisioner falso que crea la cuenta en la tabla "user" de la transacción actual.
 export class TxAdminAccountProvisioner implements AdminAccountProvisioner {
   passwordSetups: string[] = [];
+  async assertPasswordSetupConfigured() {}
   async findUserIdByEmail(email: string) {
     const { rows } = await getDbContext().execute<{ id: string }>(sql`select id from "user" where email = ${email}`);
     return rows[0]?.id ?? null;
+  }
+  // Mismo criterio que BetterAuthAdminAccountProvisioner: cuenta "credential" del usuario con contraseña.
+  async hasPasswordCredential(userId: string) {
+    const { rows } = await getDbContext().execute<{ id: string }>(
+      sql`select id from account where user_id = ${userId} and account_id = ${userId} and provider_id = 'credential' and password is not null and password <> ''`,
+    );
+    return rows.length > 0;
   }
   async createAccount(input: { email: string; name: string }) {
     const id = testTag();

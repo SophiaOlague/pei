@@ -353,15 +353,34 @@ export class FakeDocumentStorage implements PrivateObjectStorage {
 export class FakeAdminAccountProvisioner implements AdminAccountProvisioner {
   accounts = new Map<string, string>();
   passwordSetups: string[] = [];
+  calls: string[] = [];
+  // Ids de cuenta con contraseña (p. ej., creadas por el registro público).
+  passwordCredentials = new Set<string>();
+  // Si se fija, assertPasswordSetupConfigured falla con este error (configuración ausente o inválida).
+  configError: Error | null = null;
+  // Si se fija, sendPasswordSetup falla con este error (después de crear el administrador).
+  passwordSetupError: Error | null = null;
+  async assertPasswordSetupConfigured() {
+    this.calls.push('assertPasswordSetupConfigured');
+    if (this.configError) throw this.configError;
+  }
   async findUserIdByEmail(email: string) {
+    this.calls.push('findUserIdByEmail');
     return this.accounts.get(email) ?? null;
   }
+  async hasPasswordCredential(userId: string) {
+    this.calls.push('hasPasswordCredential');
+    return this.passwordCredentials.has(userId);
+  }
   async createAccount(input: { email: string }) {
+    this.calls.push('createAccount');
     const id = `ba-${randomUUID()}`;
     this.accounts.set(input.email, id);
     return id;
   }
   async sendPasswordSetup(email: string) {
+    this.calls.push('sendPasswordSetup');
+    if (this.passwordSetupError) throw this.passwordSetupError;
     this.passwordSetups.push(email);
   }
 }

@@ -7,9 +7,9 @@ import { CONTENT_TYPE_BY_EXTENSION, type FileExtension } from './file-signature'
 // - Solo se aceptan los espacios de nombres registrados aquí. Cada módulo construye sus propias claves con
 //   un formato más estricto (por ejemplo, identity/object-keys.ts); este módulo no conoce reglas de negocio.
 // - Una clave nunca contiene CURP, nombres, correos ni otros datos personales: solo UUID en minúsculas.
-// - M03 agregará sus espacios (doctor-identity, doctor-licenses, doctor-photos) cuando los use.
+// - M03 (B5) registra sus espacios: doctor-identity (INE del médico), doctor-licenses (cédula) y doctor-photos.
 
-export const PRIVATE_OBJECT_NAMESPACES = ['identity', 'profile-photos'] as const;
+export const PRIVATE_OBJECT_NAMESPACES = ['identity', 'profile-photos', 'doctor-identity', 'doctor-licenses', 'doctor-photos'] as const;
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const PRIVATE_OBJECT_KEY = new RegExp(

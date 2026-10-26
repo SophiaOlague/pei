@@ -1,6 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Actor } from '../../../../common/application/actor';
-import { computeRegistrationStatus, type RegistrationStatus } from '../../domain/registration-status';
+import {
+  composeRegistrationStatus,
+  composesRegistrationStatus,
+  computeRegistrationStatus,
+  type RegistrationStatus,
+} from '../../domain/registration-status';
 import { NotAPatientError } from '../../domain/identity.errors';
 import { REGISTRATION_STATUS_READER, type RegistrationStatusReader } from '../ports/registration-status-reader';
 
@@ -15,9 +20,9 @@ export class GetRegistrationStatusUseCase {
     return computeRegistrationStatus(await this.reader.read(actor.userId));
   }
 
-  // Para GET /me: null cuando el actor no es (ni será) paciente.
-  async executeIfPatient(actor: Actor): Promise<RegistrationStatus | null> {
-    if (actor.role !== null && actor.role !== 'patient') return null;
-    return computeRegistrationStatus(await this.reader.read(actor.userId));
+  // Para GET /me: estado compuesto por rol (M03 A4). null sin consultar la BD cuando el rol no compone estado.
+  async executeForActor(actor: Actor): Promise<RegistrationStatus | null> {
+    if (!composesRegistrationStatus(actor.role)) return null;
+    return composeRegistrationStatus(await this.reader.read(actor.userId));
   }
 }
