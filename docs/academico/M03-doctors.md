@@ -15,8 +15,8 @@ Fuentes: [matriz de trazabilidad de M03](../testing/trazabilidad/M03-doctors.md)
 | Implementación | Completa en el repositorio: fases A1–A4 (incremento de M02) y B1–B8. B1–B8 en el commit `35e205c` |
 | Evidencia formal | `pnpm test:evidence M03` sobre `35e205c`, árbol limpio: unitarias 588/588, integración 94/94 y E2E 104/104 PASS (2026-10-20, rama temporal limpia de Neon) |
 | Concurrencia (dos conexiones) | 5/5 PASS en la rama temporal `rama`, en una corrida aparte con datos de prueba confirmados |
-| Migraciones `0009`–`0012` | **Aplicadas solo en ramas temporales de Neon** (`rama` y su copia limpia), cada una ensayada antes con ROLLBACK |
-| `production` | **Sin M03**: tiene aplicada hasta `0008`. La aplicación de `0009`–`0012` requiere un procedimiento y una autorización aparte |
+| Migraciones `0009`–`0012` | Aplicadas en las ramas temporales de Neon (`rama` y su copia limpia) y, el 2026-10-20, en `production`, tras ensayarlas con ROLLBACK en una copia de sus datos (trazabilidad de M03, commit `7ab6b92`) |
+| `production` | **Esquema de M03 aplicado; código sin desplegar.** `0009`–`0012` se aplicaron el 2026-10-20 (10:06 UTC) con autorización independiente y verificación posterior Q1–Q12 PASS. Desplegar el código requiere una autorización aparte |
 | Fuera de alcance | Agenda y duración de la consulta (M07); citas y consecuencias de volver a `pending` (M08); directorio público de médicos (D-36) |
 
 Distinción usada en todo el documento: **implementado y probado** significa que el código y las pruebas existen y pasan;
@@ -58,7 +58,8 @@ Dependencias con otros módulos:
 
 Tipos: `doctor_review_status_enum` (`pending`, `approved`, `rejected`, `superseded`) y
 `doctor_license_review_reason_enum` (`initial`, `resubmission`, `license_number_changed`, `license_document_changed`,
-`specialty_changed`, `legal_name_changed`).
+`specialty_changed`, `legal_name_changed`). Desde C-16, `legal_name_changed` queda sin uso: se conserva en el enum
+porque retirarlo exigiría una migración.
 
 El estado global del médico **no se guarda** (N3, R-7): se deriva en cada lectura de sus revisiones vigentes.
 
@@ -70,14 +71,17 @@ El estado global del médico **no se guarda** (N3, R-7): se deriva en cada lectu
   `approved` y registro completo → `approved`; en otro caso, `pending`.
 - **Registro completo** (D-24, D-30): perfil con nombre legal, CURP válida y especialidad; ninguna línea en `required`;
   documentos legales vigentes del médico aceptados. Una revisión rechazada cuenta como entregada.
-- **Cambios sensibles** (D-9, D-21, D-28, D-29): se aplican de inmediato.
-  - Cambiar la CURP sube la versión de identidad.
-  - Cambiar el nombre legal sube ambas versiones.
+- **Identidad legal no editable** (RN-138; C-16, que en el Maestro V2.4 es C-21): ni el paciente ni el médico pueden
+  cambiar su CURP ni su nombre legal desde su cuenta; se capturan al crear el perfil. Cómo se corrige un dato erróneo
+  está pendiente de decisión (DP-CORR): hoy no existe ninguna vía, ni del propio usuario ni del administrador.
+- **Cambios sensibles** (D-9, D-21, D-29): se aplican de inmediato.
   - Cambiar el número o el documento de la cédula, o la especialidad, sube la versión profesional.
   - Cada cambio pasa a `superseded` la revisión pendiente de la línea afectada.
-  - Si la cédula estaba `approved` o `pending`, el cambio de nombre o de especialidad crea una revisión automática que
-    reutiliza el documento conservado.
+  - Si la cédula estaba `approved` o `pending`, el cambio de especialidad crea una revisión automática que reutiliza el
+    documento conservado.
   - Bio, foto y teléfono se editan libremente.
+  - D-28, que permitía al médico cambiar su CURP o su nombre legal (subía la versión de identidad, o ambas, y exigía
+    una INE nueva), está **sustituida por C-16** desde el 2026-10-28 (commit `21e61db`).
 - **Envío de cédula** (plan v2 §7bis): el documento es siempre obligatorio y el motivo lo deduce el servidor:
   `initial`, `resubmission`, `license_number_changed` o `license_document_changed`.
 - **Ciclo de revisión** (R-2): solo una revisión `pending` y vigente se aprueba o se rechaza. El rechazo exige un motivo
@@ -127,7 +131,6 @@ revisiones.
 | `GET`, `POST /admin/specialties`; `PATCH /admin/specialties/:id`; `POST /admin/specialties/:id/deactivate` y `/activate` | Admin | Catálogo |
 | `POST /me/doctor-profile` | Cuenta sin perfil | Registro del médico |
 | `GET`, `PATCH /me/doctor-profile` | Médico | Perfil; bio y teléfono |
-| `PUT /me/doctor-profile/identity` | Médico | CURP o nombre legal |
 | `PUT /me/doctor-profile/specialty` | Médico | Especialidad |
 | `PUT`, `GET /me/doctor-profile/photo` | Médico | Foto |
 | `GET /me/doctor/status`, `GET /me/doctor/verification-history` | Médico | Estado derivado e historial |
@@ -138,21 +141,25 @@ revisiones.
 | `GET /admin/doctor-license-verifications`, `/:id`, `/:id/document`; `POST …/:id/approve`, `…/:id/reject` | Admin | Cola, detalle, documento y revisión de la cédula |
 | `GET /me` (M02) | Médico | Desde B7 incluye su perfil y su estado con `canOperate` |
 
+`PUT /me/doctor-profile/identity` (cambio de CURP o nombre legal) existió desde B5 (`35e205c`) y **se retiró con C-16**: hoy
+responde 404. `PATCH /me/doctor-profile` rechaza con 400 los campos `curp`, `firstName` y `lastName`.
+
 ### Autorización
 
 - Cada ruta exige sesión. Los roles se exigen con `@Roles` en el controlador **y** dentro de cada caso de uso, que
   falla cerrado (`DoctorProfileRequiredError`, `AdminRequiredError`).
 - El médico nunca envía su `doctorProfileId`: se deduce de la sesión. Las rutas con id son solo del administrador.
 - Solo el administrador revisa; no existe un rol revisor.
-- Límites de frecuencia por usuario: envío de INE, envío de cédula, cambio de identidad y foto.
+- Límites de frecuencia por usuario: envío de INE, envío de cédula y foto. El límite del cambio de identidad se retiró
+  con su ruta (C-16).
 
 ### Auditoría
 
-21 acciones, registradas en la misma transacción que la operación:
+19 acciones, registradas en la misma transacción que la operación:
 
 - **Médico:** `doctor.profile.created`, `doctor.registration.completed` y `doctor.status.returned_to_pending`.
-- **Cambios sensibles:** `doctor.curp.changed`, `doctor.legal_name.changed`, `doctor.license_number.changed` y
-  `doctor.specialty.changed`.
+- **Cambios sensibles:** `doctor.license_number.changed` y `doctor.specialty.changed`. Hasta C-16 existían también
+  `doctor.curp.changed` y `doctor.legal_name.changed`; se retiraron con la ruta que los registraba.
 - **Revisión de la INE:** `doctor.identity_verification.submitted`, `.superseded`, `.approved` y `.rejected`.
 - **Revisión de la cédula:** `doctor.license_verification.submitted`, `.superseded`, `.approved` y `.rejected`.
 - **Lecturas del administrador:** `doctor.identity_document.viewed` y `doctor.license_document.viewed`.
@@ -166,15 +173,17 @@ Nunca guarda CURP, nombres, número de cédula, claves ni URLs; la prueba TC-M03
 
 | Migración | Contenido | Aplicada en |
 |---|---|---|
-| `0009_m03_specialty_catalog` | Tabla `specialty` y catálogo inicial | `rama` (2026-10-20) y su copia limpia |
+| `0009_m03_specialty_catalog` | Tabla `specialty` y catálogo inicial | `rama` (2026-10-20), su copia limpia y `production` (2026-10-20) |
 | `0010_m03_doctor_profile_drop_legacy` | Retira las columnas heredadas de `doctor_profile`; aborta si existen médicos | Ídem |
 | `0011_m03_doctor_verifications` | Columnas nuevas de `doctor_profile`, tablas de revisión, FK, CHECK e índices (un solo pendiente por línea) | Ídem |
 | `0012_m03_doctor_guards` | 7 funciones y 12 triggers: versiones de uno en uno, evidencia inmutable, transiciones solo desde `pending`, purga solo en estado terminal, sin DELETE ni TRUNCATE | Ídem |
 
 Cada migración se ensayó primero en una transacción que terminó en ROLLBACK, con casos que debían fallar y casos que
 debían pasar. Después se aplicó con autorización y se verificaron sus postcondiciones, mediante la herramienta C2 (fuera
-del repositorio), que verifica la identidad de la rama antes de cada paso. **Ninguna de las cuatro está aplicada en
-`production`.**
+del repositorio), que verifica la identidad de la rama antes de cada paso. Las cuatro se aplicaron en `production` el
+2026-10-20 con la herramienta C2 `prod-m03`: verificación previa de solo lectura, aplicación en una sola transacción y
+verificación posterior Q1–Q12 PASS. Las salidas de la herramienta están fuera del repositorio; la trazabilidad de M03
+registra sus sumas SHA-256. Es una validación interna, no una evidencia formal.
 
 ### Pruebas
 
@@ -188,6 +197,15 @@ del repositorio), que verifica la identidad de la rama antes de cada paso. **Nin
 Los totales de la evidencia formal corresponden al sistema completo (M00–M03), no solo a M03. El detalle por caso
 (TC-M03-001 a 192 y RT-M03-01 a 16) está en la matriz de trazabilidad.
 
+**Pruebas de C-16 (2026-10-28, commit `21e61db`; sin evidencia formal).** La evidencia formal anterior describe el
+código previo a C-16.
+
+| Nivel | Contenido | Resultado |
+|---|---|---|
+| Unitarias | Se retiraron TC-M03-121 a 124 y 140 a 143 (cambio de CURP o nombre). Nueva TC-M03-218: ninguna operación del médico cambia su CURP ni su nombre legal | 625/625 PASS, en local |
+| E2E con dobles | Se retiró TC-M03-151. Nueva TC-M03-219: la ruta retirada responde 404 y `PATCH` rechaza los campos legales sin cambiar el perfil. TC-M02-221 comprueba además que el perfil del paciente no cambia | 82/82 PASS, en local (sin las 3 suites que exigen base de datos) |
+| Integración | Se retiró TC-M03-177; TC-M03-179 asume su comprobación de reutilización del documento | **Solo TC-M03-178 y 179**, 2/2 PASS mediante C2 en la rama temporal `br-shy-pond-b50a3m8f`, hija de `production`, con huella idéntica antes y después. El resto de la integración de M03 no se volvió a ejecutar |
+
 ---
 
 ## 2. Seguridad de la Información
@@ -198,8 +216,9 @@ Los totales de la evidencia formal corresponden al sistema completo (M00–M03),
 | Preventivo | Archivos validados por firma binaria y tamaño | TC-M03-135, 150, 191 |
 | Preventivo | Sin enumeración: CURP y número de cédula duplicados responden lo mismo | TC-M03-148, 188 |
 | Preventivo | Sin acceso a documentos ajenos; la INE nunca se expone al médico | TC-M03-189 |
-| Preventivo | Límites de frecuencia en subidas y en cambios de identidad | TC-M03-190 |
-| Integridad | Triggers de `0012` que impiden alterar la evidencia o saltarse versiones, aunque se use otro cliente | Ensayo C2 de `0012`; TC-M03-174, 177 |
+| Preventivo | Límites de frecuencia en las subidas | TC-M03-190 |
+| Preventivo | La CURP y el nombre legal no los edita el propio usuario (RN-138, C-16) | TC-M03-218, 219; TC-M02-221 |
+| Integridad | Triggers de `0012` que impiden alterar la evidencia o saltarse versiones, aunque se use otro cliente | Ensayo C2 de `0012`; TC-M03-174, 179 |
 | Detectivo | Auditoría de cada lectura de documentos por el administrador | TC-M03-159, 160, 181 |
 | Correctivo | Purga de la INE al terminar la revisión y conciliación por CLI | TC-M03-134, 163, 182 |
 
@@ -233,7 +252,7 @@ M03 no agregó dependencias.
 | Diseño v3 y plan de implementación v2 | Aprobados con desviaciones registradas (DC-1 a DC-8) |
 | Incremento de M02 (A1–A4) | Terminado; `0006`–`0008` aplicadas en `production` antes de M03 |
 | B1–B8 | Terminadas (`35e205c`) |
-| Migraciones `0009`–`0012` | Ensayadas y aplicadas en `rama`; pendientes en `production` |
+| Migraciones `0009`–`0012` | Ensayadas y aplicadas en `rama`; aplicadas en `production` (2026-10-20) |
 | Evidencia formal | Registrada (2026-10-20) |
 | Despliegue en `production` | **Pendiente**, con autorización aparte |
 
@@ -245,7 +264,8 @@ M03 no agregó dependencias.
   evidencia formal se generó en una copia de `rama` restaurada a un punto anterior.
 
 **Ruta crítica:** M07 (agenda) y M08 (citas) dependen de `DoctorOperationalPolicy`. El despliegue de M03 en
-`production` depende de su propio procedimiento de migración.
+`production` ya no depende de las migraciones (aplicadas el 2026-10-20): falta desplegar el código, con autorización
+aparte.
 
 ---
 
