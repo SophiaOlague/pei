@@ -123,6 +123,11 @@ M03 usa el régimen por rol de M02 (D-32): el médico acepta `privacy_policy` y 
 (R-8). Una versión nueva invalida la aceptación anterior (R-13) y deja al médico en `pending` sin reabrir sus
 revisiones.
 
+Publicación en `production`: el 2026-10-20 el régimen del médico no estaba publicado. El 2026-10-28 se informó la
+publicación de las versiones provisionales `privacy_policy@dev-1` y `doctor_terms@dev-1`, sin evidencia versionada en
+el repositorio: queda pendiente de verificación. Esa publicación no despliega el código de M03, y no hay una prueba de
+extremo a extremo del registro y la aceptación de un médico en `production`.
+
 ### Endpoints
 
 | Método y ruta | Quién | Propósito |
@@ -176,7 +181,7 @@ Nunca guarda CURP, nombres, número de cédula, claves ni URLs; la prueba TC-M03
 | `0009_m03_specialty_catalog` | Tabla `specialty` y catálogo inicial | `rama` (2026-10-20), su copia limpia y `production` (2026-10-20) |
 | `0010_m03_doctor_profile_drop_legacy` | Retira las columnas heredadas de `doctor_profile`; aborta si existen médicos | Ídem |
 | `0011_m03_doctor_verifications` | Columnas nuevas de `doctor_profile`, tablas de revisión, FK, CHECK e índices (un solo pendiente por línea) | Ídem |
-| `0012_m03_doctor_guards` | 7 funciones y 12 triggers: versiones de uno en uno, evidencia inmutable, transiciones solo desde `pending`, purga solo en estado terminal, sin DELETE ni TRUNCATE | Ídem |
+| `0012_m03_doctor_guards` | 7 funciones y 12 triggers (con `doctor_profile_role_matches` de `0008`, las tablas de M03 tienen 13): versiones de uno en uno, evidencia inmutable, transiciones solo desde `pending`, purga solo en estado terminal, sin DELETE ni TRUNCATE | Ídem |
 
 Cada migración se ensayó primero en una transacción que terminó en ROLLBACK, con casos que debían fallar y casos que
 debían pasar. Después se aplicó con autorización y se verificaron sus postcondiciones, mediante la herramienta C2 (fuera

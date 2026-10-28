@@ -633,7 +633,7 @@ Resultado de `posterior` (intento 2):
 | Q3 hashes de `0009`–`0012` (`c2960380…`, `e0dab493…`, `4355a9d2…`, `e5d24a0f…`; ids 10–13) | PASS |
 | Q4 catálogo de especialidades (3 activas) | PASS |
 | Q5 esquema de médicos igual al ensayado | PASS |
-| Q6 7 funciones y 13 triggers iguales a los del ensayo | PASS |
+| Q6 7 funciones y 13 triggers iguales a los del ensayo (los 12 que crea `0012` más `doctor_profile_role_matches` de `0008`, todos sobre tablas de M03) | PASS |
 | Q7 triggers habilitados | PASS |
 | Q8 datos sin cambios (4 `user_profile`, 3 pacientes, 2 documentos legales, 10 eventos de auditoría, 4 usuarios, 1 admin) | PASS |
 | Q9 tablas de médicos vacías | PASS |
@@ -679,7 +679,13 @@ validación interna, no una evidencia formal (`record-test-run.mjs`).
 **Pendientes (no realizados)**
 
 - **Código de M03 sin desplegar** en `production`; desplegarlo requiere una autorización aparte.
-- **Régimen legal del médico sin publicar** (`privacy_policy`, `doctor_terms` con `legal:publish`): hasta publicarlo,
+- **Régimen legal del médico sin publicar** a la fecha de esta sección (2026-10-20). **Actualización del 2026-10-28:** se
+  informó que se publicaron en `production` los documentos provisionales `privacy_policy@dev-1` y
+  `doctor_terms@dev-1` («DOCUMENTO PROVISIONAL - SOLO DESARROLLO»). No hay evidencia versionada de esa publicación
+  (salida de `legal:publish`, inventario de `legal_document` ni eventos `legal_document.published`): queda **pendiente
+  de verificación**. Publicar documentos no despliega el código de M03, y el registro y la aceptación de un médico en
+  `production` no se han probado de extremo a extremo. Como `privacy_policy` es común a ambos roles, aplica el riesgo 21.
+  Texto original de este punto (`privacy_policy`, `doctor_terms` con `legal:publish`): hasta publicarlo,
   ningún médico podrá completar su registro.
 - Ventana de restauración de Neon al LSN `0/3248F20` sin verificar.
 - Suites completas sin ejecutar contra `production`.
