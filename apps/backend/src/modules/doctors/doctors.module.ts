@@ -21,7 +21,7 @@ import {
 } from './application/use-cases/specialties/specialty.use-cases';
 import { RegisterDoctorProfileUseCase } from './application/use-cases/register-doctor-profile.use-case';
 import { GetDoctorProfileUseCase, OpenDoctorPhotoUseCase, UpdateDoctorPhotoUseCase, UpdateDoctorProfileUseCase } from './application/use-cases/doctor-profile.use-cases';
-import { ChangeDoctorIdentityUseCase, ChangeDoctorSpecialtyUseCase } from './application/use-cases/doctor-changes.use-cases';
+import { ChangeDoctorSpecialtyUseCase } from './application/use-cases/doctor-changes.use-cases';
 import { SubmitDoctorIdentityVerificationUseCase, SubmitDoctorLicenseVerificationUseCase } from './application/use-cases/doctor-submissions.use-cases';
 import { GetDoctorStatusUseCase, GetDoctorVerificationHistoryUseCase, OpenOwnLicenseDocumentUseCase } from './application/use-cases/doctor-status.use-cases';
 import { DoctorIdentityDocumentPurger } from './application/use-cases/doctor-identity-document-purger';
@@ -57,7 +57,6 @@ import { DrizzleDoctorReviewRepository } from './infrastructure/persistence/driz
     UpdateDoctorProfileUseCase,
     UpdateDoctorPhotoUseCase,
     OpenDoctorPhotoUseCase,
-    ChangeDoctorIdentityUseCase,
     ChangeDoctorSpecialtyUseCase,
     SubmitDoctorIdentityVerificationUseCase,
     SubmitDoctorLicenseVerificationUseCase,

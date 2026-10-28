@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { transactionStorage } from '../../src/db/transaction-context';
 import { RegistrationDataConflictError } from '../../src/modules/identity/domain/identity.errors';
 import {
-  DoctorIdentityDocumentUnavailableError, DoctorNotOperationalError, ReviewNotCurrentError, SpecialtyInactiveError,
+  DoctorIdentityDocumentUnavailableError, ReviewNotCurrentError, SpecialtyInactiveError,
 } from '../../src/modules/doctors/domain/doctor.errors';
 import { withRollback } from '../support/with-rollback';
 import { countM00Residue, countM02Residue } from '../support/residue';
@@ -112,45 +112,34 @@ describe('Médicos contra PostgreSQL (M03 B8, rollback)', () => {
       expect(rows[0].purged).toBe(true);
     }));
 
-  it('[TC-M03-177][7ter.3][0012] cambio de nombre de un aprobado: legal_name_changed con la misma clave pasa el trigger; vuelve a pending', () =>
-    withRollback(async () => {
-      const uc = doctorUseCases();
-      const { d, lic } = await approved(uc);
-      const r = await uc.changeIdentity.execute(d, { lastName: 'Sintética López' });
-      expect(r).toMatchObject({ identityRevision: 2, professionalRevision: 3, status: { status: 'pending', identity: 'required', professional: 'pending' } });
-      const { rows } = await tx().execute<{ reason: string; same_key: boolean; last_name: string }>(sql`
-        select v.reason, v.document_object_key = (select document_object_key from doctor_license_verification where id = ${lic.reviewId}) as same_key,
-               up.last_name
-          from doctor_license_verification v join doctor_profile dp on dp.id = v.doctor_id join user_profile up on up.id = dp.user_profile_id
-         where v.doctor_id = ${d.doctorProfileId} and v.status = 'pending'`);
-      expect(rows).toEqual([{ reason: 'legal_name_changed', same_key: true, last_name: 'Sintética López' }]);
-      await expect(uc.policy.assertCanOperate(d.doctorProfileId)).rejects.toThrow(DoctorNotOperationalError);
-    }));
+  // TC-M03-177 retirado (C-16, RN-138): ya no hay cambio de nombre legal. La reutilización de la clave de la cédula
+  // en una revisión automática bajo el trigger de 0012 la sigue cubriendo TC-M03-179 (specialty_changed).
 
-  it('[TC-M03-178][D-17][D-20] CURP de otra cuenta en el registro y en el cambio → 409 genérico', () =>
+  it('[TC-M03-178][D-17][D-20] CURP de otra cuenta en el registro → 409 genérico', () =>
     withRollback(async () => {
       const uc = doctorUseCases();
       const curp = syntheticCurp();
       const a = await createDoctor(uc, curp);
       await expect(createDoctor(uc, curp)).rejects.toThrow(RegistrationDataConflictError);
-      const b = await createDoctor(uc);
-      await expect(uc.changeIdentity.execute(b, { curp })).rejects.toThrow(RegistrationDataConflictError);
       expect(a.doctorProfileId).toBeDefined();
     }));
 
   it('[TC-M03-179][D-33][0012] especialidad: inactiva → 422; activa → specialty_changed (versión +1, evidencia igual al perfil)', () =>
     withRollback(async () => {
       const uc = doctorUseCases();
-      const { d } = await approved(uc);
+      const { d, lic } = await approved(uc);
       const psico = await specialtyId('psicologia');
       await uc.specialties.setActive(psico, false);
       await expect(uc.changeSpecialty.execute(d, psico)).rejects.toThrow(SpecialtyInactiveError);
       await uc.specialties.setActive(psico, true);
       const r = await uc.changeSpecialty.execute(d, psico);
       expect(r.status).toMatchObject({ status: 'pending', professional: 'pending' });
-      const { rows } = await tx().execute<{ reason: string; specialty_ok: boolean }>(sql`
-        select reason, specialty_id = ${psico} as specialty_ok from doctor_license_verification where doctor_id = ${d.doctorProfileId} and status = 'pending'`);
-      expect(rows).toEqual([{ reason: 'specialty_changed', specialty_ok: true }]);
+      // C-16: también cubre lo que verificaba TC-M03-177: la revisión automática reutiliza la clave y pasa el trigger.
+      const { rows } = await tx().execute<{ reason: string; specialty_ok: boolean; same_key: boolean }>(sql`
+        select reason, specialty_id = ${psico} as specialty_ok,
+               document_object_key = (select document_object_key from doctor_license_verification where id = ${lic.reviewId}) as same_key
+          from doctor_license_verification where doctor_id = ${d.doctorProfileId} and status = 'pending'`);
+      expect(rows).toEqual([{ reason: 'specialty_changed', specialty_ok: true, same_key: true }]);
     }));
 
   it('[TC-M03-180][E.5] una revisión pendiente de una versión anterior no se aprueba; la BD tampoco lo admitiría', () =>

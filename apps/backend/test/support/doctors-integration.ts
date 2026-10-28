@@ -11,7 +11,7 @@ import { DoctorStatusService } from '../../src/modules/doctors/application/docto
 import { DoctorIdentityDocumentPurger } from '../../src/modules/doctors/application/use-cases/doctor-identity-document-purger';
 import { RegisterDoctorProfileUseCase } from '../../src/modules/doctors/application/use-cases/register-doctor-profile.use-case';
 import { GetDoctorProfileUseCase, UpdateDoctorProfileUseCase } from '../../src/modules/doctors/application/use-cases/doctor-profile.use-cases';
-import { ChangeDoctorIdentityUseCase, ChangeDoctorSpecialtyUseCase } from '../../src/modules/doctors/application/use-cases/doctor-changes.use-cases';
+import { ChangeDoctorSpecialtyUseCase } from '../../src/modules/doctors/application/use-cases/doctor-changes.use-cases';
 import { SubmitDoctorIdentityVerificationUseCase, SubmitDoctorLicenseVerificationUseCase } from '../../src/modules/doctors/application/use-cases/doctor-submissions.use-cases';
 import { GetDoctorStatusUseCase } from '../../src/modules/doctors/application/use-cases/doctor-status.use-cases';
 import {
@@ -45,7 +45,6 @@ export function doctorUseCases() {
     register: new RegisterDoctorProfileUseCase(uow, audit, gateway, profiles, specialties),
     getProfile: new GetDoctorProfileUseCase(profiles, gateway, specialties),
     update: new UpdateDoctorProfileUseCase(uow, profiles, gateway),
-    changeIdentity: new ChangeDoctorIdentityUseCase(uow, audit, gateway, profiles, reviews, status, purger),
     changeSpecialty: new ChangeDoctorSpecialtyUseCase(uow, audit, profiles, reviews, specialties, status),
     submitIne: new SubmitDoctorIdentityVerificationUseCase(uow, audit, storage, profiles, reviews, status, purger),
     submitLicense: new SubmitDoctorLicenseVerificationUseCase(uow, audit, storage, profiles, reviews, status),

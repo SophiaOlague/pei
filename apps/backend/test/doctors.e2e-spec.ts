@@ -110,19 +110,21 @@ describe('Médico por HTTP (E2E con dobles, M03 B5)', () => {
     expect(storage.objects.size).toBeGreaterThan(0);
   });
 
-  it('[TC-M03-151][D-28][7ter] PUT /me/doctor-profile/identity de un aprobado: vuelve a pending con identidad required', async () => {
+  // TC-M03-151 retirado (C-16, RN-138): la ruta PUT /me/doctor-profile/identity ya no existe. La sustituye TC-M03-219.
+  it('[TC-M03-219][RN-138][C-16] el médico no cambia su CURP ni su nombre legal: la ruta no existe y PATCH los rechaza sin cambiar nada', async () => {
     const d = await registerDoctor();
-    await as(d.userId).post('/me/doctor/identity-verifications').attach('front', JPEG, 'f.jpg').attach('back', JPEG, 'b.jpg');
-    await as(d.userId).post('/me/doctor/license-verifications').field('licenseNumber', `A${randomUUID().slice(0, 6)}`).attach('document', PDF, 'c.pdf');
-    world.review('identity', d.doctorProfileId, 'approved');
-    world.review('license', d.doctorProfileId, 'approved');
-    expect((await as(d.userId).get('/me/doctor/status')).body.status).toBe('approved');
-
-    const res = await as(d.userId).put('/me/doctor-profile/identity').send({ lastName: 'Pérez López' });
-    expect(res.status).toBe(200);
-    expect(res.body.status).toMatchObject({ status: 'pending', identity: 'required', professional: 'pending' });
-    expect((await as(d.userId).put('/me/doctor-profile/identity').send({ role: 'admin' })).status).toBe(400);
-    expect((await as(d.userId).put('/me/doctor-profile/identity').send({})).status).toBe(400);
+    const before = (await as(d.userId).get('/me/doctor-profile')).body;
+    expect((await as(d.userId).put('/me/doctor-profile/identity').send({ lastName: 'Pérez López' })).status).toBe(404);
+    expect((await http().put('/me/doctor-profile/identity').send({ curp: syntheticCurp() })).status).toBe(404);
+    for (const body of [{ curp: syntheticCurp() }, { firstName: 'Otra' }, { lastName: 'Otro' }, { bio: 'Con bio', curp: syntheticCurp() }]) {
+      const res = await as(d.userId).patch('/me/doctor-profile').send(body);
+      expect(res.status).toBe(400);
+      expect(res.body.message).toEqual(expect.arrayContaining([expect.stringMatching(/should not exist$/)]));
+    }
+    expect((await as(d.userId).get('/me/doctor-profile')).body).toEqual(before);
+    // Los campos libres siguen funcionando.
+    expect((await as(d.userId).patch('/me/doctor-profile').send({ phone: '5551234567', bio: 'Medicina general' })).status).toBe(204);
+    expect((await as(d.userId).get('/me/doctor-profile')).body).toEqual({ ...before, phone: '5551234567', bio: 'Medicina general' });
   });
 
   it('[TC-M03-152][D-33] PUT /me/doctor-profile/specialty: UUID inválido → 400; inactiva → 422; GET y PATCH del perfil', async () => {
@@ -144,7 +146,7 @@ describe('Médico por HTTP (E2E con dobles, M03 B5)', () => {
     await as(patientId).post('/me/patient-profile').send({ firstName: 'P', lastName: 'Q', curp: syntheticCurp(), birthDate: '1990-01-01' });
     for (const userId of [patientId, `sin-perfil-${randomUUID()}`]) {
       expect((await as(userId).get('/me/doctor/status')).status).toBe(403);
-      expect((await as(userId).put('/me/doctor-profile/identity').send({ firstName: 'X' })).status).toBe(403);
+      expect((await as(userId).put('/me/doctor-profile/specialty').send({ specialtyId: general() })).status).toBe(403);
     }
   });
 

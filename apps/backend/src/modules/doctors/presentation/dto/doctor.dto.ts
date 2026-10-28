@@ -33,13 +33,6 @@ export class UpdateDoctorProfileDto {
   @IsOptional() @Transform(trim) @IsString() @Length(1, 1000) bio?: string | null;
 }
 
-// PUT /me/doctor-profile/identity: cambios sensibles (D-28). Al menos uno (lo exige el caso de uso).
-export class ChangeDoctorIdentityDto {
-  @IsOptional() @Transform(trim) @IsString() @Length(1, LEGAL_NAME_PART_MAX) firstName?: string;
-  @IsOptional() @Transform(trim) @IsString() @Length(1, LEGAL_NAME_PART_MAX) lastName?: string;
-  @IsOptional() @Transform(curp) @IsString() @Validate(CurpConstraint) curp?: string;
-}
-
 export class ChangeDoctorSpecialtyDto {
   @IsUUID() specialtyId!: string;
 }

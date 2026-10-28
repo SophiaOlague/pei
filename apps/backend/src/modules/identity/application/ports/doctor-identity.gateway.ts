@@ -14,8 +14,7 @@ export interface DoctorIdentityGateway {
   // Crea el user_profile con rol doctor. Lanza ProfileAlreadyExistsError si la cuenta ya tiene perfil.
   createDoctorUserProfile(input: { userId: string; firstName: string; lastName: string; curp: string; phone: string | null }): Promise<string>;
   findLegalIdentity(userProfileId: string): Promise<DoctorLegalIdentity | null>;
-  // Solo los campos presentes. La CURP llega normalizada y validada.
-  updateLegalIdentity(userProfileId: string, change: { firstName?: string; lastName?: string; curp?: string }): Promise<void>;
+  // RN-138 (C-16): no hay operación para cambiar la CURP ni el nombre legal; solo se fijan al crear el perfil.
   updatePhone(userProfileId: string, phone: string | null): Promise<void>;
   // DC-2 (B5): estado legal del médico con el régimen resuelto (D-32, R-13): ¿aceptó las versiones vigentes?
   doctorLegalAccepted(userProfileId: string): Promise<boolean>;

@@ -9,7 +9,7 @@ import { DoctorStatusService } from '../doctor-status.service';
 import { DoctorIdentityDocumentPurger } from './doctor-identity-document-purger';
 import { RegisterDoctorProfileUseCase } from './register-doctor-profile.use-case';
 import { GetDoctorProfileUseCase, UpdateDoctorProfileUseCase } from './doctor-profile.use-cases';
-import { ChangeDoctorIdentityUseCase, ChangeDoctorSpecialtyUseCase } from './doctor-changes.use-cases';
+import { ChangeDoctorSpecialtyUseCase } from './doctor-changes.use-cases';
 import { SubmitDoctorIdentityVerificationUseCase, SubmitDoctorLicenseVerificationUseCase } from './doctor-submissions.use-cases';
 import { GetDoctorStatusUseCase, GetDoctorVerificationHistoryUseCase } from './doctor-status.use-cases';
 import { DoctorProfileRequiredError, NoChangesError, SpecialtyInactiveError } from '../../domain/doctor.errors';
@@ -29,7 +29,6 @@ function setup() {
     register: new RegisterDoctorProfileUseCase(uow, audit, world, world, world.catalog),
     profile: new GetDoctorProfileUseCase(world, world, world.catalog),
     update: new UpdateDoctorProfileUseCase(uow, world, world),
-    changeIdentity: new ChangeDoctorIdentityUseCase(uow, audit, world, world, world, status, purger),
     changeSpecialty: new ChangeDoctorSpecialtyUseCase(uow, audit, world, world, world.catalog, status),
     submitIne: new SubmitDoctorIdentityVerificationUseCase(uow, audit, storage, world, world, status, purger),
     submitLicense: new SubmitDoctorLicenseVerificationUseCase(uow, audit, storage, world, world, status),
@@ -170,51 +169,23 @@ describe('Envíos de INE y cédula (M03 B5: D-19, D-4, 7bis.1)', () => {
 });
 
 describe('Cambios sensibles (M03 B5: E.3, 7ter)', () => {
-  it('[TC-M03-140][7ter.3] aprobado que cambia el nombre: ambas versiones +1, sin INE nueva, legal_name_changed con la misma clave y vuelta a pending', async () => {
+  // TC-M03-140..143 retirados (C-16, RN-138): ya no existe el cambio de CURP o nombre legal del médico. Los sustituye
+  // TC-M03-218: ninguna operación del médico altera esos datos.
+  it('[TC-M03-218][RN-138][C-16] ninguna operación del médico cambia su CURP ni su nombre legal', async () => {
     const env = setup();
     const d = await approvedDoctor(env);
-    const keyBefore = env.world.doctor.license[0].documentObjectKey;
-    const start = env.world.audit.length;
-    const r = await env.changeIdentity.execute(d.actor, { lastName: 'Pérez López' });
-    expect(r).toMatchObject({ identityRevision: 2, professionalRevision: 3, status: { status: 'pending', identity: 'required', professional: 'pending' } });
-    expect(env.world.doctor.identity).toHaveLength(1);
-    expect(env.world.doctor.license.at(-1)).toMatchObject({ reason: 'legal_name_changed', documentObjectKey: keyBefore, revision: 3, status: 'pending' });
-    expect(env.world.audit.slice(start).map((e) => e.action)).toEqual(['doctor.license_verification.submitted', 'doctor.legal_name.changed', 'doctor.status.returned_to_pending']);
-    expect(env.world.store.state.userProfiles.find((p) => p.id === d.userProfileId)?.lastName).toBe('Pérez López');
-    const metadata = JSON.stringify(env.world.audit.slice(start).map((e) => e.metadata));
-    expect(metadata).not.toMatch(/Pérez|doctor-licenses/);
-  });
-
-  it('[TC-M03-141][7bis.1] con la cédula rechazada, el cambio de nombre no crea revisión automática y la línea queda required', async () => {
-    const env = setup();
-    const d = await newDoctor(env);
-    await env.submitLicense.execute(d.actor, { licenseNumber: 'R1', document: PDF });
-    env.world.review('license', d.doctorProfileId, 'rejected');
-    const r = await env.changeIdentity.execute(d.actor, { firstName: 'Ana María' });
-    expect(r.status).toMatchObject({ professional: 'required' });
-    expect(env.world.doctor.license).toHaveLength(1);
-  });
-
-  it('[TC-M03-142][D-28] solo la CURP: sube solo la identidad, la INE pendiente pasa a superseded y se purga; sin revisión de cédula', async () => {
-    const env = setup();
-    const d = await newDoctor(env);
+    const legal = () => {
+      const row = env.world.store.state.userProfiles.find((p) => p.id === d.userProfileId)!;
+      return { firstName: row.firstName, lastName: row.lastName, curp: row.curp };
+    };
+    const before = legal();
+    await env.update.execute(d.actor, { bio: 'Infectóloga', phone: '5551234567' });
+    await env.changeSpecialty.execute(d.actor, env.world.catalog.byCode('psicologia').id);
     await env.submitIne.execute(d.actor, { front: JPEG, back: JPEG });
-    const r = await env.changeIdentity.execute(d.actor, { curp: syntheticCurp() });
-    expect(r).toMatchObject({ identityRevision: 2, professionalRevision: 1, status: { identity: 'required' } });
-    expect(env.world.doctor.identity[0]).toMatchObject({ status: 'superseded', frontObjectKey: null });
-    expect(env.world.doctor.license).toHaveLength(0);
-    expect(actions(env)).toContain('doctor.curp.changed');
-  });
-
-  it('[TC-M03-143][D-17] CURP de otra persona → 409 genérico y nada cambia; sin cambios reales → 400', async () => {
-    const env = setup();
-    const a = await newDoctor(env);
-    const b = await newDoctor(env);
-    const curpA = env.world.store.state.userProfiles.find((p) => p.id === a.userProfileId)!.curp!;
-    await expect(env.changeIdentity.execute(b.actor, { curp: curpA })).rejects.toThrow(RegistrationDataConflictError);
-    expect(env.world.profileRow(b.doctorProfileId).identityRevision).toBe(1);
-    await expect(env.changeIdentity.execute(b.actor, { firstName: ' Ana ' })).rejects.toThrow(NoChangesError);
-    await expect(env.changeIdentity.execute(b.actor, {})).rejects.toThrow(NoChangesError);
+    await env.submitLicense.execute(d.actor, { licenseNumber: 'C16X1', document: PDF });
+    expect(legal()).toEqual(before);
+    expect(actions(env)).not.toEqual(expect.arrayContaining(['doctor.curp.changed']));
+    expect(actions(env)).not.toEqual(expect.arrayContaining(['doctor.legal_name.changed']));
   });
 
   it('[TC-M03-144][D-33][E.3] cambio de especialidad de un aprobado: specialty_changed con el mismo documento; inactiva → 422; la misma → 400', async () => {
@@ -248,7 +219,6 @@ describe('Cambios sensibles (M03 B5: E.3, 7ter)', () => {
     for (const op of [
       () => env.status.execute(patient),
       () => env.submitIne.execute(patient, { front: JPEG, back: JPEG }),
-      () => env.changeIdentity.execute(patient, { firstName: 'X' }),
       () => env.submitIne.execute(anonymous(), { front: JPEG, back: JPEG }),
     ]) await expect(op()).rejects.toThrow(DoctorProfileRequiredError);
     expect(env.uow.calls).toBe(0);

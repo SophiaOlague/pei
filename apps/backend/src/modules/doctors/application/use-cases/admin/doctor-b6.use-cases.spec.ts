@@ -6,7 +6,7 @@ import { syntheticCurp } from '../../../../../../test/support/synthetic-identity
 import { DoctorStatusService } from '../../doctor-status.service';
 import { DoctorIdentityDocumentPurger } from '../doctor-identity-document-purger';
 import { RegisterDoctorProfileUseCase } from '../register-doctor-profile.use-case';
-import { ChangeDoctorIdentityUseCase } from '../doctor-changes.use-cases';
+import { ChangeDoctorSpecialtyUseCase } from '../doctor-changes.use-cases';
 import { SubmitDoctorIdentityVerificationUseCase, SubmitDoctorLicenseVerificationUseCase } from '../doctor-submissions.use-cases';
 import {
   GetDoctorReviewDetailUseCase, ListPendingDoctorReviewsUseCase, OpenDoctorReviewDocumentUseCase, PurgeTerminalDoctorIdentityDocumentsUseCase,
@@ -32,7 +32,7 @@ function setup() {
   return {
     world, uow, storage, status,
     register: new RegisterDoctorProfileUseCase(uow, audit, world, world, world.catalog),
-    changeIdentity: new ChangeDoctorIdentityUseCase(uow, audit, world, world, world, status, purger),
+    changeSpecialty: new ChangeDoctorSpecialtyUseCase(uow, audit, world, world, world.catalog, status),
     submitIne: new SubmitDoctorIdentityVerificationUseCase(uow, audit, storage, world, world, status, purger),
     submitLicense: new SubmitDoctorLicenseVerificationUseCase(uow, audit, storage, world, world, status),
     queue: new ListPendingDoctorReviewsUseCase(world),
@@ -166,9 +166,10 @@ describe('Documentos, colas y detalle para el admin (M03 B6: D-16, D-19, D-22)',
     expect((await env.queue.execute(admin, 'license', 2, 1)).items[0].id).toBe(b.licId);
     expect(JSON.stringify(q)).not.toMatch(/doctor-licenses\//);
 
-    await env.changeIdentity.execute(a.actor, { lastName: 'Pérez López' });
+    // C-16: la revisión automática que reutiliza el documento se obtiene con un cambio de especialidad (antes, de nombre).
+    await env.changeSpecialty.execute(a.actor, env.world.catalog.byCode('psicologia').id);
     const lic = await env.detail.licenseDetail(admin, env.world.doctor.license.find((r) => r.doctorId === a.doctorProfileId && r.status === 'pending')!.id);
-    expect(lic).toMatchObject({ reason: 'legal_name_changed', isCurrent: true, doctor: { lastName: 'Pérez López' }, specialty: { code: 'medicina_general' } });
+    expect(lic).toMatchObject({ reason: 'specialty_changed', isCurrent: true, doctor: { lastName: 'Pérez' }, specialty: { code: 'psicologia' } });
     const ine = await env.detail.identityDetail(admin, b.ineId);
     expect(ine).toMatchObject({ isCurrent: true, documentsAvailable: true, doctor: { firstName: 'Ana' } });
     expect(ine.doctor.curp).toMatch(/^[A-Z]{4}/);

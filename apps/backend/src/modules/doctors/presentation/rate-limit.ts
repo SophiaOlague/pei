@@ -4,16 +4,15 @@ import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../../../auth/authenticated-request';
 import { RATE_LIMITER, type RateLimiter, type RateLimitRule } from '../../identity/application/ports/rate-limiter';
 
-// DT-8 (M02), plan v2 §12: límites por usuario de las rutas del médico que reciben archivos o cambian su identidad.
+// DT-8 (M02), plan v2 §12: límites por usuario de las rutas del médico que reciben archivos.
 // Reutiliza el limitador de Identity (exportado) con reglas propias de M03. Solo frenan el abuso (no son reglas de negocio).
-export type DoctorRateLimitName = 'doctor_identity_upload' | 'doctor_license_upload' | 'doctor_identity_change' | 'doctor_photo_upload';
+export type DoctorRateLimitName = 'doctor_identity_upload' | 'doctor_license_upload' | 'doctor_photo_upload';
 
 export const DOCTOR_RATE_LIMIT_RULES = Symbol('DOCTOR_RATE_LIMIT_RULES');
 
 export const DEFAULT_DOCTOR_RATE_LIMIT_RULES: Record<DoctorRateLimitName, RateLimitRule> = {
   doctor_identity_upload: { max: 3, windowSeconds: 3600 },
   doctor_license_upload: { max: 5, windowSeconds: 3600 },
-  doctor_identity_change: { max: 5, windowSeconds: 3600 },
   doctor_photo_upload: { max: 10, windowSeconds: 3600 },
 };
 

@@ -2,6 +2,8 @@
 
 > **Estado:** Implementación de M03 completa (A1–A4 y B1–B8, commit `35e205c` para B1–B8). Evidencia formal registrada: `docs/testing/ejecuciones/2026-10-20T09-32-22_35e205c_M03/` (588 unitarias, 94 de integración y 104 E2E, todas PASS) en la rama limpia `br-rough-truth-b5oc81xl`. `0009`–`0012` aplicadas en `rama` y en la rama limpia; **no en `production`**. Pendiente: aplicación en `production` (autorización aparte) y documento académico.
 
+> **C-16 (2026-10-28, sin commit):** se retiró `PUT /me/doctor-profile/identity` (RN-138: ni el médico ni el paciente editan su CURP ni su nombre legal). Casos retirados: TC-M03-121 a 124, 140 a 143, 151 y 177. Nuevos: TC-M03-218 y 219. Ejecutado en local (2026-10-28): unitarias 625/625 y E2E con dobles 82/82, ambas PASS. Integración: solo TC-M03-178 y 179, **PASS** (2/2) el 2026-10-28 mediante C2 en la rama `br-shy-pond-b50a3m8f` / `ep-withered-block-b5e8v9ov`, creada por el usuario como hija de `production`. Antes de ejecutarlas se verificó en solo lectura la identidad y el esquema (13 migraciones iguales al journal). Las pruebas se ejecutaron dentro de transacciones revertidas y la huella de la rama quedó idéntica antes y después. `production` no recibió ninguna conexión. El resto de la integración de M03 no se volvió a ejecutar tras C-16. La evidencia formal de `35e205c` describe el código anterior a C-16.
+
 Gestinnovo es la empresa; PEI es la aplicación.
 Decisiones: [registro de decisiones de M03](../../arquitectura/M03-decisiones.md). Incremento sobre M02: [M02](M02-identity.md#incremento-controlado-a1a3-posterior-a-la-etapa-a).
 
@@ -77,8 +79,8 @@ evidencia versionada (ninguna todavía).
 | D-5, D-26, D-33, D-34, R-4, Z-2 (catálogo) | B1 | `src/modules/doctors/**` (dominio `specialty.ts`, `specialty.use-cases.ts`, `DrizzleSpecialtyRepository`, `GET /specialties`, `/admin/specialties`), `src/db/schema/specialty.ts`, `0009_m03_specialty_catalog.sql` | TC-M03-075 a 087 (unitarias), 088 a 092 (E2E con dobles); RT-M03-11 y 12 (arquitectura) | Unitarias y E2E con dobles locales (sin BD). `0009` sin aplicar ni ensayar; DELETE/TRUNCATE bloqueados y `code` inmutable en la BD llegan con `0012` (B3) | Interna (parcial) |
 | R-7, N3, D-4, D-16, D-19, D-27, R-2 (estructura), R-6 (formato en la BD), C-4 (columnas) | B2 | `src/db/schema/doctor.ts`, `enums.ts`, `relations.ts`; `0010_m03_doctor_profile_drop_legacy.sql`, `0011_m03_doctor_verifications.sql` | TC-M03-093 a 100 (unitarias estáticas: schema de Drizzle y texto del SQL) | Unitarias locales, sin BD; ensayo C2 `verificar-b2` en `rama` con ROLLBACK (guard, postcondiciones y casos D1–D5, I1–I8, L1–L7); aplicación `aplicar-b2` en `rama` con post Q1–Q9. Sin integración | Interna (ensayo y aplicación en `rama`) |
 | D-26, R-4 (en la BD), R-2 (transiciones), C-4 (versiones e inmutabilidad), D-4, D-16, E.5 | B3 | `src/db/migrations/0012_m03_doctor_guards.sql` | TC-M03-101 a 103 (unitarias estáticas); ensayo C2 `verificar-0012` (casos 1–18 de 0012.c) preparado | Ensayo C2 `verificar-0012` en `rama` con ROLLBACK, PASS (casos 1–18); aplicación `aplicar-0012` en `rama` con post Q1–Q9. Sin integración | Interna (ensayo y aplicación en `rama`) |
-| R-7, N3, Z-1, D-24, D-30, D-31, R-2, D-25, E.5 (reglas), N4/E.3, 7bis.1, 7ter (efectos), R-6, D-28 (VOs) | B4 | `src/modules/doctors/domain/doctor-status.ts`, `review.ts`, `sensitive-change.ts`, `license-number.ts`, `legal-name.ts` | TC-M03-104 a 129 (unitarias: escenarios 1–18 de D.5, las 32 combinaciones de Z-1, secuencias de D.4, E.3, E.4 y 7bis.1) | Unitarias locales, sin BD | Interna |
-| RF-05, RF-09, D-1, D-3, D-4, D-9, D-16 (cédula propia), D-17, D-19, D-20, D-21, D-28, D-29, D-33, D-35, R-5, R-6, R-14, 7bis, 7ter, DC-2 | B5 | `src/modules/doctors/application/**` (registro, perfil, cambios, envíos, estado), `presentation/me-doctor.controller.ts`, `infrastructure/persistence/drizzle-doctor-*.ts`; `src/modules/identity/application/ports/doctor-identity.gateway.ts` + `drizzle-doctor-identity.gateway.ts`; `private-storage/domain/object-key.ts` (espacios `doctor-*`) | TC-M03-130 a 146 (unitarias con dobles), 147 a 153 (E2E con dobles); RT-M03-13 | Unitarias y E2E con dobles locales; sin integración | Interna (sin BD) |
+| R-7, N3, Z-1, D-24, D-30, D-31, R-2, D-25, E.5 (reglas), N4/E.3, 7bis.1, 7ter (efectos), R-6, D-28 (VOs; D-28 sustituida por C-16) | B4 | `src/modules/doctors/domain/doctor-status.ts`, `review.ts`, `sensitive-change.ts`, `license-number.ts`, `legal-name.ts` | TC-M03-104 a 129 (unitarias: escenarios 1–18 de D.5, las 32 combinaciones de Z-1, secuencias de D.4, E.3, E.4 y 7bis.1) | Unitarias locales, sin BD | Interna |
+| RF-05, RF-09, D-1, D-3, D-4, D-9, D-16 (cédula propia), D-17, D-19, D-20, D-21, D-28 (sustituida por C-16: ruta retirada), D-29, D-33, D-35, R-5, R-6, R-14, 7bis, 7ter, DC-2 | B5 | `src/modules/doctors/application/**` (registro, perfil, cambios, envíos, estado), `presentation/me-doctor.controller.ts`, `infrastructure/persistence/drizzle-doctor-*.ts`; `src/modules/identity/application/ports/doctor-identity.gateway.ts` + `drizzle-doctor-identity.gateway.ts`; `private-storage/domain/object-key.ts` (espacios `doctor-*`) | TC-M03-130 a 146 (unitarias con dobles), 147 a 153 (E2E con dobles); RT-M03-13 | Unitarias y E2E con dobles locales; sin integración | Interna (sin BD) |
 | RF-06, RN-005, D-16 (admin), D-19 (purga), D-22, D-25, D-27, D-36, R-2 (revisión), E.5 (vigencia), Admin | B6 | `src/modules/doctors/application/use-cases/admin/**`, `presentation/admin-doctors.controller.ts`, `presentation/dto/admin-doctor.dto.ts`; `drizzle-doctor-review.repository.ts` y `drizzle-doctor-profile.repository.ts` (métodos de B6); `src/cli/identity-purge-documents.ts`, `src/cli/cli.module.ts` | TC-M03-154 a 163 (unitarias con dobles), 164 a 166 (E2E con dobles) | Unitarias y E2E con dobles locales; sin integración | Interna (sin BD) |
 | RN-004, D-13, D-23 (política operativa), D-31 y D-A4-2 (`/me` del médico) | B7 | `src/modules/doctors/application/policies/doctor-operational.policy.ts`, `doctor-profile-section.provider.ts`; `src/modules/identity/application/role-profile-section.registry.ts`, `presentation/me.controller.ts` | TC-M03-167 a 170 (unitarias), 171 (E2E con dobles) | Unitarias y E2E con dobles locales | Interna (sin BD) |
 | Integración de B5–B7 (adaptadores Drizzle, gateway de Identity, triggers de 0012) | B8 | `test/integration/doctors.int-spec.ts`, `test/support/doctors-integration.ts` | TC-M03-172 a 182 | `probar-m03` en `rama` (intento 2): 94/94 de integración, sin residuos | Interna |
@@ -248,11 +250,11 @@ Rutas relativas a `apps/backend`; la línea es la del primer uso del identificad
 | TC-M03-117 | B4 | Unitaria | ídem | [E.5] | pendiente no vigente no se revisa |
 | TC-M03-118 | B4 | Unitaria | ídem | [D-25] | motivo de rechazo de 10 a 500 |
 | TC-M03-119 | B4 | Unitaria | ídem | [R-6] | número de cédula |
-| TC-M03-120 | B4 | Unitaria | ídem | [D-28] | nombre legal y detección de cambio |
-| TC-M03-121 | B4 | Unitaria | `src/modules/doctors/domain/sensitive-change.spec.ts` | [D-28] | cambio de CURP (E.3) |
-| TC-M03-122 | B4 | Unitaria | ídem | [7ter] | cambio de nombre con la cédula approved/pending |
-| TC-M03-123 | B4 | Unitaria | ídem | [7bis.1] | cambio de nombre con la cédula rejected/required: sin revisión automática |
-| TC-M03-124 | B4 | Unitaria | ídem | [7ter.2] | CURP y nombre juntos; sin cambios |
+| TC-M03-120 | B4 | Unitaria | ídem | [C-16] | nombre legal del registro (1 a 100 por parte, sin espacios extremos). Desde C-16 ya no prueba la detección de cambio |
+| TC-M03-121 | B4 | Unitaria | `src/modules/doctors/domain/sensitive-change.spec.ts` | [D-28] | **Retirado (C-16, 2026-10-28)**: cambio de CURP (E.3); la función ya no existe |
+| TC-M03-122 | B4 | Unitaria | ídem | [7ter] | **Retirado (C-16, 2026-10-28)**: cambio de nombre con la cédula approved/pending |
+| TC-M03-123 | B4 | Unitaria | ídem | [7bis.1] | **Retirado (C-16, 2026-10-28)**: cambio de nombre con la cédula rejected/required. La regla de no reutilizar un documento rechazado sigue cubierta para la especialidad en TC-M03-125 |
+| TC-M03-124 | B4 | Unitaria | ídem | [7ter.2] | **Retirado (C-16, 2026-10-28)**: CURP y nombre juntos |
 | TC-M03-125 | B4 | Unitaria | ídem | [D-33][7bis.1] | cambio de especialidad |
 | TC-M03-126 | B4 | Unitaria | ídem | [E.1][D-9] | INE nueva; campos libres |
 | TC-M03-127 | B4 | Unitaria | ídem | [D-1] | envío inicial de cédula |
@@ -268,10 +270,10 @@ Rutas relativas a `apps/backend`; la línea es la del primer uso del identificad
 | TC-M03-137 | B5 | Unitaria | ídem | [D-17] | número de cédula de otro médico → 409 genérico |
 | TC-M03-138 | B5 | Unitaria | ídem | [D-4][D-21] | reenvío, cambio de documento y de número; historial sin claves |
 | TC-M03-139 | B5 | Unitaria | ídem | [D-24][R-7] | flujo hasta approved; registration.completed una vez |
-| TC-M03-140 | B5 | Unitaria | ídem | [7ter.3] | cambio de nombre de un aprobado: legal_name_changed con la misma clave |
-| TC-M03-141 | B5 | Unitaria | ídem | [7bis.1] | cambio de nombre con la cédula rechazada: sin revisión automática |
-| TC-M03-142 | B5 | Unitaria | ídem | [D-28] | cambio de CURP: solo identidad, INE pendiente superseded y purgada |
-| TC-M03-143 | B5 | Unitaria | ídem | [D-17] | CURP de otra persona → 409; sin cambios → 400 |
+| TC-M03-140 | B5 | Unitaria | ídem | [7ter.3] | **Retirado (C-16, 2026-10-28)**: cambio de nombre de un aprobado. Sustituido por TC-M03-218 |
+| TC-M03-141 | B5 | Unitaria | ídem | [7bis.1] | **Retirado (C-16, 2026-10-28)**: cambio de nombre con la cédula rechazada. La regla se cubre en TC-M03-125 y 144 (especialidad) |
+| TC-M03-142 | B5 | Unitaria | ídem | [D-28] | **Retirado (C-16, 2026-10-28)**: cambio de CURP. Sustituido por TC-M03-218 |
+| TC-M03-143 | B5 | Unitaria | ídem | [D-17] | **Retirado (C-16, 2026-10-28)**: CURP de otra persona en el cambio. La unicidad en el registro sigue en TC-M03-132/148 (unitaria y E2E) y TC-M03-178 (integración) |
 | TC-M03-144 | B5 | Unitaria | ídem | [D-33][E.3] | cambio de especialidad: specialty_changed; inactiva 422; misma 400 |
 | TC-M03-145 | B5 | Unitaria | ídem | [D-9] | bio y teléfono sin versiones ni auditoría |
 | TC-M03-146 | B5 | Unitaria | ídem | [Autorización] | paciente o cuenta sin perfil: falla cerrado |
@@ -279,9 +281,9 @@ Rutas relativas a `apps/backend`; la línea es la del primer uso del identificad
 | TC-M03-148 | B5 | E2E | ídem | [D-17] | CURP repetida → 409 genérico sin la causa |
 | TC-M03-149 | B5 | E2E | ídem | [D-13][R-7] | estado, envíos de INE y cédula, historial sin claves |
 | TC-M03-150 | B5 | E2E | ídem | [D-3][H.3] | cédula sin archivo o GIF → 400; PDF propio como attachment con sandbox |
-| TC-M03-151 | B5 | E2E | ídem | [D-28][7ter] | cambio de nombre de un aprobado → pending |
+| TC-M03-151 | B5 | E2E | ídem | [D-28][7ter] | **Retirado (C-16, 2026-10-28)**: PUT /me/doctor-profile/identity. Sustituido por TC-M03-219 (la ruta responde 404) |
 | TC-M03-152 | B5 | E2E | ídem | [D-33] | especialidad inválida o inactiva; GET y PATCH del perfil |
-| TC-M03-153 | B5 | E2E | ídem | [Autorización] | paciente o cuenta sin perfil → 403 |
+| TC-M03-153 | B5 | E2E | ídem | [Autorización] | paciente o cuenta sin perfil → 403 (desde C-16, con `PUT /me/doctor-profile/specialty` en lugar de la ruta retirada) |
 | RT-M03-13 | B5 | Unitaria | `src/modules/private-storage/domain/object-key.spec.ts` | [R-11] | acepta las claves `doctor-*` |
 | TC-M03-154 | B6 | Unitaria | `src/modules/doctors/application/use-cases/admin/doctor-b6.use-cases.spec.ts` | [D-27][RF-06] | aprobar ambas → approved; INE purgada, cédula conservada |
 | TC-M03-155 | B6 | Unitaria | ídem | [D-25] | motivo obligatorio antes de la transacción; rechazo, reenvío y aprobación |
@@ -306,9 +308,9 @@ Rutas relativas a `apps/backend`; la línea es la del primer uso del identificad
 | TC-M03-174 | B8 | Integración | ídem | [7bis][C-4][0012] | cédula inicial (versión 2), reenvío y cambio de número aceptados por los triggers |
 | TC-M03-175 | B8 | Integración | ídem | [D-17] | número de cédula duplicado → 409 genérico (23505) |
 | TC-M03-176 | B8 | Integración | ídem | [RF-06][D-27][B7] | aprobación de ambas, purga, eventos y política operativa |
-| TC-M03-177 | B8 | Integración | ídem | [7ter.3][0012] | legal_name_changed con la misma clave pasa el trigger |
-| TC-M03-178 | B8 | Integración | ídem | [D-17][D-20] | CURP de otra cuenta en registro y cambio → 409 |
-| TC-M03-179 | B8 | Integración | ídem | [D-33][0012] | especialidad inactiva 422; specialty_changed |
+| TC-M03-177 | B8 | Integración | ídem | [7ter.3][0012] | **Retirado (C-16, 2026-10-28)**: cambio de nombre bajo el trigger de 0012. La reutilización de la clave pasa a TC-M03-179 |
+| TC-M03-178 | B8 | Integración | ídem | [D-17][D-20] | CURP de otra cuenta en el registro → 409 (la parte del cambio se retiró con C-16). **PASS** el 2026-10-28 mediante C2 en `br-shy-pond-b50a3m8f`, hija de `production` |
+| TC-M03-179 | B8 | Integración | ídem | [D-33][0012] | especialidad inactiva 422; specialty_changed. Desde C-16 comprueba también que la revisión automática reutiliza la clave del documento (antes TC-M03-177). **PASS** el 2026-10-28 mediante C2 en `br-shy-pond-b50a3m8f`, hija de `production` |
 | TC-M03-180 | B8 | Integración | ídem | [E.5] | pendiente de versión anterior no se aprueba |
 | TC-M03-181 | B8 | Integración | ídem | [D-19][D-22][RNF-08] | documentos auditados, INE terminada 409, colas y lista |
 | TC-M03-182 | B8 | Integración | ídem | [D-19][DT-6] | purga fallida completada por la CLI |
@@ -334,6 +336,8 @@ Rutas relativas a `apps/backend`; la línea es la del primer uso del identificad
 | TC-M03-202 | Flujo | Unitaria | ídem | [R-7] | detecta claves de objetos y URLs firmadas en una respuesta |
 | TC-M03-203 | Flujo | Flujo (C2) | `test/flujo/doctor-registration.flow-spec.ts` | [RF-05][D-32] | registro HTTP de un médico de prueba con el régimen TEST-1 en la rama de pruebas (solo mediante C2 `flujo-registro`) |
 | TC-M03-204 | Flujo | Flujo (C2) | `test/flujo/doctor-review.flow-spec.ts` | [RF-06][D-25][D-30] | revisión HTTP del admin: INE aprobada, cédula rechazada, reenviada y aprobada (solo mediante C2 `revision-admin`) |
+| TC-M03-218 | C-16 | Unitaria | `src/modules/doctors/application/use-cases/doctor-b5.use-cases.spec.ts` | [RN-138][C-16] | ninguna operación del médico (bio, teléfono, especialidad, INE, cédula) cambia su CURP ni su nombre legal; sin eventos `doctor.curp.changed` ni `doctor.legal_name.changed` |
+| TC-M03-219 | C-16 | E2E | `test/doctors.e2e-spec.ts` | [RN-138][C-16] | `PUT /me/doctor-profile/identity` → 404 con y sin sesión; `PATCH /me/doctor-profile` con `curp`, `firstName` o `lastName` → 400 sin cambiar el perfil; teléfono y bio siguen editándose |
 | RT-M03-14 | B8 | Unitaria | `test/architecture.spec.ts` | [P.7] | doctors solo usa de identity dominio, puertos, registro y módulo |
 | RT-M03-15 | B8 | Unitaria | ídem | [R-11] | doctors sin SDK de AWS ni infraestructura de private-storage |
 | RT-M03-16 | B8 | Unitaria | ídem | [B8] | el spec de concurrencia exige C2, rechaza `rama` y la marca de rama desechable |
@@ -1050,4 +1054,5 @@ una evidencia formal.
 | 19 | Fin de línea: con `core.autocrlf=true`, un checkout nuevo reescribía las migraciones con CRLF y cambiaba sus hashes (comprobado en un clon desechable: `0012` pasaba de `e5d24a0f…` a `a643d446…`). Resuelto con `.gitattributes`: `apps/backend/src/db/migrations/*.sql -text`. Las 13 migraciones quedan `i/lf w/lf attr/-text`, sus SHA-256 no cambian y renormalizar no modifica ningún blob (2026-10-20) | Resuelto |
 | 20 | `0009`–`0012` aplicadas en `production` el 2026-10-20 (C2 `prod-m03`: `previo` y `aplicar` PASS; `posterior` Q1–Q12 PASS en el intento 2, tras corregir un falso fallo de Q5 en la herramienta). LSN previo `0/3248F20`. Siguen abiertos: el código de M03 sin desplegar, el régimen legal del médico sin publicar, la ventana de restauración de Neon sin verificar y la evidencia fuera del repositorio | Aplicada y verificada; pendientes de despliegue y publicación |
 | 21 | `privacy_policy` es común a pacientes y médicos. Si se publica un `privacy_policy` de prueba o de un solo rol, una publicación posterior de solo `patient_terms` (admitida por N1, TC-M03-023) lo dejaría en el régimen del paciente; nada en el código, la BD ni C2 lo impide. Por eso el régimen TEST-1 se publicó solo en la rama `m03-flujo-medicos` y no en `production` | Pendiente: guard en la publicación o en la BD antes de cualquier régimen no definitivo en `production` |
+| 22 | C-16: la corrección de una CURP o un nombre legal incorrectos no tiene ninguna vía (DP-CORR). El enum `doctor_license_review_reason_enum` conserva `legal_name_changed` sin uso (no se migra). `docs/academico/M03-doctors.md` todavía describe el cambio de CURP y de nombre (D-28) y la ruta retirada | Pendiente de decisión (DP-CORR) y de actualizar el documento académico |
 | 6 | Las etiquetas de decisión de las pruebas (D-, R-, N-, M01-D2) no están en las convenciones de `docs/testing/README.md` | Pendiente de decidir |

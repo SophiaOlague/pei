@@ -232,9 +232,12 @@ describe('Identity M02 por HTTP (E2E con dobles)', () => {
   describe('perfil (DP-12, DT-7) y protección del rol (DP-5)', () => {
     it.each(['curp', 'firstName', 'lastName', 'birthDate', 'role'])('[TC-M02-221][DP-12] PATCH /me/profile con %s → 400', async (field) => {
       const userId = await newPatient();
+      const before = (await as(userId).get('/me/profile')).body;
       const res = await as(userId).patch('/me/profile').send({ phone: '5551234567', [field]: 'X' });
       expect(res.status).toBe(400);
       expect(res.body.message).toContain(`property ${field} should not exist`);
+      // C-16: la petición rechazada no cambia nada (tampoco el teléfono que la acompañaba).
+      expect((await as(userId).get('/me/profile')).body).toEqual(before);
     });
 
     it('[TC-M02-222][DP-12] PATCH con campos editables → 200 y auditado sin valores', async () => {

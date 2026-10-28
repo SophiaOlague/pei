@@ -60,7 +60,7 @@ Son decisiones aprobadas de M02: DP (producto) y DT (técnicas). No son requisit
 | DP-5 | `admin` no es asignable por el cliente; primer administrador por CLI que falla cerrado |
 | DP-8 | Cuenta ≠ registro completo ≠ habilitado para agendar; estado derivado, sin bloqueo global |
 | DP-11 | INE obligatorio para completar el registro; un solo `pending`; reenvío solo tras `rejected` |
-| DP-12 | Editables: teléfono, dirección, contacto de emergencia y foto; CURP, nombre legal y fecha de nacimiento, no |
+| DP-12 | Editables: teléfono, dirección, contacto de emergencia y foto; CURP, nombre legal y fecha de nacimiento, no. Coherente con RN-138 ampliada por C-16 (2026-10-28), que extiende la restricción al médico |
 | DP-15 | Bucket privado; el administrador ve el INE solo si el envío está `pending`, transmitido por el backend con `no-store` y auditado |
 | DT-1 a DT-22 | Ver el diseño técnico aprobado. En esta matriz se citan DT-1 a DT-18, DT-21 y DT-22 |
 
@@ -85,7 +85,7 @@ Tipo: **RF** requisito funcional · **RN** regla de negocio · **RNF** requisito
 | DP-5 | DP | Rol no asignable; bootstrap por CLI | DTO sin rol, CLI, trigger | TC-M02-073, 082, 092, 112, 114, 223 | PASS | Bootstrap real ejecutado en `production` (informado por la responsable del producto el 2026-10-18; sin evidencia versionada) |
 | DP-8 | DP | Estado del registro derivado | `computeRegistrationStatus`, lector, política | TC-M02-010–014, 090, 097, 210, 211 | PASS | Completa |
 | DP-11 | DP | Un solo `pending`; reenvío tras `rejected` | Índice parcial, `nextSubmissionAttempt` | TC-M02-022, 023, 105, 106 | PASS | Completa |
-| DP-12 | DP | Solo campos editables | DTO de `PATCH`, `UpdatePatientProfile` | TC-M02-083, 084, 094, 206, 221, 222 | PASS | Completa |
+| DP-12 | DP | Solo campos editables | DTO de `PATCH`, `UpdatePatientProfile` | TC-M02-083, 084, 094, 206, 221, 222 (221 comprueba desde C-16 que el perfil no cambia) | PASS | Completa |
 | DP-15 | DP | Acceso del administrador solo con `pending` | `OpenIdentityDocument` | TC-M02-027, 079, 108, 216, 219 | PASS | Transmisión probada con almacenamiento falso; R2 real se validó con el adaptador |
 | DT-1 | DT | Transmisión por el backend, sin URLs | `privateImageResponse`, claves | TC-M02-043, 216 | PASS | Completa |
 | DT-2 | DT | Un registro por envío, con `attempt` | `UNIQUE(patient_id, attempt)` | TC-M02-020, 105, 117 | PASS | Completa |

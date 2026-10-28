@@ -1,7 +1,7 @@
 import { canSupersede, isTerminal, parseRejectionReason, resolveReview, REVIEW_STATUSES } from './review';
 import { InvalidRejectionReasonError, ReviewNotCurrentError, ReviewNotPendingError } from './doctor.errors';
 import { parseLicenseNumber } from './license-number';
-import { legalNameChanged, parseLegalName } from './legal-name';
+import { parseLegalName } from './legal-name';
 import { InvalidLegalNameError, InvalidLicenseNumberError } from './doctor.errors';
 
 describe('Ciclo de vida de una revisión (M03 B4; diseño v3 §E.4)', () => {
@@ -36,13 +36,9 @@ describe('Value objects del médico (M03 B4)', () => {
     for (const bad of ['', '12 34', '12_34', 'ñ1', 'x'.repeat(21)]) expect(() => parseLicenseNumber(bad)).toThrow(InvalidLicenseNumberError);
   });
 
-  it('[TC-M03-120][D-28] nombre legal: cada parte de 1 a 100; el cambio se compara ya normalizado', () => {
+  it('[TC-M03-120][C-16] nombre legal del registro: cada parte de 1 a 100, sin espacios en los extremos', () => {
     expect(parseLegalName({ firstName: ' Ana ', lastName: 'Pérez' })).toEqual({ firstName: 'Ana', lastName: 'Pérez' });
     expect(() => parseLegalName({ firstName: '', lastName: 'Pérez' })).toThrow(InvalidLegalNameError);
     expect(() => parseLegalName({ firstName: 'Ana', lastName: 'x'.repeat(101) })).toThrow(InvalidLegalNameError);
-    const current = { firstName: 'Ana', lastName: 'Pérez' };
-    expect(legalNameChanged(current, { firstName: ' Ana ' })).toBe(false);
-    expect(legalNameChanged(current, { lastName: 'Pérez López' })).toBe(true);
-    expect(legalNameChanged(current, {})).toBe(false);
   });
 });
