@@ -29,7 +29,7 @@ Estado: **aprobadas** con el diseño v3 (2026-10-07), salvo que la sección 6 in
 | D-3 | Archivo de la cédula: PDF, PNG o JPG/JPEG |
 | D-4 | La cédula admite reenvíos y conserva historial |
 | D-5, D-26, D-33, D-34 | Catálogo de especialidades configurado por el admin; una especialidad por médico; desactivar no borra y quien la tiene la conserva sin pasar a `pending`; no se asigna a nuevos médicos. Catálogo inicial: Infectología, Psicología y Medicina general |
-| D-9, D-21, D-29 | Los cambios de INE, CURP, número o documento de cédula, especialidad o nombre legal se aplican de inmediato y devuelven al médico a `pending`. Bio, foto y teléfono se editan libremente |
+| D-9, D-21, D-29 | Los cambios de INE, número o documento de cédula o especialidad se aplican de inmediato y devuelven al médico a `pending`. Bio, foto y teléfono se editan libremente. **Acotada por C-16 (2026-10-28):** la CURP y el nombre legal salieron de esta lista porque el médico ya no puede cambiarlos (RN-138) |
 | D-10 | Lista mínima de eventos de auditoría (diseño v3 §I; ver la sección 6) |
 | D-13, D-23 | Si no está `approved`, el médico solo entra y consulta su estado. Las citas existentes son asunto de M08 |
 | D-16, D-22 | La cédula se conserva en R2 privado; la ven el médico dueño y el admin (con auditoría). Plazo de conservación: dependencia legal |
@@ -39,7 +39,7 @@ Estado: **aprobadas** con el diseño v3 (2026-10-07), salvo que la sección 6 in
 | D-24, D-30, D-31 | `registrationComplete` se deriva, se compone por rol y significa «entregó todo», no «aprobado» |
 | D-25 | El motivo de rechazo es obligatorio |
 | D-27 | INE y cédula se revisan por separado; `approved` exige ambas aprobadas y registro completo |
-| D-28 | Cambiar la CURP o el nombre legal lleva a `pending` y exige una INE nueva |
+| D-28 | ~~Cambiar la CURP o el nombre legal lleva a `pending` y exige una INE nueva~~. **Sustituida por C-16** (2026-10-28): ni el médico ni el paciente editan su CURP ni su nombre legal; se retiró `PUT /me/doctor-profile/identity`. Corrección: DP-CORR (sección 7) |
 | D-32 | Requisitos legales: paciente `privacy_policy` + `patient_terms`; médico `privacy_policy` + `doctor_terms` |
 | D-36 | Sin directorio, perfil público ni búsqueda de médicos en M03 |
 | Admin | Solo `admin` aprueba o rechaza; no existe un rol revisor |
@@ -92,7 +92,7 @@ R-3 y R-9 no figuran en el diseño v3 y no se registran.
 | DC-2 | A2 | Se difiere el puerto `LegalRequirementsReader` hasta B5 (sin consumidor en A2) | Aprobada; diferida a B5 |
 | DC-3 | A2 | `legal:publish` permite una sola versión nueva cuando el régimen del rol ya está vigente | Definitiva |
 | DC-4 | A2 | IDs duplicados en `POST /me/legal-acceptances` → 400 en el DTO y en el caso de uso; a lo más un evento por aceptación insertada | Aprobada en la revisión de PC-A2 |
-| Opción A (plan v2 §7ter) | B | Cambio del nombre legal: ambas revisiones +1; la línea de identidad pasa a requerida; la cédula recibe una revisión `legal_name_changed` que reutiliza el documento conservado | Aprobada (2026-10-07); por implementar |
+| Opción A (plan v2 §7ter) | B | Cambio del nombre legal: ambas revisiones +1; la línea de identidad pasa a requerida; la cédula recibe una revisión `legal_name_changed` que reutiliza el documento conservado | Aprobada (2026-10-07); implementada en B5. **Retirada por C-16** (2026-10-28) junto con D-28. El valor `legal_name_changed` sigue en el enum de la BD (`0011`) sin uso; no se migra |
 | P1 | A3 | Vía de recuperación de `0007` tras su aplicación en la rama `production` (2026-10-17; entorno organizacional por confirmar): inverso lógico como vía principal; restauración de Neon como último recurso, al punto registrado antes de aplicarla (LSN `0/2CB7398`) | **Pendiente** de confirmación (plan, ventana de historial y punto de restauración): el inverso lógico solo se ensayó en `rama`, no en `production`, y la viabilidad de la restauración de Neon no está confirmada |
 | P2 | A3 | El conflicto de registro **no** se audita en `audit_log` (respeta M01 D1, D2 y D6); causa interna en el error y log `warn` sin datos personales | **Aprobada** (2026-10-12, fecha de la aprobación en conversación; no consta en un archivo fuente); implementada en A3 (TC-M03-052) |
 | P3 | A3 | `scripts/dev-fix-curp-dt22.mjs` se conserva sin cambios hasta cerrar M02; después, nota de obsolescencia | **Aprobada** (2026-10-12, fecha de la aprobación en conversación; no consta en un archivo fuente) |
@@ -114,6 +114,7 @@ R-3 y R-9 no figuran en el diseño v3 y no se registran.
 | Plan v2 §11 (evento `identity.registration.conflict` en A3 y B5) | Evento en una UoW separada tras el 23505 o la comprobación previa | **P2** | Ídem. Para B5 (`license_number`) se aplicará el mismo criterio salvo nueva decisión |
 | Diseño v3 §N, fila M02-5 | «`R2DocumentStorage` se mueve a `private-storage`» | Implementación de A1 | El adaptador se renombró a `R2PrivateObjectStorage` |
 | Diseño v3 §B (orden de fuentes) | Decisiones por encima del PDF | Jerarquía vigente del proyecto | El PDF V2.2 prevalece; las decisiones aprobadas lo concretan sin contradecirlo |
+| D-28 y opción A (plan v2 §7ter) | El médico cambia su CURP o su nombre legal con `PUT /me/doctor-profile/identity` | **C-16** (RN-138) | La regla aprobada prohíbe que el propio usuario edite su CURP o su nombre legal |
 
 ## 7. Decisiones pendientes
 
@@ -125,3 +126,4 @@ R-3 y R-9 no figuran en el diseño v3 y no se registran.
 | `0008` en `production` | Aplicada y verificada el 2026-10-20 (C2 prod-0008). Pendiente: ventana de restauración de Neon sin verificar (recuperación por inverso lógico, validado solo en `rama`), evidencia de la ejecución fuera del repositorio y despliegue del código de A4 (sin commit) |
 | Evidencia formal | Procedimiento de evidencia formal en la rama temporal (E0), pendiente de autorización |
 | `admin:bootstrap` | Cierre formal de M02 con excepción documentada o esperar a la ejecución real |
+| DP-CORR | Cómo corregir una CURP o un nombre legal incorrectos (paciente o médico). **No definido**; no existe ninguna vía, ni de autoedición (prohibida por RN-138, C-16) ni del administrador. Ver el Maestro V2.3, sección 10 |

@@ -1,6 +1,5 @@
 import {
   freeFieldEffects,
-  identityChangeEffects,
   identitySubmissionEffects,
   licenseSubmission,
   specialtyChangeEffects,
@@ -10,26 +9,8 @@ import type { LineStatus } from './doctor-status';
 // M03 B4 (diseño v3 §E.3; plan v2 §7bis.1 y §7ter): matriz de efectos de cada cambio.
 
 describe('Matriz de efectos (diseño v3 §E.3)', () => {
-  it('[TC-M03-121][D-28] CURP: identidad +1 y su pendiente a superseded; la línea profesional no cambia', () => {
-    expect(identityChangeEffects({ curp: true, legalName: false }, 'approved')).toEqual({
-      identityRevisionBump: 1, professionalRevisionBump: 0, supersedeIdentityPending: true, supersedeLicensePending: false, automaticLicenseReview: null,
-    });
-  });
-
-  it.each(['approved', 'pending'] as LineStatus[])('[TC-M03-122][7ter] nombre legal con la cédula %s: ambas +1, ambos pendientes a superseded y revisión legal_name_changed', (before) => {
-    expect(identityChangeEffects({ curp: false, legalName: true }, before)).toEqual({
-      identityRevisionBump: 1, professionalRevisionBump: 1, supersedeIdentityPending: true, supersedeLicensePending: true, automaticLicenseReview: 'legal_name_changed',
-    });
-  });
-
-  it.each(['rejected', 'required'] as LineStatus[])('[TC-M03-123][7bis.1] nombre legal con la cédula %s: sin revisión automática (no se reutiliza un documento rechazado o inexistente)', (before) => {
-    expect(identityChangeEffects({ curp: false, legalName: true }, before).automaticLicenseReview).toBeNull();
-  });
-
-  it('[TC-M03-124][7ter.2] CURP y nombre juntos: la identidad sube una sola vez; sin cambios no hay efectos', () => {
-    expect(identityChangeEffects({ curp: true, legalName: true }, 'approved')).toMatchObject({ identityRevisionBump: 1, professionalRevisionBump: 1, automaticLicenseReview: 'legal_name_changed' });
-    expect(identityChangeEffects({ curp: false, legalName: false }, 'approved')).toEqual(freeFieldEffects());
-  });
+  // TC-M03-121..124 retirados (C-16, RN-138): el médico ya no cambia su CURP ni su nombre legal, así que no existen
+  // efectos de un cambio de identidad.
 
   it('[TC-M03-125][D-33][7bis.1] especialidad: profesional +1, pendiente a superseded y specialty_changed solo si reutiliza', () => {
     expect(specialtyChangeEffects('approved', true)).toEqual({

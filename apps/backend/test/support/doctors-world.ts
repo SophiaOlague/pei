@@ -63,10 +63,6 @@ export class InMemoryDoctorWorld implements DoctorProfileRepository, DoctorRevie
     if (!row || row.role !== 'doctor' || row.curp === null) return null;
     return { firstName: row.firstName, lastName: row.lastName, curp: row.curp, phone: row.phone };
   }
-  async updateLegalIdentity(userProfileId: string, change: { firstName?: string; lastName?: string; curp?: string }): Promise<void> {
-    if (change.curp !== undefined && this.store.state.userProfiles.some((p) => p.curp === change.curp && p.id !== userProfileId)) this.curpConflict();
-    Object.assign(this.userRow(userProfileId), change);
-  }
   async updatePhone(userProfileId: string, phone: string | null): Promise<void> {
     this.userRow(userProfileId).phone = phone;
   }

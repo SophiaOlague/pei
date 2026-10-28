@@ -11,8 +11,6 @@ export const DOCTOR_AUDIT_ACTIONS = {
   identitySuperseded: 'doctor.identity_verification.superseded',
   licenseSubmitted: 'doctor.license_verification.submitted',
   licenseSuperseded: 'doctor.license_verification.superseded',
-  curpChanged: 'doctor.curp.changed',
-  legalNameChanged: 'doctor.legal_name.changed',
   licenseNumberChanged: 'doctor.license_number.changed',
   specialtyChanged: 'doctor.specialty.changed',
   returnedToPending: 'doctor.status.returned_to_pending',
@@ -34,7 +32,7 @@ const specialtyEntity = (id: string) => ({ type: 'specialty', id });
 const doctorEntity = (id: string) => ({ type: 'doctor_profile', id });
 
 // Por qué una revisión pendiente pasó a superseded, o por qué el médico volvió a pending (diseño v3 §I).
-export type DoctorChangeCause = 'curp_changed' | 'legal_name_changed' | 'specialty_changed' | 'identity_resubmitted' | 'license_resubmitted';
+export type DoctorChangeCause = 'specialty_changed' | 'identity_resubmitted' | 'license_resubmitted';
 export interface Revisions {
   identityRevision: number;
   professionalRevision: number;
@@ -71,13 +69,6 @@ export const DoctorAuditEvents = {
     AuditEvent.create({
       actor, action: DOCTOR_AUDIT_ACTIONS.licenseSuperseded, entity: { type: 'doctor_license_verification', id: reviewId },
       metadata: { attempt, cause },
-    }),
-
-  // Solo números de versión: nunca la CURP, el nombre ni el número de cédula.
-  identityChanged: (actor: AuditActor, doctorProfileId: string, kind: 'curp' | 'legal_name', revisions: Revisions) =>
-    AuditEvent.create({
-      actor, action: kind === 'curp' ? DOCTOR_AUDIT_ACTIONS.curpChanged : DOCTOR_AUDIT_ACTIONS.legalNameChanged,
-      entity: doctorEntity(doctorProfileId), metadata: { ...revisions },
     }),
 
   licenseNumberChanged: (actor: AuditActor, doctorProfileId: string, revisions: Revisions) =>

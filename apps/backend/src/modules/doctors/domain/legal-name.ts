@@ -1,6 +1,6 @@
 import { InvalidLegalNameError } from './doctor.errors';
 
-// M03 D-9, D-28 (diseño v3 §C): nombre legal del médico (first_name y last_name de user_profile), de 1 a 100
+// M03 (diseño v3 §C), RN-138 (C-16): nombre legal del médico, que se captura solo al registrarse (first_name y last_name de user_profile), de 1 a 100
 // caracteres cada parte, sin espacios en los extremos.
 export const LEGAL_NAME_PART_MAX = 100;
 
@@ -17,9 +17,4 @@ function part(value: string): string {
 
 export function parseLegalName(input: LegalName): LegalName {
   return { firstName: part(input.firstName), lastName: part(input.lastName) };
-}
-
-// Hay cambio del nombre legal si alguna parte difiere después de normalizar.
-export function legalNameChanged(current: LegalName, next: Partial<LegalName>): boolean {
-  return (next.firstName !== undefined && part(next.firstName) !== current.firstName) || (next.lastName !== undefined && part(next.lastName) !== current.lastName);
 }

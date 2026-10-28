@@ -39,18 +39,6 @@ export class DrizzleDoctorIdentityGateway implements DoctorIdentityGateway {
     return identity;
   }
 
-  async updateLegalIdentity(userProfileId: string, change: { firstName?: string; lastName?: string; curp?: string }): Promise<void> {
-    const db = getDbContext();
-    if (change.curp !== undefined) {
-      const [taken] = await db.select({ id: userProfile.id }).from(userProfile).where(sql`${userProfile.curp} = ${change.curp} and ${userProfile.id} <> ${userProfileId}`).limit(1);
-      if (taken) {
-        this.logger.warn('registration_conflict field=curp');
-        throw new RegistrationDataConflictError('curp');
-      }
-    }
-    await db.update(userProfile).set({ ...change, updatedAt: sql`now()` }).where(eq(userProfile.id, userProfileId));
-  }
-
   async updatePhone(userProfileId: string, phone: string | null): Promise<void> {
     await getDbContext().update(userProfile).set({ phone, updatedAt: sql`now()` }).where(eq(userProfile.id, userProfileId));
   }

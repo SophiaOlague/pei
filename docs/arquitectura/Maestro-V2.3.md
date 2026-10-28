@@ -45,6 +45,7 @@ Requerimientos, reglas de negocio y consideraciones normativas de **PEI**, la ap
 | C-13 | 2026-10-17 | 5.1 | RN-004: qué puede hacer un médico no aprobado | Aclaración | D-13, D-23, D-9/D-21/D-29 | Pendiente |
 | C-14 | 2026-10-17 | 3.1 | RF-02: alta del primer administrador | Aclaración | DP-5, DT-12; N5 | Implementada (`admin:bootstrap`); no ejecutada |
 | C-15 | 2026-10-17 | 7.2 | Integridad de la CURP y coherencia de rol | Modificación | DT-22; R-10 | CURP implementada (`0007`); coherencia de rol pendiente (`0008`) |
+| C-16 | 2026-10-28 | 5.1 | RN-138: ni el paciente ni el médico editan desde su cuenta su CURP ni su nombre legal. RN-004 deja de prever que el médico los cambie | Modificación | DP-12; sustituye D-28 y acota D-9/D-21/D-29 (decisión del 2026-10-28) | Implementada sin commit: se retiró `PUT /me/doctor-profile/identity`; el paciente ya cumplía (DP-12). Corrección pendiente (DP-CORR) |
 
 Las decisiones de la columna «Fuente» se detallan en `docs/arquitectura/M03-decisiones.md` (D-, N-, R-, Z-) y en
 `docs/testing/trazabilidad/M02-identity.md` (DP-, DT-).
@@ -101,14 +102,15 @@ Siguen igual que en V2.2: RN-001, RN-002, RN-003, RN-005 y RN-006.
 
 | ID | Regla | Cambio |
 |---|---|---|
-| RN-004 | Un médico no atiende nuevas citas hasta ser aprobado por administración. **Está aprobado solo si su INE y su cédula están aprobadas y su registro está completo. Su estado se deriva de las revisiones vigentes: si alguna está pendiente, pending; si no, y alguna está rechazada, rejected. Una revisión pendiente que un cambio invalida pasa a superseded y conserva su historial. Mientras no está aprobado, el médico solo puede entrar y consultar su estado. Cambiar la INE, la CURP, la cédula, la especialidad o el nombre legal lo devuelve a pending. El efecto sobre sus citas existentes corresponde a la gestión de citas.** | C-7, C-13 |
-| **RN-138** | **El paciente y el médico registran una CURP obligatoria, en mayúsculas, con el formato oficial y un dígito verificador válido. La CURP es única entre todos los usuarios, sin importar su rol, y el propio usuario no puede editarla.** | C-1 (nuevo) |
+| RN-004 | Un médico no atiende nuevas citas hasta ser aprobado por administración. **Está aprobado solo si su INE y su cédula están aprobadas y su registro está completo. Su estado se deriva de las revisiones vigentes: si alguna está pendiente, pending; si no, y alguna está rechazada, rejected. Una revisión pendiente que un cambio invalida pasa a superseded y conserva su historial. Mientras no está aprobado, el médico solo puede entrar y consultar su estado. Cambiar la INE, la cédula o la especialidad lo devuelve a pending. El médico no cambia su CURP ni su nombre legal (RN-138); su corrección está pendiente de decisión (DP-CORR). El efecto sobre sus citas existentes corresponde a la gestión de citas.** | C-7, C-13, C-16 |
+| **RN-138** | **El paciente y el médico registran una CURP obligatoria, en mayúsculas, con el formato oficial y un dígito verificador válido. La CURP es única entre todos los usuarios, sin importar su rol. Ni el paciente ni el médico pueden editar desde su propia cuenta su CURP ni su nombre legal: se capturan al crear el perfil.** | C-1 (nuevo), C-16 |
 | **RN-139** | **Una persona no puede tener a la vez cuenta de paciente y de médico. No existe conversión de rol.** | C-2 (nuevo) |
 
 Notas de implementación (informativas):
 - **RN-138.** El dígito verificador se valida en la aplicación, no en la BD.
-- **RN-138.** El cambio de CURP del médico está decidido (D-28: vuelve a pending y exige una INE nueva), pero no está
-  implementado.
+- **RN-138 (C-16).** Sustituye a D-28, que permitía al médico cambiar su CURP o su nombre legal. Esa vía
+  (`PUT /me/doctor-profile/identity`) se retiró el 2026-10-28. El paciente ya tenía la restricción (DP-12). La
+  corrección de un dato erróneo está pendiente (DP-CORR, sección 10).
 - **RN-138 y RN-139.** Se numeran a continuación del último RN de V2.2 (RN-137), pero pertenecen a la sección 5.1.
 
 ---
@@ -143,7 +145,7 @@ Se añaden:
 | RF | RF-65 | RF-66 |
 | RNF | RNF-21 | RNF-22 |
 | RN | RN-139 | RN-140 |
-| Cambio | C-15 | C-16 |
+| Cambio | C-16 | C-17 |
 
 ## 10. Pendientes de decisión
 
@@ -152,3 +154,5 @@ Se añaden:
 | RNF-21 | Elegir el mecanismo de mitigación |
 | Esquema DBML | Publicar `schema_gestinovo_v2_3.dbml`, coherente con la sección 7 |
 | PDF V2.3 | Generarlo y aprobarlo; después, actualizar R-1 y las referencias de la trazabilidad |
+| DP-CORR | Cómo se corrige una CURP o un nombre legal capturados con error. **No está definido**: hoy no existe ninguna vía, ni para el propio usuario (RN-138) ni para el administrador. Cualquier vía futura debe conservar la unicidad entre roles (RN-138, RN-139), la auditoría y el efecto sobre la revisión de la INE (RN-004) |
+| Maestro V2.4 | `PEI_Documento_Maestro_V2.4_2026-10-20.docx` es anterior a C-16 y conserva el texto previo de RN-004 y RN-138: pendiente de consolidación |

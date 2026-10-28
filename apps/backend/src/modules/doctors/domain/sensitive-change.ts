@@ -1,6 +1,6 @@
 import type { LineStatus } from './doctor-status';
 
-// M03 D-9, D-21, D-28, D-29, N4 (diseño v3 §E.3; plan v2 §7bis.1 y §7ter): efectos de cada cambio del médico.
+// M03 D-9, D-21, D-29, N4, C-16 (diseño v3 §E.3; plan v2 §7bis.1 y §7ter): efectos de cada cambio del médico.
 // Los cambios se aplican de inmediato (D-29); este módulo solo decide qué versiones suben, qué pendientes pasan a
 // superseded y si el sistema crea una revisión automática de la cédula. Lo ejecuta el caso de uso (B5) en una UoW.
 
@@ -10,6 +10,8 @@ export type LicenseReviewReason =
   | 'license_number_changed'
   | 'license_document_changed'
   | 'specialty_changed'
+  // Sin uso desde C-16 (RN-138): el médico ya no cambia su nombre legal. Se conserva porque existe en el enum de la BD
+  // (0011) y en revisiones históricas.
   | 'legal_name_changed';
 
 export interface ChangeEffects {
@@ -18,7 +20,7 @@ export interface ChangeEffects {
   supersedeIdentityPending: boolean;
   supersedeLicensePending: boolean;
   // Revisión de cédula que crea el sistema reutilizando el documento vigente (null si no corresponde).
-  automaticLicenseReview: 'specialty_changed' | 'legal_name_changed' | null;
+  automaticLicenseReview: 'specialty_changed' | null;
 }
 
 const NONE: ChangeEffects = {
@@ -33,20 +35,6 @@ const NONE: ChangeEffects = {
 // approved o pending. Si estaba rejected (documento rechazado) o required (sin documento), solo sube la versión y la
 // línea queda required hasta que el médico envíe un documento.
 const canReuseLicenseDocument = (professionalBefore: LineStatus): boolean => professionalBefore === 'approved' || professionalBefore === 'pending';
-
-// Cambio de identidad legal (PUT /me/doctor-profile/identity). CURP y nombre juntos: la identidad sube una sola vez.
-// Opción A (7ter.4): nunca se crea una revisión de INE; la línea de identidad queda required.
-export function identityChangeEffects(change: { curp: boolean; legalName: boolean }, professionalBefore: LineStatus): ChangeEffects {
-  if (!change.curp && !change.legalName) return NONE;
-  if (!change.legalName) return { ...NONE, identityRevisionBump: 1, supersedeIdentityPending: true };
-  return {
-    identityRevisionBump: 1,
-    professionalRevisionBump: 1,
-    supersedeIdentityPending: true,
-    supersedeLicensePending: true,
-    automaticLicenseReview: canReuseLicenseDocument(professionalBefore) ? 'legal_name_changed' : null,
-  };
-}
 
 // Cambio de especialidad (debe estar activa; lo valida el caso de uso). Sin ningún envío previo de cédula (registro
 // incompleto) solo cambia el perfil: la revisión inicial llevará la especialidad nueva (7bis.1).

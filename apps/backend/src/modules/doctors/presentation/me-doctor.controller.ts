@@ -10,17 +10,18 @@ import type { Actor } from '../../../common/application/actor';
 import { privateImageResponse, privatePdfResponse } from '../../private-storage/presentation/private-file-response';
 import { RegisterDoctorProfileUseCase } from '../application/use-cases/register-doctor-profile.use-case';
 import { GetDoctorProfileUseCase, OpenDoctorPhotoUseCase, UpdateDoctorPhotoUseCase, UpdateDoctorProfileUseCase } from '../application/use-cases/doctor-profile.use-cases';
-import { ChangeDoctorIdentityUseCase, ChangeDoctorSpecialtyUseCase } from '../application/use-cases/doctor-changes.use-cases';
+import { ChangeDoctorSpecialtyUseCase } from '../application/use-cases/doctor-changes.use-cases';
 import { SubmitDoctorIdentityVerificationUseCase, SubmitDoctorLicenseVerificationUseCase } from '../application/use-cases/doctor-submissions.use-cases';
 import { GetDoctorStatusUseCase, GetDoctorVerificationHistoryUseCase, OpenOwnLicenseDocumentUseCase } from '../application/use-cases/doctor-status.use-cases';
 import {
-  ChangeDoctorIdentityDto, ChangeDoctorSpecialtyDto, RegisterDoctorProfileDto, SubmitLicenseVerificationDto, UpdateDoctorProfileDto,
+  ChangeDoctorSpecialtyDto, RegisterDoctorProfileDto, SubmitLicenseVerificationDto, UpdateDoctorProfileDto,
 } from './dto/doctor.dto';
 import { DoctorRateLimit, DoctorRateLimitGuard } from './rate-limit';
 import { DoctorIdentityDocumentsUpload, DoctorLicenseUpload, DoctorPhotoUpload } from './uploads';
 
 // M03 B5 (plan v2 §12): rutas del propio médico. El médico nunca envía un doctorProfileId: sale de la sesión. Ninguna
-// respuesta incluye claves de objetos ni URLs.
+// respuesta incluye claves de objetos ni URLs. RN-138 (C-16): no hay ruta para que el médico cambie su CURP ni su
+// nombre legal; se capturan solo al registrarse.
 @Controller('me')
 @UseGuards(SessionGuard)
 export class MeDoctorController {
@@ -30,7 +31,6 @@ export class MeDoctorController {
     private readonly updateProfile: UpdateDoctorProfileUseCase,
     private readonly updatePhoto: UpdateDoctorPhotoUseCase,
     private readonly openPhoto: OpenDoctorPhotoUseCase,
-    private readonly changeIdentity: ChangeDoctorIdentityUseCase,
     private readonly changeSpecialty: ChangeDoctorSpecialtyUseCase,
     private readonly submitIdentity: SubmitDoctorIdentityVerificationUseCase,
     private readonly submitLicense: SubmitDoctorLicenseVerificationUseCase,
@@ -58,14 +58,6 @@ export class MeDoctorController {
   @Roles('doctor')
   patch(@CurrentActor() actor: Actor, @Body() body: UpdateDoctorProfileDto) {
     return this.updateProfile.execute(actor, body);
-  }
-
-  @Put('doctor-profile/identity')
-  @UseGuards(RolesGuard, DoctorRateLimitGuard)
-  @Roles('doctor')
-  @DoctorRateLimit('doctor_identity_change')
-  identity(@CurrentActor() actor: Actor, @Body() body: ChangeDoctorIdentityDto) {
-    return this.changeIdentity.execute(actor, body);
   }
 
   @Put('doctor-profile/specialty')
