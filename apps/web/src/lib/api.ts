@@ -4,6 +4,11 @@
 //   GET  /me/registration-status                    (me.controller.ts, registration-status.ts)
 //   POST /me/patient-profile                        (RegisterPatientProfileDto)
 //   POST /me/legal-acceptances                      (AcceptLegalDocumentsDto)
+// Portal profesional (apps/backend/src/modules/doctors/presentation, solo web):
+//   GET  /specialties                               (specialties.controller.ts)
+//   POST /me/doctor-profile, GET/PATCH, PUT …/specialty, PUT/GET …/photo  (me-doctor.controller.ts)
+//   GET  /me/doctor/status, GET /me/doctor/verification-history
+//   POST /me/doctor/identity-verifications (front, back), POST /me/doctor/license-verifications (licenseNumber, document)
 
 const API_ORIGIN = new URL(
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api/auth",
@@ -118,8 +123,10 @@ export function getRegistrationStatus(): Promise<RegistrationStatus> {
   return request("/me/registration-status");
 }
 
-export function getCurrentLegalDocuments(): Promise<LegalDocument[]> {
-  return request("/legal-documents/current?audience=patient");
+export function getCurrentLegalDocuments(
+  audience: "patient" | "doctor" = "patient",
+): Promise<LegalDocument[]> {
+  return request(`/legal-documents/current?audience=${audience}`);
 }
 
 export function createPatientProfile(
@@ -294,4 +301,151 @@ export function subscribeProfilePhoto(listener: () => void): () => void {
   return () => {
     photoListeners.delete(listener);
   };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Portal profesional (médico). El rol lo fija el backend al crear el perfil; el cliente nunca lo envía.
+// ---------------------------------------------------------------------------------------------------------------
+
+export interface Specialty {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface DoctorProfileInput {
+  firstName: string;
+  lastName: string;
+  curp: string;
+  specialtyId: string;
+  phone?: string;
+  bio?: string;
+}
+
+export interface DoctorProfile {
+  doctorProfileId: string;
+  firstName: string;
+  lastName: string;
+  curp: string;
+  phone: string | null;
+  bio: string | null;
+  licenseNumber: string | null;
+  specialty: (Specialty & { isActive: boolean }) | null;
+  hasPhoto: boolean;
+}
+
+export type DoctorLineStatus = "required" | "pending" | "approved" | "rejected";
+export type DoctorMissingItem =
+  | "profile"
+  | "legal"
+  | "identity_submission"
+  | "identity_resubmission"
+  | "license_submission"
+  | "license_resubmission";
+
+export interface DoctorStatus {
+  status: "pending" | "approved" | "rejected";
+  identity: DoctorLineStatus;
+  professional: DoctorLineStatus;
+  registrationComplete: boolean;
+  missing: DoctorMissingItem[];
+  identityRejectionReason: string | null;
+  licenseRejectionReason: string | null;
+}
+
+export type ReviewStatus = "pending" | "approved" | "rejected" | "superseded";
+
+export interface VerificationHistoryItem {
+  attempt: number;
+  revision: number;
+  status: ReviewStatus;
+  submittedAt: string;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+}
+
+export interface DoctorVerificationHistory {
+  identity: VerificationHistoryItem[];
+  license: (VerificationHistoryItem & { reason: string })[];
+}
+
+// Límites del backend (doctors/domain/object-keys.ts): INE y foto JPEG o PNG; cédula PDF, JPEG o PNG.
+export const DOCTOR_IMAGE_TYPES = ["image/jpeg", "image/png"];
+export const DOCTOR_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+export const DOCTOR_LICENSE_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+];
+export const DOCTOR_LICENSE_MAX_BYTES = 10 * 1024 * 1024;
+
+export function getSpecialties(): Promise<Specialty[]> {
+  return request("/specialties");
+}
+
+export function createDoctorProfile(
+  input: DoctorProfileInput,
+): Promise<{ doctorProfileId: string; userProfileId: string }> {
+  return request("/me/doctor-profile", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function getDoctorProfile(): Promise<DoctorProfile> {
+  return request("/me/doctor-profile");
+}
+
+// null borra el valor; el backend exige al menos un campo.
+export async function updateDoctorProfile(fields: {
+  phone?: string | null;
+  bio?: string | null;
+}): Promise<void> {
+  await send("/me/doctor-profile", {
+    method: "PATCH",
+    body: JSON.stringify(fields),
+  });
+}
+
+export async function changeDoctorSpecialty(
+  specialtyId: string,
+): Promise<void> {
+  await send("/me/doctor-profile/specialty", {
+    method: "PUT",
+    body: JSON.stringify({ specialtyId }),
+  });
+}
+
+export async function uploadDoctorPhoto(file: File): Promise<void> {
+  const body = new FormData();
+  body.append("photo", file);
+  await send("/me/doctor-profile/photo", { method: "PUT", body });
+}
+
+export function getDoctorStatus(): Promise<DoctorStatus> {
+  return request("/me/doctor/status");
+}
+
+export function getDoctorVerificationHistory(): Promise<DoctorVerificationHistory> {
+  return request("/me/doctor/verification-history");
+}
+
+export function submitDoctorIdentity(
+  front: File,
+  back: File,
+): Promise<{ reviewId: string; attempt: number; status: string }> {
+  const body = new FormData();
+  body.append("front", front);
+  body.append("back", back);
+  return request("/me/doctor/identity-verifications", { method: "POST", body });
+}
+
+export function submitDoctorLicense(
+  licenseNumber: string,
+  document: File,
+): Promise<{ reviewId: string; attempt: number; status: string }> {
+  const body = new FormData();
+  body.append("licenseNumber", licenseNumber);
+  body.append("document", document);
+  return request("/me/doctor/license-verifications", { method: "POST", body });
 }

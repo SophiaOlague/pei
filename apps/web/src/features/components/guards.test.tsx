@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CompletarRegistroPage from "@/app/completar-registro/page";
+import { PROFESSIONAL_PORTAL_PATH } from "@/features/professionals/paths";
 import { meAs, mockFetch, ok, status } from "@/test/http";
 import {
   ADMIN_HOME_PATH,
@@ -115,23 +116,15 @@ describe("RequireRegistration", () => {
     expect(screen.queryByText("panel")).not.toBeInTheDocument();
   });
 
-  it("otro rol (médico) no se envía a /admin: conserva el comportamiento actual (error del backend)", async () => {
-    mockFetch({
-      "GET /me": ok(meAs("doctor")),
-      "GET /me/registration-status": {
-        status: 403,
-        body: {
-          statusCode: 403,
-          message: "El estado del registro solo aplica a pacientes",
-        },
-      },
-    });
+  it("un médico va al portal profesional sin consultar el registro de pacientes", async () => {
+    const { calls } = mockFetch({ "GET /me": ok(meAs("doctor")) });
     render(<RequireRegistration>panel</RequireRegistration>);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "El estado del registro solo aplica a pacientes",
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(PROFESSIONAL_PORTAL_PATH),
     );
-    expect(replace).not.toHaveBeenCalled();
+    expect(calls.map((c) => c.key)).toEqual(["GET /me"]);
+    expect(screen.queryByText("panel")).not.toBeInTheDocument();
   });
 
   it("si GET /me responde 401, envía a /login sin consultar el registro", async () => {

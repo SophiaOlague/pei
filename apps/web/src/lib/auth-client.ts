@@ -55,5 +55,29 @@ export function pendingEmail(): string | null {
   }
 }
 
+// Intención de registrarse como profesional: el rol no existe hasta crear el perfil médico, así que la cuenta recién
+// verificada llega sin rol. Solo dirige la navegación; el rol lo fija el backend.
+const PROFESSIONAL_INTENT_KEY = "pei.professionalIntent";
+
+export function rememberProfessionalIntent(): void {
+  try {
+    sessionStorage.setItem(PROFESSIONAL_INTENT_KEY, "1");
+  } catch {}
+}
+
+export function hasProfessionalIntent(): boolean {
+  try {
+    return sessionStorage.getItem(PROFESSIONAL_INTENT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function forgetProfessionalIntent(): void {
+  try {
+    sessionStorage.removeItem(PROFESSIONAL_INTENT_KEY);
+  } catch {}
+}
+
 export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 128;

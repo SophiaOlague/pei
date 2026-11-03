@@ -5,7 +5,7 @@ import Link from "next/link";
 import { EyeOff, Eye } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { appUrl, authClient, authErrorMessage, rememberPendingEmail } from "@/lib/auth-client";
+import { appUrl, authClient, authErrorMessage, forgetProfessionalIntent, rememberPendingEmail } from "@/lib/auth-client";
 
 export function Landing() {
   const router = useRouter();
@@ -22,6 +22,8 @@ export function Landing() {
     }
 
     setLoading(true);
+    // Acceso de pacientes: una intención profesional anterior de esta pestaña ya no aplica.
+    forgetProfessionalIntent();
     // Si el correo no está verificado, el backend reenvía el enlace y responde EMAIL_NOT_VERIFIED.
     const { error } = await authClient.signIn.email({
       email,
@@ -190,10 +192,31 @@ export function Landing() {
        
         <button
           onClick={() => router.push("/signup")}
-          className="w-[147px] h-[50px] sm:h-[52px] border-2 border-[#7355F7] rounded-lg text-[#7355F7] text-[15px] sm:text-[16px] font-normal hover:bg-[#7355F7] hover:text-white transition mt-[20px] sm:mt-[25px] mb-10 lg:mb-0"
+          className="w-[147px] h-[50px] sm:h-[52px] border-2 border-[#7355F7] rounded-lg text-[#7355F7] text-[15px] sm:text-[16px] font-normal hover:bg-[#7355F7] hover:text-white transition mt-[20px] sm:mt-[25px]"
         >
           Sign up
         </button>
+
+        {/* Acceso separado: el registro médico tiene su propio flujo y no usa este formulario. */}
+        <section
+          aria-labelledby="profesionales-titulo"
+          className="w-full max-w-[635px] mt-[30px] mb-10 lg:mb-12 border border-[#E4DEFF] bg-[#F7F5FF] rounded-lg p-5 flex flex-wrap items-center justify-between gap-4"
+        >
+          <div className="flex-1 min-w-[220px]">
+            <h2 id="profesionales-titulo" className="text-black text-[16px] sm:text-[18px] font-medium">
+              ¿Eres profesional de la salud?
+            </h2>
+            <p className="text-[#89898A] text-[14px] mt-1">
+              Regístrate en el portal profesional de PEI.
+            </p>
+          </div>
+          <Link
+            href="/profesionales"
+            className="h-[48px] px-5 w-full sm:w-auto flex items-center justify-center bg-[#2F2A6B] rounded-lg text-white text-[15px] hover:bg-[#25205a] transition whitespace-nowrap"
+          >
+            Registrarme como profesional
+          </Link>
+        </section>
       </div>
     </div>
   );

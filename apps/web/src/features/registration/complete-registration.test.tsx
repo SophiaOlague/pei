@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ADMIN_HOME_PATH } from "@/features/components/require-registration";
+import { PROFESSIONAL_PORTAL_PATH } from "@/features/professionals/paths";
 import {
   meAs,
   mockFetch,
@@ -360,23 +361,29 @@ describe("CompleteRegistration: rol antes del registro", () => {
     expect(replace).not.toHaveBeenCalledWith(ADMIN_HOME_PATH);
   });
 
-  it("otro rol (médico) no se envía a /admin: conserva el comportamiento actual", async () => {
-    mockFetch({
-      "GET /me": ok(meAs("doctor")),
-      "GET /me/registration-status": {
-        status: 403,
-        body: {
-          statusCode: 403,
-          message: "El estado del registro solo aplica a pacientes",
-        },
-      },
-    });
+  it("un médico va al portal profesional sin consultar el registro de pacientes", async () => {
+    const { calls } = mockFetch({ "GET /me": ok(meAs("doctor")) });
     render(<CompleteRegistration />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "El estado del registro solo aplica a pacientes",
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(PROFESSIONAL_PORTAL_PATH),
     );
-    expect(replace).not.toHaveBeenCalled();
+    expect(calls.map((c) => c.key)).toEqual(["GET /me"]);
+  });
+
+  it("sin rol, si empezó en el portal profesional, vuelve a él (no al registro de pacientes)", async () => {
+    sessionStorage.setItem("pei.professionalIntent", "1");
+    try {
+      const { calls } = mockFetch({ "GET /me": ok(meAs(null)) });
+      render(<CompleteRegistration />);
+
+      await waitFor(() =>
+        expect(replace).toHaveBeenCalledWith(PROFESSIONAL_PORTAL_PATH),
+      );
+      expect(calls.map((c) => c.key)).toEqual(["GET /me"]);
+    } finally {
+      sessionStorage.removeItem("pei.professionalIntent");
+    }
   });
 
   it("el rol se consulta una sola vez: los pasos del registro no repiten GET /me", async () => {
