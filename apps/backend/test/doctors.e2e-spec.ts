@@ -221,4 +221,37 @@ describe('Médico por HTTP (E2E con dobles, M03 B5)', () => {
     expect(Object.keys(patient.registrationStatus).sort()).toEqual(expect.arrayContaining(['canBookAppointments', 'missing', 'registrationComplete']));
     expect((await as(adminId).get('/me')).body).toMatchObject({ role: 'admin', profile: null, registrationStatus: null });
   });
+  // Debe ser la última prueba: publica una versión nueva de doctor_terms en el mundo compartido.
+  it('[TC-M03-276][D-38][R-13] una versión legal nueva no devuelve al aprobado a revisión: sigue en Aprobados, sin habilitación y sin returned_to_pending', async () => {
+    const adminId = await admin();
+    const d = await submitted();
+    await as(adminId).post(`/admin/doctor-identity-verifications/${d.ineId}/approve`);
+    await as(adminId).post(`/admin/doctor-license-verifications/${d.licId}/approve`);
+    const auditBefore = world.audit.length;
+
+    world.store.publishLegalDocument('doctor_terms', '2026-11', new Date(Date.now() - 1_000));
+
+    expect((await as(d.userId).get('/me/doctor/status')).body).toMatchObject({
+      status: 'approved', identity: 'approved', professional: 'approved', registrationComplete: false, legalAccepted: false, canOperate: false, missing: ['legal'],
+    });
+    expect((await as(d.userId).get('/me')).body.registrationStatus).toMatchObject({ status: 'approved', legalAccepted: false, canOperate: false });
+    const ids = (res: request.Response) => res.body.items.map((i: { doctorProfileId: string }) => i.doctorProfileId);
+    const approved = await as(adminId).get('/admin/doctors?status=approved&pageSize=100');
+    expect(ids(approved)).toContain(d.doctorProfileId);
+    expect(approved.body.items.find((i: { doctorProfileId: string }) => i.doctorProfileId === d.doctorProfileId)).toMatchObject({ legalAccepted: false, canOperate: false });
+    expect(ids(await as(adminId).get('/admin/doctors?status=pending&pageSize=100'))).not.toContain(d.doctorProfileId);
+    expect((await as(adminId).get(`/admin/doctors/${d.doctorProfileId}`)).body).toMatchObject({ status: 'approved', legalAccepted: false, canOperate: false });
+    const queues = [
+      ...(await as(adminId).get('/admin/doctor-identity-verifications?pageSize=100')).body.items,
+      ...(await as(adminId).get('/admin/doctor-license-verifications?pageSize=100')).body.items,
+    ];
+    expect(queues.map((r: { doctorProfileId: string }) => r.doctorProfileId)).not.toContain(d.doctorProfileId);
+
+    const current = (await as(d.userId).get('/legal-documents/current?audience=doctor')).body as { id: string }[];
+    expect((await as(d.userId).post('/me/legal-acceptances').send({ documentIds: current.map((doc) => doc.id) })).status).toBe(201);
+    expect((await as(d.userId).get('/me/doctor/status')).body).toMatchObject({ status: 'approved', registrationComplete: true, legalAccepted: true, canOperate: true, missing: [] });
+    // Sin revisiones nuevas ni regresión administrativa auditada.
+    expect(world.audit.slice(auditBefore).map((e) => e.action)).not.toContain('doctor.status.returned_to_pending');
+    expect(ids(await as(adminId).get('/admin/doctors?status=approved&pageSize=100'))).toContain(d.doctorProfileId);
+  });
 });

@@ -343,11 +343,15 @@ export type DoctorMissingItem =
   | "license_submission"
   | "license_resubmission";
 
+// D-38: `status` es el estado administrativo (revisiones de INE y cédula); `legalAccepted`, la aceptación de las
+// versiones legales vigentes; `canOperate`, la habilitación operativa que deriva el backend. Son independientes.
 export interface DoctorStatus {
   status: "pending" | "approved" | "rejected";
   identity: DoctorLineStatus;
   professional: DoctorLineStatus;
   registrationComplete: boolean;
+  legalAccepted: boolean;
+  canOperate: boolean;
   missing: DoctorMissingItem[];
   identityRejectionReason: string | null;
   licenseRejectionReason: string | null;

@@ -34,11 +34,16 @@ export interface DoctorStatusSnapshot {
   legalAccepted: boolean;
 }
 
+// D-38: tres conceptos independientes. `status` es el estado ADMINISTRATIVO (solo las revisiones de INE y cédula);
+// `legalAccepted`, la aceptación de las versiones vigentes; `canOperate`, la habilitación operativa. Ninguna
+// autorización operativa compara `status`: usa `canOperate` (isOperational o DoctorOperationalPolicy).
 export interface DoctorStatus {
   status: DoctorGlobalStatus;
   identity: LineStatus;
   professional: LineStatus;
   registrationComplete: boolean;
+  legalAccepted: boolean;
+  canOperate: boolean;
   missing: DoctorMissingItem[];
 }
 
@@ -79,15 +84,20 @@ export function deriveDoctorStatus(s: DoctorStatusSnapshot): DoctorStatus {
     ...(s.hasDoctorProfile ? lineMissing(professional, s.licenseReviews, 'license_submission', 'license_resubmission') : []),
   ];
 
-  // Z-1, en este orden.
+  // Z-1 (enmendada por D-38), en este orden. Solo las líneas administrativas: ni registrationComplete ni la
+  // aceptación legal cambian el estado administrativo. Una versión legal nueva no devuelve al médico a revisión.
   let status: DoctorGlobalStatus;
   if (identity === 'pending' || professional === 'pending') status = 'pending';
   else if (identity === 'rejected' || professional === 'rejected') status = 'rejected';
-  else if (identity === 'approved' && professional === 'approved' && registrationComplete) status = 'approved';
+  else if (identity === 'approved' && professional === 'approved') status = 'approved';
   else status = 'pending';
 
-  return { status, identity, professional, registrationComplete, missing };
+  // D-38, D-13, D-23: habilitación operativa = aprobación administrativa y registro completo (perfil y aceptación
+  // legal vigente incluidos).
+  const canOperate = status === 'approved' && registrationComplete;
+
+  return { status, identity, professional, registrationComplete, legalAccepted: s.legalAccepted, canOperate, missing };
 }
 
-// D-13, D-23, RN-004: solo `approved` opera (la política de M07/M08 se construye sobre esto en B7).
-export const isOperational = (status: DoctorStatus): boolean => status.status === 'approved';
+// D-13, D-23, D-38, RN-004: solo opera un médico habilitado (la política de M07/M08 se construye sobre esto en B7).
+export const isOperational = (status: DoctorStatus): boolean => status.canOperate;

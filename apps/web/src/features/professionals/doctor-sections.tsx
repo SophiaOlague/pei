@@ -55,6 +55,7 @@ const LINE_LABELS: Record<DoctorLineStatus, string> = {
   rejected: "Rechazada",
 };
 
+// Estado administrativo (D-38): no depende de la aceptación legal; la habilitación se muestra aparte.
 const GLOBAL_LABELS: Record<DoctorStatus["status"], string> = {
   pending: "Registro en proceso",
   approved: "Registro aprobado",
@@ -268,7 +269,25 @@ export function StatusSection({
           <dt className="text-[#89898A]">Cédula profesional</dt>
           <dd>{LINE_LABELS[status.professional]}</dd>
         </div>
+        <div>
+          <dt className="text-[#89898A]">Documentos legales</dt>
+          <dd>
+            {status.legalAccepted
+              ? "Versiones vigentes aceptadas"
+              : "Pendientes de aceptar"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[#89898A]">Habilitación para operar</dt>
+          <dd>{status.canOperate ? "Habilitado" : "No habilitado"}</dd>
+        </div>
       </dl>
+      {status.status === "approved" && !status.legalAccepted && (
+        <p className="text-[15px] text-[#535353]">
+          Tu aprobación se conserva. Acepta los documentos legales vigentes para
+          volver a estar habilitado.
+        </p>
+      )}
       {status.missing.length > 0 ? (
         <div>
           <p className="text-[15px] text-black">Pendientes:</p>
