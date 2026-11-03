@@ -1,10 +1,18 @@
 import type { ReactNode } from "react";
 
-// Layout compartido de las pantallas de acceso: panel morado + contenido.
-export function AuthShell({ children }: { children: ReactNode }) {
+// Layout compartido de las pantallas de acceso: panel morado + contenido. El portal profesional cambia el panel.
+export function AuthShell({
+  children,
+  panel,
+}: {
+  children: ReactNode;
+  panel?: { title: ReactNode; subtitle: string; className?: string };
+}) {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      <div className="w-full lg:w-1/2 bg-[#684DDE] flex flex-col items-start px-6 sm:px-10 lg:px-16 py-10 lg:py-12 relative lg:min-h-screen">
+      <div
+        className={`w-full lg:w-1/2 ${panel?.className ?? "bg-[#684DDE]"} flex flex-col items-start px-6 sm:px-10 lg:px-16 py-10 lg:py-12 relative lg:min-h-screen`}
+      >
         <img
           src="/logo-blanco.svg"
           alt="Logo PEI"
@@ -13,14 +21,19 @@ export function AuthShell({ children }: { children: ReactNode }) {
           className="absolute top-6 left-6 sm:top-8 sm:left-8"
         />
         <h1 className="text-white text-[32px] sm:text-[40px] lg:text-[52px] font-semibold leading-[40px] sm:leading-[50px] lg:leading-[62px] mt-16 lg:mt-20">
-          Tu salud
-          <br />
-          Tu protección
-          <br />
-          Nuestra prioridad
+          {panel?.title ?? (
+            <>
+              Tu salud
+              <br />
+              Tu protección
+              <br />
+              Nuestra prioridad
+            </>
+          )}
         </h1>
         <p className="text-white text-[14px] sm:text-[16px] lg:text-[18px] mt-[30px] lg:mt-[50px] max-w-[500px]">
-          PEI hace que comprar PrEP sea fácil, confidencial y accesible
+          {panel?.subtitle ??
+            "PEI hace que comprar PrEP sea fácil, confidencial y accesible"}
         </p>
         <div className="mt-[40px] lg:mt-[80px] w-full max-w-[450px] lg:max-w-[500px] hidden sm:block">
           <img

@@ -46,6 +46,13 @@ export function Landing() {
               >
                 Sobre nosotros
               </Link>
+
+              <Link
+                href="/profesionales"
+                className="text-white hover:opacity-80 transition-opacity text-[11px] xs:text-xs sm:text-sm md:text-base font-medium whitespace-nowrap"
+              >
+                Soy profesional de la salud
+              </Link>
               
               <Link 
                 href="/login" 

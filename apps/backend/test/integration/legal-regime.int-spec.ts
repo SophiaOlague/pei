@@ -124,13 +124,18 @@ describe('Documentos legales por rol (M03 A2, BD de desarrollo con rollback)', (
   it('[TC-M03-044][N1][R-8] PublishLegalDocumentsUseCase (núcleo de legal:publish): mismo published_at, content_hash y evento de sistema; rechaza el legado', () =>
     withRollback(async () => {
       const useCases = identityUseCases();
-      const published = await useCases.publishLegal.execute({
-        audience: 'patient',
+      const { branch, endpoint } = assertC2BranchTarget();
+      const request = {
+        audience: 'patient' as const,
         documents: [
-          { type: 'privacy_policy', version: 'gst-m03-test-1', content: 'Texto sintético de prueba M03 (aviso)' },
-          { type: 'patient_terms', version: 'gst-m03-test-1', content: 'Texto sintético de prueba M03 (términos)' },
+          { type: 'privacy_policy' as const, version: 'gst-m03-test-1', content: 'Texto sintético de prueba M03 (aviso)' },
+          { type: 'patient_terms' as const, version: 'gst-m03-test-1', content: 'Texto sintético de prueba M03 (términos)' },
         ],
-      });
+        publishedAt: new Date(Date.now() + 3_600_000),
+        declaredTarget: { branch, endpoint },
+      };
+      const { confirmation } = await useCases.publishLegal.simulate(request);
+      const { published } = await useCases.publishLegal.execute({ ...request, confirmation, authorizations: { acceptRegimeTransition: true } });
       expect(new Set(published.map((d) => d.publishedAt.getTime())).size).toBe(1);
       const { rows } = await db().execute<{ content_hash: string | null }>(
         sql`select content_hash from legal_document where id in (${sql.join(published.map((d) => sql`${d.id}`), sql`, `)})`,
@@ -141,7 +146,7 @@ describe('Documentos legales por rol (M03 A2, BD de desarrollo con rollback)', (
       }
 
       const legacyAttempt = await captureError(
-        useCases.publishLegal.execute({ audience: 'patient', documents: [{ type: 'privacy_notice', version: 'x', content: 'x' }] }),
+        useCases.publishLegal.simulate({ ...request, documents: [{ type: 'privacy_notice', version: 'x', content: 'x' }] }),
       );
       expect(legacyAttempt).toBeInstanceOf(InvalidLegalPublicationError);
     }));

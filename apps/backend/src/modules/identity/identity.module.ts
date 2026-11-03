@@ -33,7 +33,7 @@ import { RoleProfileSectionRegistry } from './application/role-profile-section.r
 import { USER_PROFILE_REPOSITORY } from './application/ports/user-profile.repository';
 import { PATIENT_PROFILE_REPOSITORY } from './application/ports/patient-profile.repository';
 import { IDENTITY_VERIFICATION_REPOSITORY } from './application/ports/identity-verification.repository';
-import { LEGAL_DOCUMENT_REPOSITORY } from './application/ports/legal-document.repository';
+import { DATABASE_TARGET_READER, LEGAL_DOCUMENT_REPOSITORY } from './application/ports/legal-document.repository';
 import { REGISTRATION_STATUS_READER } from './application/ports/registration-status-reader';
 import { RATE_LIMITER } from './application/ports/rate-limiter';
 import { ADMIN_ACCOUNT_PROVISIONER } from './application/ports/admin-account-provisioner';
@@ -42,6 +42,7 @@ import { DrizzleUserProfileRepository } from './infrastructure/persistence/drizz
 import { DrizzlePatientProfileRepository } from './infrastructure/persistence/drizzle-patient-profile.repository';
 import { DrizzleIdentityVerificationRepository } from './infrastructure/persistence/drizzle-identity-verification.repository';
 import { DrizzleLegalDocumentRepository } from './infrastructure/persistence/drizzle-legal-document.repository';
+import { DrizzleDatabaseTargetReader } from './infrastructure/persistence/drizzle-database-target.reader';
 import { DrizzleRegistrationStatusReader } from './infrastructure/persistence/drizzle-registration-status.reader';
 import { InMemoryRateLimiter } from './infrastructure/rate-limit/in-memory-rate-limiter';
 import { BetterAuthAdminAccountProvisioner } from './infrastructure/auth/better-auth-admin-account.provisioner';
@@ -77,6 +78,7 @@ import { DrizzleDoctorIdentityGateway } from './infrastructure/persistence/drizz
     { provide: PATIENT_PROFILE_REPOSITORY, useClass: DrizzlePatientProfileRepository },
     { provide: IDENTITY_VERIFICATION_REPOSITORY, useClass: DrizzleIdentityVerificationRepository },
     { provide: LEGAL_DOCUMENT_REPOSITORY, useClass: DrizzleLegalDocumentRepository },
+    { provide: DATABASE_TARGET_READER, useClass: DrizzleDatabaseTargetReader },
     { provide: REGISTRATION_STATUS_READER, useClass: DrizzleRegistrationStatusReader },
     { provide: RATE_LIMITER, useClass: InMemoryRateLimiter },
     { provide: IDENTITY_RATE_LIMIT_RULES, useValue: DEFAULT_IDENTITY_RATE_LIMIT_RULES },

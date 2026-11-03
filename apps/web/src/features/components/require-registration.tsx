@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { btnCls } from "@/features/components/auth-shell";
+import { PROFESSIONAL_PORTAL_PATH } from "@/features/professionals/paths";
 import {
   ApiError,
   getMe,
@@ -29,6 +30,10 @@ export function RequireRegistration({ children }: { children: ReactNode }) {
       const me = await getMe();
       if (me.role === "admin") {
         router.replace(ADMIN_HOME_PATH);
+        return;
+      }
+      if (me.role === "doctor") {
+        router.replace(PROFESSIONAL_PORTAL_PATH);
         return;
       }
       const status = await getRegistrationStatus();

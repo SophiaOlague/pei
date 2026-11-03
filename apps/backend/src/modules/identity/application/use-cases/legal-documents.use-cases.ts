@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Actor } from '../../../../common/application/actor';
 import { UNIT_OF_WORK, type UnitOfWork } from '../../../../common/application/ports/unit-of-work';
@@ -7,7 +7,6 @@ import { AuditActor } from '../../../audit/domain/audit-actor';
 import {
   isLegalAudience,
   LEGACY_LEGAL_DOCUMENT_TYPES,
-  LEGAL_REGIMES_BY_AUDIENCE,
   resolveLegalRegime,
   type LegalAudience,
   type LegalDocumentType,
@@ -21,12 +20,24 @@ import {
   PatientProfileRequiredError,
 } from '../../domain/identity.errors';
 import {
+  assertPublicationAuthorized,
+  assertPublicationConfirmation,
+  createPublicationConfirmation,
+  planLegalPublication,
+  verifyDatabaseTarget,
+  type DeclaredDatabaseTarget,
+  type LegalPublicationPlan,
+  type PublicationAuthorizations,
+} from '../../domain/legal-publication';
+import {
+  DATABASE_TARGET_READER,
   LEGAL_DOCUMENT_REPOSITORY,
   type CurrentLegalDocumentRecord,
+  type DatabaseTargetReader,
   type LegalDocumentRepository,
   type PublishedLegalDocument,
 } from '../ports/legal-document.repository';
-import { IdentityAuditEvents } from '../identity-audit-events';
+import { IdentityAuditEvents, type LegalPublicationAudit } from '../identity-audit-events';
 
 // Documentos vigentes del régimen del rol (plan v2 §6.2): la publicación decide los requisitos, no el enum.
 function currentForAudience(audience: LegalAudience, current: CurrentLegalDocumentRecord[]): CurrentLegalDocumentRecord[] {
@@ -97,66 +108,85 @@ export class AcceptLegalDocumentsUseCase {
 }
 
 export const LEGAL_PUBLISH_PROCESS = 'cli.legal-publish';
-const VERSION_MAX = 50;
 
-export interface LegalPublicationInput {
+export interface LegalPublicationRequest {
   audience: LegalAudience;
   documents: { type: LegalDocumentType; version: string; content: string }[];
-  // Fecha común de publicación; si se omite, la fija la BD (now() de la transacción). Puede ser futura.
-  publishedAt?: Date;
+  publishedAt: Date;
+  pastDateReason?: string;
+  declaredTarget: DeclaredDatabaseTarget;
 }
 
-// CLI legal:publish (plan v2 §6.2, §6.4). Publica nuevas versiones en una sola transacción y con el mismo
-// published_at. Después de publicar, el régimen nuevo del rol debe quedar completo: cada tipo del régimen está
-// vigente o se publica aquí. Así no hay transiciones parciales. Los tipos de legado no se vuelven a publicar.
+// CLI legal:publish (plan v2 §6.2, §6.4). `simulate` no escribe. `execute` repite el plan dentro de la transacción, con
+// un candado que serializa las publicaciones, y solo publica si coincide con lo simulado. No existe otra vía de escritura.
 @Injectable()
 export class PublishLegalDocumentsUseCase {
   constructor(
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
     @Inject(AUDIT_TRAIL) private readonly auditTrail: AuditTrail,
     @Inject(LEGAL_DOCUMENT_REPOSITORY) private readonly legalDocuments: LegalDocumentRepository,
+    @Inject(DATABASE_TARGET_READER) private readonly target: DatabaseTargetReader,
   ) {}
 
-  async execute(input: LegalPublicationInput): Promise<PublishedLegalDocument[]> {
-    const regime = LEGAL_REGIMES_BY_AUDIENCE[input.audience]?.[0];
-    if (!regime) throw new InvalidLegalPublicationError('Tipo de cuenta no válido');
-    const types = input.documents.map((doc) => doc.type);
-    if (types.length === 0) throw new InvalidLegalPublicationError('No hay documentos que publicar');
-    if (new Set(types).size !== types.length) throw new InvalidLegalPublicationError('Un tipo de documento aparece más de una vez');
-    if (types.some((type) => LEGACY_LEGAL_DOCUMENT_TYPES.includes(type))) {
-      throw new InvalidLegalPublicationError('Los tipos de legado no se vuelven a publicar');
-    }
-    if (types.some((type) => !regime.includes(type))) {
-      throw new InvalidLegalPublicationError(`Solo se publican los tipos del régimen de ${input.audience}: ${regime.join(', ')}`);
-    }
-    for (const doc of input.documents) {
-      if (!doc.version?.trim() || doc.version.trim().length > VERSION_MAX) {
-        throw new InvalidLegalPublicationError(`La versión de ${doc.type} debe tener entre 1 y ${VERSION_MAX} caracteres`);
-      }
+  private hashed(request: LegalPublicationRequest) {
+    return request.documents.map((doc) => {
       if (!doc.content?.trim()) throw new InvalidLegalPublicationError(`El contenido de ${doc.type} está vacío`);
-    }
+      return { ...doc, contentHash: createHash('sha256').update(doc.content).digest('hex') };
+    });
+  }
 
+  private async plan(request: LegalPublicationRequest, documents: ReturnType<PublishLegalDocumentsUseCase['hashed']>) {
+    const target = verifyDatabaseTarget(await this.target.read(), request.declaredTarget);
+    const { now, versions, usersByRole } = await this.legalDocuments.inspectPublication();
+    const plan = planLegalPublication({
+      audience: request.audience, documents, publishedAt: request.publishedAt, pastDateReason: request.pastDateReason, now, versions, usersByRole, target,
+    });
+    return { plan, now };
+  }
+
+  async simulate(request: LegalPublicationRequest): Promise<{ plan: LegalPublicationPlan; confirmation: string }> {
+    const { plan, now } = await this.plan(request, this.hashed(request));
+    return { plan, confirmation: createPublicationConfirmation(plan, now) };
+  }
+
+  async execute(
+    request: LegalPublicationRequest & { confirmation: string; authorizations: PublicationAuthorizations },
+  ): Promise<{ plan: LegalPublicationPlan; published: PublishedLegalDocument[] }> {
+    const documents = this.hashed(request);
     return this.unitOfWork.runInTransaction(async () => {
-      const effective = new Set((await this.legalDocuments.findCurrent()).map((doc) => doc.type));
-      const missing = regime.filter((type) => !effective.has(type) && !types.includes(type));
-      if (missing.length > 0) {
-        throw new InvalidLegalPublicationError(`Publicación parcial: falta ${missing.join(', ')} para completar el régimen de ${input.audience}`);
-      }
+      await this.legalDocuments.lockPublication();
+      const { plan, now } = await this.plan(request, documents);
+      assertPublicationConfirmation(plan, request.confirmation, now);
+      assertPublicationAuthorized(plan, request.authorizations);
       const published = await this.legalDocuments.publish(
-        input.documents.map((doc) => ({
-          type: doc.type,
-          version: doc.version.trim(),
-          content: doc.content,
-          contentHash: createHash('sha256').update(doc.content).digest('hex'),
-          publishedAt: input.publishedAt,
-        })),
+        documents.map((doc) => ({ type: doc.type, version: doc.version.trim(), content: doc.content, contentHash: doc.contentHash, publishedAt: request.publishedAt })),
       );
+      const publication: LegalPublicationAudit = {
+        publicationId: randomUUID(),
+        result: 'published',
+        audience: plan.audience,
+        publishedAt: plan.publishedAt.toISOString(),
+        targetKind: plan.target.kind,
+        neonProject: plan.target.project,
+        neonBranch: plan.target.branch,
+        neonEndpoint: plan.target.endpoint,
+        documents: plan.documents.map(({ type, version }) => ({ type, version })),
+        authorizationsUsed: plan.requirements,
+        ...(plan.pastDateReason ? { pastDateReason: plan.pastDateReason } : {}),
+        impactScope: 'operation_total',
+        patientProfilesPotentiallyAffected: plan.roles.find((role) => role.role === 'patient')?.potentiallyAffectedProfiles ?? 0,
+        doctorProfilesPotentiallyAffected: plan.roles.find((role) => role.role === 'doctor')?.potentiallyAffectedProfiles ?? 0,
+        regimeTransitions: plan.roles.filter((role) => role.regimeTransition).map((role) => role.role),
+        scheduledRegimeTransitions: plan.scheduledChanges
+          .filter((change) => change.regimeTransition)
+          .map((change) => ({ at: change.at.toISOString(), role: change.role, alteredByPublication: change.alteredByPublication })),
+      };
       for (const doc of published) {
         await this.auditTrail.record(
-          IdentityAuditEvents.legalDocumentPublished(AuditActor.system(LEGAL_PUBLISH_PROCESS), doc.id, doc.type, doc.version),
+          IdentityAuditEvents.legalDocumentPublished(AuditActor.system(LEGAL_PUBLISH_PROCESS), doc.id, doc.type, doc.version, publication),
         );
       }
-      return published;
+      return { plan, published };
     });
   }
 }

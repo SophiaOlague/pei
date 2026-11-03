@@ -5,9 +5,15 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AuthShell, btnCls } from "@/features/components/auth-shell";
 import {
+  PROFESSIONAL_ACCESS_PATH,
+  PROFESSIONAL_PORTAL_PATH,
+} from "@/features/professionals/paths";
+import { PROFESSIONAL_PANEL } from "@/features/professionals/professional-access";
+import {
   appUrl,
   authClient,
   authErrorMessage,
+  hasProfessionalIntent,
   pendingEmail,
 } from "@/lib/auth-client";
 
@@ -17,9 +23,12 @@ export function Landing() {
   const [seconds, setSeconds] = useState(WAIT);
   const [email, setEmail] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  // Alta iniciada en /profesionales: misma verificación, presentación y destinos del portal profesional.
+  const [professional, setProfessional] = useState(false);
 
   useEffect(() => {
     setEmail(pendingEmail());
+    setProfessional(hasProfessionalIntent());
   }, []);
 
   useEffect(() => {
@@ -34,7 +43,9 @@ export function Landing() {
     setSeconds(WAIT);
     const { error } = await authClient.sendVerificationEmail({
       email,
-      callbackURL: appUrl("/completar-registro"),
+      callbackURL: appUrl(
+        professional ? PROFESSIONAL_PORTAL_PATH : "/completar-registro",
+      ),
     });
     setNotice(
       error
@@ -44,17 +55,25 @@ export function Landing() {
   };
 
   return (
-    <AuthShell>
-      <Mail className="w-14 h-14 text-[#664BDB]" />
+    <AuthShell panel={professional ? PROFESSIONAL_PANEL : undefined}>
+      {professional && (
+        <p className="inline-block text-[13px] font-medium text-[#2F2A6B] bg-[#ECEAFB] rounded-full px-3 py-1 mb-6">
+          Profesionales de la salud
+        </p>
+      )}
+      <Mail
+        className={`w-14 h-14 ${professional ? "text-[#2F2A6B]" : "text-[#664BDB]"}`}
+      />
       <h2 className="text-black text-[26px] sm:text-[40px] font-medium mt-6">
         Verifica tu correo
       </h2>
       <p className="text-black text-[16px] sm:text-[18px] font-light mt-3">
-        Te enviamos un enlace de confirmación. Ábrelo para activar tu cuenta; si
-        no lo ves, revisa tu carpeta de spam.
+        {professional
+          ? "Te enviamos un enlace de confirmación. Ábrelo para activar tu cuenta y continuar con tu registro profesional; si no lo ves, revisa tu carpeta de spam."
+          : "Te enviamos un enlace de confirmación. Ábrelo para activar tu cuenta; si no lo ves, revisa tu carpeta de spam."}
       </p>
       <Link
-        href="/login"
+        href={professional ? `${PROFESSIONAL_ACCESS_PATH}#ingresar` : "/login"}
         className={`${btnCls} mt-10 flex items-center justify-center`}
       >
         Ya verifiqué, iniciar sesión
@@ -77,7 +96,7 @@ export function Landing() {
         </p>
       )}
       <Link
-        href="/signup"
+        href={professional ? `${PROFESSIONAL_ACCESS_PATH}#crear` : "/signup"}
         className="block text-center text-[#664BDB] text-[16px] mt-8 hover:underline"
       >
         Cambiar correo

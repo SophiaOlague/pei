@@ -126,4 +126,90 @@ R-3 y R-9 no figuran en el diseño v3 y no se registran.
 | `0008` en `production` | Aplicada y verificada el 2026-10-20 (C2 prod-0008). Pendiente: ventana de restauración de Neon sin verificar (recuperación por inverso lógico, validado solo en `rama`), evidencia de la ejecución fuera del repositorio y despliegue del código de A4 (sin commit) |
 | Evidencia formal | Procedimiento de evidencia formal en la rama temporal (E0), pendiente de autorización |
 | `admin:bootstrap` | Cierre formal de M02 con excepción documentada o esperar a la ejecución real |
-| DP-CORR | Cómo corregir una CURP o un nombre legal incorrectos (paciente o médico). **No definido**; no existe ninguna vía, ni de autoedición (prohibida por RN-138, C-16) ni del administrador. Ver el Maestro V2.3, sección 10 |
+| DP-CORR | Flujo futuro definido en la sección 8 (2026-10-30), sin implementar. Hoy no existe ninguna vía para corregir una CURP o un nombre legal, ni de autoedición (prohibida por RN-138, C-16) ni del administrador. Sigue pendiente el catálogo de documentos oficiales aceptados |
+
+## 8. DP-CORR y orden de prioridades de M03
+
+Registrado el 2026-10-30. Esta sección es documental: no cambia el código, el esquema, los endpoints ni las pruebas.
+
+### 8.1 DP-CORR: solicitud de corrección de identidad
+
+**Estado: flujo futuro definido, sin implementar.** No se implementará durante la etapa actual; su implementación queda
+pospuesta hasta la fase final de M03.
+
+**Contexto.** La validación actual de la CURP comprueba el formato oficial, la entidad federativa y el dígito
+verificador (`modules/identity/domain/curp.ts`), y la unicidad entre roles. No la contrasta con el nombre ni con la
+fecha de nacimiento. En ningún caso esas validaciones garantizarían que los datos correspondan a la identidad oficial
+de la persona. Por eso se contempla un procedimiento excepcional para corregir errores de identidad.
+
+| # | Decisión |
+|---|---|
+| 1 | Tanto pacientes como médicos pueden presentar una solicitud de corrección de identidad |
+| 2 | La solicitud puede involucrar la CURP, el nombre legal o ambos |
+| 3 | Se solicitan documentos oficiales definidos según el tipo de corrección |
+| 4 | La revisión y la aprobación corresponden a un administrador autorizado distinto del solicitante |
+| 5 | Si la solicitud se rechaza, el usuario puede presentar una nueva solicitud con un folio independiente |
+| 6 | Una solicitud aprobada se aplica mediante un caso de uso controlado |
+| 7 | La aplicación vuelve a validar la unicidad global de la CURP y registra la operación en auditoría |
+| 8 | El usuario no puede modificar directamente su CURP ni su nombre legal |
+
+**Alcance:**
+
+- La validación actual de la CURP se conserva sin modificaciones.
+- C-16 sigue siendo la regla vigente (RN-138; C-21 en el Maestro V2.4).
+- DP-CORR no es una excepción de edición directa, ni para usuarios ni para administradores.
+
+**Pendiente de definición:** el catálogo de documentos oficiales aceptados.
+
+### 8.2 Orden de prioridades de M03
+
+| Prioridad | Trabajo | Contenido |
+|---|---|---|
+| 1 | Términos y política de privacidad | Resolver las versiones legales aplicables a pacientes y médicos; resolver la compatibilidad de la política de privacidad compartida con los términos específicos de cada rol; garantizar que las aceptaciones queden registradas correctamente |
+| 2 | Frontend de registro de médicos | Desarrollar la interfaz web de registro; integrar los datos y validaciones correspondientes; incorporar la aceptación de los documentos legales aplicables |
+| 3 | Proceso administrativo de aceptación y rechazo | Desarrollar la interfaz administrativa para revisar solicitudes de registro médico; permitir aceptarlas o rechazarlas; registrar la decisión y sus evidencias |
+| 4 | DP-CORR | Implementar el flujo de corrección de identidad (sección 8.1) al llegar a la fase final de M03 |
+
+La aceptación de los términos y de la política de privacidad es independiente de la aprobación administrativa del
+registro médico: aceptar los documentos no aprueba al médico, y la aprobación no sustituye la aceptación.
+
+### 8.3 D-37: efecto de la falta de aceptación legal vigente
+
+**Estado: aprobada documentalmente el 2026-10-30, pendiente de implementación.** Se recoge en RN-140 (cambio C-22 del
+Maestro). Ningún bloqueo operativo descrito aquí está implementado.
+
+La falta de aceptación legal vigente no bloquea la autenticación ni el acceso general a la cuenta. Solo se restringen
+las operaciones que requieren expresamente las aceptaciones de cada rol, y se rechazan sin efectos secundarios.
+
+| Situación | Comportamiento esperado |
+|---|---|
+| Primer registro | Conserva su flujo de aceptación legal |
+| Usuario ya registrado con una versión nueva pendiente | Sigue accediendo a su cuenta. La falta de reaceptación no provoca un bloqueo global |
+| Consulta y aceptación de documentos pendientes | Siempre disponibles |
+| Vigencia | Se reevalúa al intentar una operación protegida. Las aceptaciones anteriores se conservan como evidencia histórica y no cuentan para una versión nueva cuando el régimen exige aceptarla |
+| Paciente | Consulta su cuenta y su perfil. Para agendar necesita la aceptación legal vigente y los demás requisitos, incluida la INE aprobada |
+| Médico | Completa las actividades de su registro, incluido el envío de INE y cédula, y consulta su perfil, su estado y sus documentos pendientes, aunque tenga una aceptación pendiente. No realiza operaciones que requieran estar habilitado sin aceptación legal vigente, aprobación administrativa y los demás permisos y requisitos funcionales |
+
+**Independencia de controles.** La aceptación legal, la autenticación y la aprobación administrativa son independientes.
+La aceptación no concede aprobación ni permisos funcionales, y la aprobación no sustituye mantener las aceptaciones
+vigentes. Una versión legal nueva no elimina las revisiones administrativas ya aprobadas.
+
+**Separación por módulos:**
+
+| Módulo | Responsabilidad |
+|---|---|
+| M02 y M03 | Controles de identidad, registro y estado legal. En esta etapa se pueden adaptar interfaces y probar políticas |
+| M08 | Agendamiento de citas por el paciente |
+| Áreas con operaciones del médico habilitado | Agenda (M07), citas (M08), videoconsulta (`video`), expediente clínico (`clinical-record`) y prescripciones (`prescriptions`) |
+
+Toda operación que requiera un médico habilitado comprueba, sea cual sea el módulo que la implemente: (1) la aceptación
+legal vigente; (2) la aprobación administrativa del médico; (3) los demás permisos y requisitos funcionales. Las áreas
+citadas son las identificadas hoy, no una lista cerrada. La conexión efectiva de las políticas a esas operaciones queda
+pendiente de sus módulos respectivos.
+
+**Trabajo pendiente registrado:**
+
+- `RequireRegistration` (web) y `registration-gate.tsx` (móvil) aplican hoy restricciones globales que deberán
+  ajustarse después. No se cambian en esta decisión.
+- `GET /me/doctor/status` solo informa el estado legal y no identifica los documentos pendientes. La consulta detallada
+  se contempla en la prioridad 2 (frontend de registro de médicos).

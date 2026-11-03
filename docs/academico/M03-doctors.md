@@ -72,8 +72,9 @@ El estado global del médico **no se guarda** (N3, R-7): se deriva en cada lectu
 - **Registro completo** (D-24, D-30): perfil con nombre legal, CURP válida y especialidad; ninguna línea en `required`;
   documentos legales vigentes del médico aceptados. Una revisión rechazada cuenta como entregada.
 - **Identidad legal no editable** (RN-138; C-16, que en el Maestro V2.4 es C-21): ni el paciente ni el médico pueden
-  cambiar su CURP ni su nombre legal desde su cuenta; se capturan al crear el perfil. Cómo se corrige un dato erróneo
-  está pendiente de decisión (DP-CORR): hoy no existe ninguna vía, ni del propio usuario ni del administrador.
+  cambiar su CURP ni su nombre legal desde su cuenta; se capturan al crear el perfil. La corrección de un dato erróneo
+  es un flujo definido documentalmente (DP-CORR), pendiente de implementación: hoy no existe ninguna vía, ni del propio usuario ni del
+  administrador.
 - **Cambios sensibles** (D-9, D-21, D-29): se aplican de inmediato.
   - Cambiar el número o el documento de la cédula, o la especialidad, sube la versión profesional.
   - Cada cambio pasa a `superseded` la revisión pendiente de la línea afectada.
@@ -87,7 +88,7 @@ El estado global del médico **no se guarda** (N3, R-7): se deriva en cada lectu
 - **Ciclo de revisión** (R-2): solo una revisión `pending` y vigente se aprueba o se rechaza. El rechazo exige un motivo
   de 10 a 500 caracteres (D-25). Los estados terminales son inmutables.
 - **Política operativa** (D-13, RN-004): `DoctorOperationalPolicy` permite operar solo al médico `approved`. Se exporta
-  para M07 y M08, que todavía no la consumen.
+  para los módulos con operaciones del médico habilitado, que todavía no la consumen.
 - **Duplicados** (D-17, D-20, D-35): una CURP de cualquier rol o un número de cédula ya registrado responden el mismo 409
   genérico. La causa solo queda en un log sin datos personales.
 
@@ -127,6 +128,32 @@ Publicación en `production`: el 2026-10-20 el régimen del médico no estaba pu
 publicación de las versiones provisionales `privacy_policy@dev-1` y `doctor_terms@dev-1`, sin evidencia versionada en
 el repositorio: queda pendiente de verificación. Esa publicación no despliega el código de M03, y no hay una prueba de
 extremo a extremo del registro y la aceptación de un médico en `production`.
+
+#### Efecto de la falta de aceptación legal (D-37, RN-140; C-22)
+
+Decisión aprobada documentalmente el 2026-10-30, **pendiente de implementación**. La aceptación legal no bloquea la
+autenticación ni el acceso general a la cuenta: solo restringe las operaciones que la requieren. El primer registro
+conserva su flujo de aceptación, y la reaceptación de usuarios existentes no debe provocar un bloqueo global.
+
+| Rol | Puede, aunque tenga una aceptación pendiente | No puede |
+|---|---|---|
+| Paciente | Consultar su cuenta y aceptar los documentos pendientes | Agendar citas si le falta una aceptación requerida; además se exigen los demás requisitos, incluida la INE aprobada |
+| Médico | Completar su registro, enviar INE y cédula, consultar su estado y aceptar los documentos pendientes | Realizar operaciones que requieran estar habilitado sin aceptación legal vigente, aprobación administrativa y los demás permisos y requisitos, en cualquier módulo |
+
+La aceptación legal y la aprobación administrativa son controles independientes: ninguna sustituye a la otra, y una
+versión legal nueva no elimina las revisiones ya aprobadas.
+
+| Tema | Comportamiento aprobado | Comportamiento actual del código |
+|---|---|---|
+| Acceso del paciente con reaceptación pendiente | Sigue entrando a su cuenta | `RequireRegistration` (web) y `registration-gate.tsx` (móvil) restringen toda la interfaz |
+| Rechazo de operaciones protegidas | Sin efectos secundarios | `CanBookAppointmentsPolicy` y `DoctorOperationalPolicy` existen, pero ningún caso de uso las llama |
+| Documentos pendientes del médico | Consultables | `GET /me/doctor/status` indica `legal`, sin identificar los documentos; la web no tiene pantalla legal del médico |
+| Registro del médico | Puede enviar INE y cédula | El backend ya lo permite sin aceptación legal |
+| Revisiones aprobadas ante una versión nueva | Se conservan | El estado se deriva y no modifica las revisiones |
+
+La conexión de las políticas queda pendiente de los módulos que implementen cada operación. Las áreas identificadas son
+agenda (M07), citas (M08), videoconsulta (`video`), expediente clínico (`clinical-record`) y prescripciones (`prescriptions`);
+ningún módulo queda exento si su operación requiere un médico habilitado.
 
 ### Endpoints
 
@@ -243,7 +270,7 @@ M03 no agregó dependencias.
 | Propiedad | Evidencia en M03 |
 |---|---|
 | Bajo acoplamiento | Los casos de uso dependen de puertos. M03 llega a Identity solo por `DOCTOR_IDENTITY_GATEWAY`. Las pruebas sustituyen los adaptadores sin tocar los casos de uso (RT-M03-12, 14, 15) |
-| Reusabilidad | `DoctorOperationalPolicy` se exporta para M07 y M08. `AuditTrail`, `UnitOfWork`, el almacenamiento privado y el limitador de frecuencia se reutilizan |
+| Reusabilidad | `DoctorOperationalPolicy` se exporta para los módulos con operaciones del médico habilitado. `AuditTrail`, `UnitOfWork`, el almacenamiento privado y el limitador de frecuencia se reutilizan |
 | Abstracción | Ningún caso de uso conoce SQL ni R2; el estado del médico es una función pura |
 | Contratos | API REST con DTO validados. `GET /me` cambió solo para el médico (D-A4-2: `null` hasta la fase B) |
 | Autonomía | Las reglas críticas también las impone PostgreSQL (CHECK, índices parciales y triggers) |

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthShell, btnCls, inputCls } from "@/features/components/auth-shell";
 import { ADMIN_HOME_PATH } from "@/features/components/require-registration";
+import { PROFESSIONAL_PORTAL_PATH } from "@/features/professionals/paths";
 import {
   ApiError,
   acceptLegalDocuments,
@@ -16,6 +17,7 @@ import {
   pendingRegistrationStep,
   type RegistrationStatus,
 } from "@/lib/api";
+import { hasProfessionalIntent } from "@/lib/auth-client";
 
 // Destino cuando el backend confirma que no falta ni el perfil ni la aceptación legal.
 export const REGISTRATION_DONE_PATH = "/landing-inicio";
@@ -64,6 +66,14 @@ export function CompleteRegistration() {
         const me = await getMe();
         if (me.role === "admin") {
           router.replace(ADMIN_HOME_PATH);
+          return;
+        }
+        // El médico usa el portal profesional (solo web). Una cuenta sin rol que empezó en ese portal vuelve a él.
+        if (
+          me.role === "doctor" ||
+          (me.role === null && hasProfessionalIntent())
+        ) {
+          router.replace(PROFESSIONAL_PORTAL_PATH);
           return;
         }
         roleChecked.current = true;

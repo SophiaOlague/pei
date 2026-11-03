@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { ShieldCheck, Stethoscope, Box, Lock, Headphones } from "lucide-react";
-import { appUrl, authClient, authErrorMessage, PASSWORD_MAX, PASSWORD_MIN, rememberPendingEmail } from "@/lib/auth-client";
+import { appUrl, authClient, authErrorMessage, forgetProfessionalIntent, PASSWORD_MAX, PASSWORD_MIN, rememberPendingEmail } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 
 export function Landing() {
@@ -38,6 +38,8 @@ export function Landing() {
     }
 
     setLoading(true);
+    // Registro de paciente: una intención profesional anterior de esta pestaña ya no aplica.
+    forgetProfessionalIntent();
 
     // Con verificación obligatoria, el backend responde igual si el correo ya existe:
     // la pantalla siguiente no distingue ambos casos.
