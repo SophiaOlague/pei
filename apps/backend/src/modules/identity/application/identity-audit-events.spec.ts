@@ -72,6 +72,12 @@ describe('Eventos de auditoría de Identity (DT-14, RN-122)', () => {
       IdentityAuditEvents.legalDocumentAccepted(actor, ID, 'patient_terms', 'v1'),
       IdentityAuditEvents.legalDocumentPublished(AuditActor.system('cli.legal-publish'), ID, 'privacy_policy', 'v1'),
     ];
+    const publication = {
+      publicationId: ID, result: 'published' as const, audience: 'doctor', publishedAt: '2026-11-01T06:00:00.000Z', targetKind: 'development', neonProject: 'p', neonBranch: 'br-a', neonEndpoint: 'ep-a',
+      documents: [{ type: 'doctor_terms', version: '1' }], authorizationsUsed: ['regime_transition'], impactScope: 'operation_total' as const,
+      patientProfilesPotentiallyAffected: 3, doctorProfilesPotentiallyAffected: 2, regimeTransitions: ['doctor'], scheduledRegimeTransitions: [],
+    };
+    all.push(IdentityAuditEvents.legalDocumentPublished(AuditActor.system('cli.legal-publish'), ID, 'doctor_terms', '1', publication));
     for (const event of all) {
       const serialized = JSON.stringify(event.metadata ?? {});
       expect(serialized).not.toMatch(/curp|http|identity\/|profile-photos\/|@|reason|name/i);

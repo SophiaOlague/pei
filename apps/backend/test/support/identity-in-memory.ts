@@ -269,6 +269,12 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
       return { id: row.id, type: row.type, version: row.version, publishedAt: row.publishedAt };
     });
   }
+  async inspectPublication() {
+    const usersByRole: Partial<Record<'patient' | 'doctor', number>> = {};
+    for (const { role } of this.state.userProfiles) if (role === 'patient' || role === 'doctor') usersByRole[role] = (usersByRole[role] ?? 0) + 1;
+    return { now: this.now(), versions: this.state.legalDocuments.map(({ type, version, publishedAt }) => ({ type, version, publishedAt })), usersByRole };
+  }
+  async lockPublication(): Promise<void> {}
   publishLegalDocument(type: CurrentLegalDocumentRecord['type'], version: string, publishedAt = new Date(Date.now() - 60_000)) {
     const doc = { id: randomUUID(), type, version, publishedAt, content: `Texto sintético ${type} ${version}` };
     this.state.legalDocuments.push(doc);

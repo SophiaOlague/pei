@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { getDbContext } from '../../../../db/transaction-context';
 import { legalDocument, userLegalAcceptance } from '../../../../db/schema';
+import type { LegalAudience, LegalDocumentType } from '../../domain/legal-requirements';
 import type {
   CurrentLegalDocumentRecord,
   LegalDocumentRepository,
@@ -55,6 +56,22 @@ export class DrizzleLegalDocumentRepository implements LegalDocumentRepository {
       .onConflictDoNothing({ target: [userLegalAcceptance.userProfileId, userLegalAcceptance.legalDocumentId] })
       .returning({ legalDocumentId: userLegalAcceptance.legalDocumentId });
     return inserted.map((row) => row.legalDocumentId);
+  }
+
+  async inspectPublication() {
+    const db = getDbContext();
+    const { rows: clock } = await db.execute<{ now: string | Date }>(sql`select now() as now`);
+    const { rows: versions } = await db.execute<{ type: LegalDocumentType; version: string; published_at: string | Date }>(sql`select type, version, published_at from legal_document order by type, published_at, version`);
+    const { rows: users } = await db.execute<{ role: string; total: number }>(sql`select role, count(*)::int as total from user_profile where role in ('patient', 'doctor') group by role order by role`);
+    return {
+      now: new Date(clock[0].now),
+      versions: versions.map((row) => ({ type: row.type, version: row.version, publishedAt: new Date(row.published_at) })),
+      usersByRole: Object.fromEntries(users.map((row) => [row.role, row.total])) as Partial<Record<LegalAudience, number>>,
+    };
+  }
+
+  async lockPublication(): Promise<void> {
+    await getDbContext().execute(sql`select pg_advisory_xact_lock(hashtext('pei:legal-publication'))`);
   }
 
   // Solo INSERT: legal_document es append-only (triggers de 0001 y 0005).

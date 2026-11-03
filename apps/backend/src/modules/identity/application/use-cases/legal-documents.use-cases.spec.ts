@@ -1,5 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { Actor } from '../../../../common/application/actor';
+import { PRODUCTION_DATABASE } from '../../domain/legal-publication';
+import type { LegalDocumentType } from '../../domain/legal-requirements';
 import { InMemoryAuditTrail, InMemoryIdentityStore, InMemoryUnitOfWork } from '../../../../../test/support/identity-in-memory';
 import { syntheticCurp } from '../../../../../test/support/synthetic-identity';
 import {
@@ -18,6 +20,20 @@ import {
   PatientProfileRequiredError,
 } from '../../domain/identity.errors';
 
+const TARGET = { branch: 'br-dev-uno', endpoint: 'ep-dev-uno' };
+const TARGET_READER = { read: async () => ({ ...TARGET, project: 'p', urlEndpoint: TARGET.endpoint }) };
+const inAMinute = () => new Date(Date.now() + 60_000);
+
+// Flujo real del CLI: simular y publicar con la confirmación resultante.
+async function publishConfirmed(
+  publish: PublishLegalDocumentsUseCase,
+  input: { audience: 'patient' | 'doctor'; documents: { type: LegalDocumentType; version: string; content: string }[]; publishedAt?: Date },
+) {
+  const request = { ...input, publishedAt: input.publishedAt ?? inAMinute(), declaredTarget: TARGET };
+  const { confirmation } = await publish.simulate(request);
+  return (await publish.execute({ ...request, confirmation, authorizations: { acceptRegimeTransition: true } })).published;
+}
+
 function setup() {
   const store = new InMemoryIdentityStore();
   const uow = new InMemoryUnitOfWork(store);
@@ -27,7 +43,8 @@ function setup() {
     uow,
     current: new GetCurrentLegalDocumentsUseCase(store),
     accept: new AcceptLegalDocumentsUseCase(uow, audit, store),
-    publish: new PublishLegalDocumentsUseCase(uow, audit, store),
+    audit,
+    publish: new PublishLegalDocumentsUseCase(uow, audit, store, TARGET_READER),
   };
 }
 
@@ -217,8 +234,8 @@ describe('Documentos legales por rol (M03 D-32, N1, R-8; plan v2 §6)', () => {
     it('[TC-M03-020][N1] publica el conjunto completo del paciente con un published_at común y un evento por documento', async () => {
       const env = setup();
       legacy(env);
-      const at = new Date(Date.now() - 1000);
-      const published = await env.publish.execute({
+      const at = inAMinute();
+      const published = await publishConfirmed(env.publish, {
         audience: 'patient',
         publishedAt: at,
         documents: [
@@ -231,6 +248,7 @@ describe('Documentos legales por rol (M03 D-32, N1, R-8; plan v2 §6)', () => {
         ['identity.legal_document.published', 'system'],
         ['identity.legal_document.published', 'system'],
       ]);
+      env.store.now = () => new Date(at.getTime() + 1);
       expect((await env.current.execute('patient')).map((d) => d.type).sort()).toEqual(['patient_terms', 'privacy_policy']);
     });
 
@@ -246,7 +264,7 @@ describe('Documentos legales por rol (M03 D-32, N1, R-8; plan v2 §6)', () => {
       legacy(env);
       const before = env.store.state.legalDocuments.length;
       const error = await env.publish
-        .execute({ audience, documents: docs.map((d) => ({ ...d, content: text(d.type) })) })
+        .simulate({ audience, documents: docs.map((d) => ({ ...d, content: text(d.type) })), publishedAt: inAMinute(), declaredTarget: TARGET })
         .catch((e: unknown) => e);
       expect(error).toBeInstanceOf(InvalidLegalPublicationError);
       expect((error as Error).message).toContain(message);
@@ -257,9 +275,9 @@ describe('Documentos legales por rol (M03 D-32, N1, R-8; plan v2 §6)', () => {
     it('[TC-M03-028][R-8] si la auditoría falla, no se publica ningún documento', async () => {
       const env = setup();
       const failingAudit: AuditTrail = { record: async () => { throw new Error('fallo simulado de auditoría'); } };
-      const publish = new PublishLegalDocumentsUseCase(env.uow, failingAudit, env.store);
+      const publish = new PublishLegalDocumentsUseCase(env.uow, failingAudit, env.store, TARGET_READER);
       await expect(
-        publish.execute({
+        publishConfirmed(publish, {
           audience: 'doctor',
           documents: [
             { type: 'privacy_policy', version: '1', content: text('privacy_policy') },
@@ -274,7 +292,7 @@ describe('Documentos legales por rol (M03 D-32, N1, R-8; plan v2 §6)', () => {
       const env = setup();
       env.store.publishLegalDocument('privacy_policy', '1');
       env.store.publishLegalDocument('doctor_terms', '1');
-      const published = await env.publish.execute({
+      const published = await publishConfirmed(env.publish, {
         audience: 'doctor',
         documents: [{ type: 'doctor_terms', version: '2', content: text('doctor_terms') }],
       });
@@ -286,8 +304,74 @@ describe('Documentos legales por rol (M03 D-32, N1, R-8; plan v2 §6)', () => {
       env.store.publishLegalDocument('privacy_policy', '1');
       env.store.publishLegalDocument('patient_terms', '1');
       await expect(
-        env.publish.execute({ audience: 'doctor', documents: [{ type: 'doctor_terms', version: '1', content: text('doctor_terms') }] }),
+        publishConfirmed(env.publish, { audience: 'doctor', documents: [{ type: 'doctor_terms', version: '1', content: text('doctor_terms') }] }),
       ).resolves.toHaveLength(1);
+    });
+
+    describe('flujo seguro del CLI', () => {
+      const request = () => ({
+        audience: 'doctor' as const, documents: [{ type: 'doctor_terms' as const, version: '2', content: 'Texto' }], publishedAt: inAMinute(), declaredTarget: TARGET,
+      });
+      const regime = (env: Env) => {
+        env.store.publishLegalDocument('privacy_policy', '1');
+        env.store.publishLegalDocument('doctor_terms', '1');
+      };
+
+      it('[TC-M03-249] la simulación no escribe documentos, aceptaciones ni auditoría', async () => {
+        const env = setup();
+        regime(env);
+        await env.publish.simulate(request());
+        expect(env.store.state.legalDocuments).toHaveLength(2);
+        expect(env.store.state.acceptances).toHaveLength(0);
+        expect(env.store.state.audit).toHaveLength(0);
+      });
+
+      it('[TC-M03-250] un contenido vacío se rechaza', async () => {
+        const env = setup();
+        regime(env);
+        await expect(env.publish.simulate({ ...request(), documents: [{ type: 'doctor_terms', version: '2', content: '  ' }] })).rejects.toThrow('vacío');
+      });
+
+      it('[TC-M03-251] sin confirmación vigente o con contenido distinto no se escribe nada', async () => {
+        const env = setup();
+        regime(env);
+        const req = request();
+        const { confirmation } = await env.publish.simulate(req);
+        await expect(env.publish.execute({ ...req, confirmation: 'x', authorizations: {} })).rejects.toThrow('formato');
+        const changed = { ...req, documents: [{ ...req.documents[0], content: 'Otro' }] };
+        await expect(env.publish.execute({ ...changed, confirmation, authorizations: {} })).rejects.toThrow('cambió');
+        const clock = env.store.now;
+        env.store.now = () => new Date(clock().getTime() + 16 * 60_000);
+        await expect(env.publish.execute({ ...req, publishedAt: new Date(Date.now() + 3_600_000), confirmation, authorizations: {} })).rejects.toThrow('caducó');
+        expect(env.store.state.legalDocuments).toHaveLength(2);
+      });
+
+      it('[TC-M03-252] una transición de régimen exige autorización explícita, aunque la confirmación sea válida', async () => {
+        const env = setup();
+        regime(env);
+        const req = { ...request(), audience: 'patient' as const, documents: [{ type: 'patient_terms' as const, version: '1', content: 'Texto' }] };
+        const { confirmation } = await env.publish.simulate(req);
+        await expect(env.publish.execute({ ...req, confirmation, authorizations: {} })).rejects.toThrow('regime_transition');
+        expect(env.store.state.legalDocuments).toHaveLength(2);
+      });
+
+      it('[TC-M03-253] producción: sin --allow-production no se escribe', async () => {
+        const env = setup();
+        regime(env);
+        const production = { branch: PRODUCTION_DATABASE.branch, endpoint: PRODUCTION_DATABASE.endpoint };
+        const publish = new PublishLegalDocumentsUseCase(env.uow, env.audit, env.store, { read: async () => ({ ...production, project: 'p', urlEndpoint: production.endpoint }) });
+        const req = { ...request(), declaredTarget: production };
+        const { plan, confirmation } = await publish.simulate(req);
+        expect(plan.target.kind).toBe('production');
+        await expect(publish.execute({ ...req, confirmation, authorizations: {} })).rejects.toThrow('production_target');
+        expect(env.store.state.legalDocuments).toHaveLength(2);
+      });
+
+      it('[TC-M03-254] un destino no verificable se rechaza antes de leer los documentos', async () => {
+        const env = setup();
+        const publish = new PublishLegalDocumentsUseCase(env.uow, env.audit, env.store, { read: async () => ({ branch: null, endpoint: null, project: null, urlEndpoint: null }) });
+        await expect(publish.simulate(request())).rejects.toThrow('No se pudo verificar');
+      });
     });
   });
 });

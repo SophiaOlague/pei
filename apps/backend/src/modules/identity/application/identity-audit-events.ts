@@ -21,6 +21,28 @@ export const IDENTITY_AUDIT_ACTIONS = {
 
 export type EditableFieldName = 'phone' | 'address' | 'emergencyContactName' | 'emergencyContactPhone' | 'photo';
 
+// Detalle de una publicación. Los conteos son el total de la operación (impactScope): no se suman entre eventos. El evento
+// solo existe si la transacción se confirmó. El CLI no tiene una identidad autenticada de operador: se registra el proceso
+// de sistema y no se deduce ninguna persona. Sin credenciales, URLs, contenido ni datos personales.
+export interface LegalPublicationAudit {
+  publicationId: string;
+  result: 'published';
+  audience: string;
+  publishedAt: string;
+  targetKind: string;
+  neonProject: string;
+  neonBranch: string;
+  neonEndpoint: string;
+  documents: { type: string; version: string }[];
+  authorizationsUsed: string[];
+  pastDateReason?: string;
+  impactScope: 'operation_total';
+  patientProfilesPotentiallyAffected: number;
+  doctorProfilesPotentiallyAffected: number;
+  regimeTransitions: string[];
+  scheduledRegimeTransitions: { at: string; role: string; alteredByPublication: boolean }[];
+}
+
 export const IdentityAuditEvents = {
   profileCreated: (actor: AuditActor, patientProfileId: string) =>
     AuditEvent.create({
@@ -74,12 +96,15 @@ export const IdentityAuditEvents = {
     }),
 
   // CLI legal:publish (actor sistema).
-  legalDocumentPublished: (actor: AuditActor, legalDocumentId: string, type: LegalDocumentType, version: string) =>
+  // Un evento por documento; `publication` se repite igual en todos y se agrupa por publicationId.
+  legalDocumentPublished: (
+    actor: AuditActor, legalDocumentId: string, type: LegalDocumentType, version: string, publication?: LegalPublicationAudit,
+  ) =>
     AuditEvent.create({
       actor,
       action: IDENTITY_AUDIT_ACTIONS.legalDocumentPublished,
       entity: { type: 'legal_document', id: legalDocumentId },
-      metadata: { type, version },
+      metadata: { type, version, ...publication },
     }),
 
   // actor sistema: AuditEvent agrega systemProcess a la metadata.

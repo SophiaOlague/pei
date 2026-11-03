@@ -10,6 +10,7 @@ import { DrizzleUserProfileRepository } from '../../src/modules/identity/infrast
 import { DrizzlePatientProfileRepository } from '../../src/modules/identity/infrastructure/persistence/drizzle-patient-profile.repository';
 import { DrizzleIdentityVerificationRepository } from '../../src/modules/identity/infrastructure/persistence/drizzle-identity-verification.repository';
 import { DrizzleLegalDocumentRepository } from '../../src/modules/identity/infrastructure/persistence/drizzle-legal-document.repository';
+import { DrizzleDatabaseTargetReader } from '../../src/modules/identity/infrastructure/persistence/drizzle-database-target.reader';
 import { DrizzleRegistrationStatusReader } from '../../src/modules/identity/infrastructure/persistence/drizzle-registration-status.reader';
 import type { AdminAccountProvisioner } from '../../src/modules/identity/application/ports/admin-account-provisioner';
 import { RegisterPatientProfileUseCase } from '../../src/modules/identity/application/use-cases/register-patient-profile.use-case';
@@ -86,7 +87,7 @@ export function identityUseCases() {
     provisioner,
     register: new RegisterPatientProfileUseCase(uow, audit, { now: () => new Date() }, userProfiles, patientProfiles),
     acceptLegal: new AcceptLegalDocumentsUseCase(uow, audit, legalDocuments),
-    publishLegal: new PublishLegalDocumentsUseCase(uow, audit, legalDocuments),
+    publishLegal: new PublishLegalDocumentsUseCase(uow, audit, legalDocuments, new DrizzleDatabaseTargetReader()),
     submit: new SubmitIdentityVerificationUseCase(uow, audit, storage, patientProfiles, verifications),
     open: new OpenIdentityDocumentUseCase(uow, audit, storage, verifications),
     review: new ReviewIdentityVerificationUseCase(uow, audit, verifications, purger),

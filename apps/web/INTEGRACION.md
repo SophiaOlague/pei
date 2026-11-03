@@ -137,7 +137,14 @@ régimen del paciente en esa rama. Solo en `rama` (`br-autumn-sun-b52qoep4`), co
 de entorno (dotenv no la reemplaza), **después** de confirmar en solo lectura que la conexión es esa rama:
 
 ```bash
-DATABASE_URL='<url de rama>' pnpm --dir apps/backend legal:publish --audience patient --doc privacy_policy@0.0-ficticio=../web/dev-fixtures/legal/privacy_policy.ficticio.md --doc patient_terms@0.0-ficticio=../web/dev-fixtures/legal/patient_terms.ficticio.md
+DATABASE_URL='<url de rama>' pnpm --dir apps/backend legal:publish --dry-run --audience patient --target-branch <br-rama> --target-endpoint <ep-rama> --published-at <fecha-ISO-8601> --doc privacy_policy@0.0-ficticio=../web/dev-fixtures/legal/privacy_policy.ficticio.md --doc patient_terms@0.0-ficticio=../web/dev-fixtures/legal/patient_terms.ficticio.md
+```
+
+La simulación no escribe. Revisa el plan y publica antes de 15 minutos con los mismos argumentos, cambiando `--dry-run`
+por la confirmación impresa; una transición de régimen exige además `--accept-regime-transition`:
+
+```bash
+DATABASE_URL='<url de rama>' pnpm --dir apps/backend legal:publish --confirm <token> --accept-regime-transition --audience patient --target-branch <br-rama> --target-endpoint <ep-rama> --published-at <misma-fecha> --doc privacy_policy@0.0-ficticio=../web/dev-fixtures/legal/privacy_policy.ficticio.md --doc patient_terms@0.0-ficticio=../web/dev-fixtures/legal/patient_terms.ficticio.md
 ```
 
 Nunca con el `.env` del backend tal como está: apunta a `production`.

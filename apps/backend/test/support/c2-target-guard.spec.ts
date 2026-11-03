@@ -64,6 +64,7 @@ const GUARDED_DB_SPECS = [
   'test/integration/doctors.int-spec.ts',
   'test/integration/identity.int-spec.ts',
   'test/integration/legal-acceptance-audit.int-spec.ts',
+  'test/integration/legal-publication.int-spec.ts',
   'test/integration/legal-regime.int-spec.ts',
   'test/integration/postgres-errors.int-spec.ts',
   'test/integration/role-profile-coherence.int-spec.ts',
