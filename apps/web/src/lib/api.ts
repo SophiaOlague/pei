@@ -453,3 +453,224 @@ export function submitDoctorLicense(
   body.append("document", document);
   return request("/me/doctor/license-verifications", { method: "POST", body });
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Administración de M03 (apps/backend/src/modules/doctors/presentation/admin-doctors.controller.ts). Solo admin:
+// el backend responde 401 sin sesión y 403 con otro rol. Ninguna respuesta incluye claves de objetos ni URLs.
+//   GET  /admin/doctors?status&page&pageSize, GET /admin/doctors/:id
+//   GET  /admin/doctor-identity-verifications, GET …/:id, GET …/:id/documents/front|back, POST …/:id/approve|reject
+//   GET  /admin/doctor-license-verifications, GET …/:id, GET …/:id/document, POST …/:id/approve|reject
+// El estado del médico es el derivado por el backend (doctor-status.ts); la interfaz no lo recalcula.
+// ---------------------------------------------------------------------------------------------------------------
+
+export type DoctorGlobalStatus = "pending" | "approved" | "rejected";
+
+// DoctorStatus de dominio (doctor-status.ts), sin los motivos de rechazo que añade GET /me/doctor/status. D-38:
+// `status` (y el filtro ?status=) es la aprobación administrativa; la aceptación legal y la habilitación se informan
+// aparte y no generan acciones administrativas.
+export type AdminDoctorStatusFields = Omit<
+  DoctorStatus,
+  "identityRejectionReason" | "licenseRejectionReason"
+>;
+
+export interface Page<T> {
+  items: T[];
+  total: number;
+}
+
+export interface PageQuery {
+  page?: number;
+  // El backend acepta de 1 a 100 (PageQueryDto); por omisión, 20.
+  pageSize?: number;
+}
+
+export interface AdminDoctorItem extends AdminDoctorStatusFields {
+  doctorProfileId: string;
+  firstName: string;
+  lastName: string;
+  specialty: (Specialty & { isActive: boolean }) | null;
+}
+
+export interface AdminReviewHistoryItem {
+  id: string;
+  attempt: number;
+  revision: number;
+  status: ReviewStatus;
+  submittedAt: string;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+}
+
+export type LicenseReviewReason =
+  | "initial"
+  | "resubmission"
+  | "license_number_changed"
+  | "license_document_changed"
+  | "specialty_changed"
+  | "legal_name_changed";
+
+export interface AdminDoctorDetail extends AdminDoctorStatusFields {
+  doctorProfileId: string;
+  firstName: string;
+  lastName: string;
+  curp: string;
+  phone: string | null;
+  licenseNumber: string | null;
+  specialty: (Specialty & { isActive: boolean }) | null;
+  identityRevision: number;
+  professionalRevision: number;
+  history: {
+    identity: AdminReviewHistoryItem[];
+    license: (AdminReviewHistoryItem & {
+      reason: LicenseReviewReason;
+      licenseNumber: string;
+    })[];
+  };
+}
+
+// Elemento de las colas de revisiones pendientes (en orden de llegada, sin documentos).
+export interface AdminReviewSummary extends AdminReviewHistoryItem {
+  doctorProfileId: string;
+}
+
+export interface AdminIdentityReviewDetail extends AdminReviewSummary {
+  isCurrent: boolean;
+  documentsAvailable: boolean;
+  doctor: { firstName: string; lastName: string; curp: string };
+}
+
+export interface AdminLicenseReviewDetail extends AdminReviewSummary {
+  isCurrent: boolean;
+  reason: LicenseReviewReason;
+  licenseNumber: string;
+  specialty: Specialty | null;
+  doctor: { firstName: string; lastName: string };
+}
+
+export interface AdminReviewResult {
+  reviewId: string;
+  status: "approved" | "rejected";
+  attempt: number;
+  doctorStatus: AdminDoctorStatusFields;
+  // INE: si se purgaron los documentos tras la decisión. Cédula: null (se conserva, D-16).
+  documentsDeleted: boolean | null;
+}
+
+// D-25 (doctors/domain/review.ts): motivo obligatorio al rechazar, de 10 a 500 caracteres tras recortar.
+export const REJECTION_REASON_MIN = 10;
+export const REJECTION_REASON_MAX = 500;
+
+export type DocumentSide = "front" | "back";
+
+function pageParams(
+  query: PageQuery & { status?: DoctorGlobalStatus },
+): string {
+  const params = new URLSearchParams();
+  if (query.status) params.set("status", query.status);
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const text = params.toString();
+  return text ? `?${text}` : "";
+}
+
+const segment = (value: string) => encodeURIComponent(value);
+
+export function listAdminDoctors(
+  query: PageQuery & { status?: DoctorGlobalStatus } = {},
+): Promise<Page<AdminDoctorItem>> {
+  return request(`/admin/doctors${pageParams(query)}`);
+}
+
+export function getAdminDoctor(
+  doctorProfileId: string,
+): Promise<AdminDoctorDetail> {
+  return request(`/admin/doctors/${segment(doctorProfileId)}`);
+}
+
+export function listPendingDoctorIdentityReviews(
+  query: PageQuery = {},
+): Promise<Page<AdminReviewSummary>> {
+  return request(`/admin/doctor-identity-verifications${pageParams(query)}`);
+}
+
+export function getDoctorIdentityReview(
+  reviewId: string,
+): Promise<AdminIdentityReviewDetail> {
+  return request(`/admin/doctor-identity-verifications/${segment(reviewId)}`);
+}
+
+// Documentos privados: se descargan con la sesión, sin caché del navegador ni copia en memoria compartida. Quien
+// cree un blob: URL con el resultado debe liberarlo (URL.revokeObjectURL) al dejar de mostrarlo.
+export async function getDoctorIdentityDocument(
+  reviewId: string,
+  side: DocumentSide,
+): Promise<Blob> {
+  return (
+    await send(
+      `/admin/doctor-identity-verifications/${segment(reviewId)}/documents/${side}`,
+      { cache: "no-store" },
+    )
+  ).blob();
+}
+
+export function approveDoctorIdentityReview(
+  reviewId: string,
+): Promise<AdminReviewResult> {
+  return request(
+    `/admin/doctor-identity-verifications/${segment(reviewId)}/approve`,
+    { method: "POST" },
+  );
+}
+
+export function rejectDoctorIdentityReview(
+  reviewId: string,
+  reason: string,
+): Promise<AdminReviewResult> {
+  return request(
+    `/admin/doctor-identity-verifications/${segment(reviewId)}/reject`,
+    { method: "POST", body: JSON.stringify({ reason }) },
+  );
+}
+
+export function listPendingDoctorLicenseReviews(
+  query: PageQuery = {},
+): Promise<Page<AdminReviewSummary & { reason: LicenseReviewReason }>> {
+  return request(`/admin/doctor-license-verifications${pageParams(query)}`);
+}
+
+export function getDoctorLicenseReview(
+  reviewId: string,
+): Promise<AdminLicenseReviewDetail> {
+  return request(`/admin/doctor-license-verifications/${segment(reviewId)}`);
+}
+
+// PDF (attachment con CSP sandbox) o imagen; el tipo viene en Blob.type.
+export async function getDoctorLicenseDocument(
+  reviewId: string,
+): Promise<Blob> {
+  return (
+    await send(
+      `/admin/doctor-license-verifications/${segment(reviewId)}/document`,
+      { cache: "no-store" },
+    )
+  ).blob();
+}
+
+export function approveDoctorLicenseReview(
+  reviewId: string,
+): Promise<AdminReviewResult> {
+  return request(
+    `/admin/doctor-license-verifications/${segment(reviewId)}/approve`,
+    { method: "POST" },
+  );
+}
+
+export function rejectDoctorLicenseReview(
+  reviewId: string,
+  reason: string,
+): Promise<AdminReviewResult> {
+  return request(
+    `/admin/doctor-license-verifications/${segment(reviewId)}/reject`,
+    { method: "POST", body: JSON.stringify({ reason }) },
+  );
+}
