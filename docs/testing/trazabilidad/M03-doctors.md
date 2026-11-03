@@ -88,6 +88,7 @@ evidencia versionada (ninguna todavía).
 | D-37, RN-140, C-22 | Pendiente | Sin implementar. Políticas existentes sin llamadas: `CanBookAppointmentsPolicy`, `DoctorOperationalPolicy` | TC-M03-220 a 226 | Sin definir | **Pendiente de implementación y ejecución** |
 | RF-06, RN-005, D-16 (admin), D-19 (purga), D-22, D-25, D-27, D-36, R-2 (revisión), E.5 (vigencia), Admin | B6 | `src/modules/doctors/application/use-cases/admin/**`, `presentation/admin-doctors.controller.ts`, `presentation/dto/admin-doctor.dto.ts`; `drizzle-doctor-review.repository.ts` y `drizzle-doctor-profile.repository.ts` (métodos de B6); `src/cli/identity-purge-documents.ts`, `src/cli/cli.module.ts` | TC-M03-154 a 163 (unitarias con dobles), 164 a 166 (E2E con dobles) | Unitarias y E2E con dobles locales; sin integración | Interna (sin BD) |
 | RN-004, D-13, D-23 (política operativa), D-31 y D-A4-2 (`/me` del médico) | B7 | `src/modules/doctors/application/policies/doctor-operational.policy.ts`, `doctor-profile-section.provider.ts`; `src/modules/identity/application/role-profile-section.registry.ts`, `presentation/me.controller.ts` | TC-M03-167 a 170 (unitarias), 171 (E2E con dobles) | Unitarias y E2E con dobles locales | Interna (sin BD) |
+| D-38 (estado administrativo, `legalAccepted`, `canOperate`) | D-38 | `src/modules/doctors/domain/doctor-status.ts`, `policies/doctor-operational.policy.ts`, `doctor-profile-section.provider.ts`; web `src/lib/api.ts`, `features/professionals/doctor-sections.tsx` | TC-M03-106, 108, 111, 112, 114, 167, 170, 273 a 275 (unitarias), 276 (E2E con dobles) | Unitarias, E2E con dobles locales y pruebas web (vitest) | Interna (sin BD) |
 | Integración de B5–B7 (adaptadores Drizzle, gateway de Identity, triggers de 0012) | B8 | `test/integration/doctors.int-spec.ts`, `test/support/doctors-integration.ts` | TC-M03-172 a 182 | `probar-m03` en `rama` (intento 2): 94/94 de integración, sin residuos | Interna |
 | E.5, R-2, E.1, plan v2 §9 (concurrencia con datos confirmados) | B8 | `test/concurrency/doctors.conc-spec.ts`, `test/jest-concurrency.json` | TC-M03-183 a 187 | C2 v11.1 `probar-concurrencia` en `rama`: 5/5 (datos confirmados, permanentes) | Interna |
 | D-17 (enumeración), IDOR, DT-8, DT-4, RN-122 (seguridad) | B8 | `test/doctors-security.e2e-spec.ts` | TC-M03-188 a 192 | E2E con dobles locales | Interna (sin BD) |
@@ -243,10 +244,10 @@ Rutas relativas a `apps/backend`; la línea es la del primer uso del identificad
 | TC-M03-105 | B4 | Unitaria | ídem | [R-2][E.5] | una revisión de versión anterior o superseded no cuenta |
 | TC-M03-106 | B4 | Unitaria | ídem | [R-7][Z-1] | escenarios 1 a 18 de D.5 |
 | TC-M03-107 | B4 | Unitaria | ídem | [R-2][E.5] | aprobación de la versión 4 no vigente → línea required |
-| TC-M03-108 | B4 | Unitaria | ídem | [Z-1] | las 32 combinaciones de identidad × profesional × legales |
+| TC-M03-108 | B4 | Unitaria | ídem | [Z-1][D-38] | las 32 combinaciones de identidad × profesional × legales, con `legalAccepted` y `canOperate`; el estado administrativo no cambia con la aceptación legal |
 | TC-M03-109 | B4 | Unitaria | ídem | [D-27][R-7] | secuencia rechazo, reenvío y aprobación (D.4) |
 | TC-M03-110 | B4 | Unitaria | ídem | [Z-1] | secuencia de revisiones mixtas (D.4) |
-| TC-M03-111 | B4 | Unitaria | ídem | [R-13] | versión legal nueva → pending sin reabrir revisiones |
+| TC-M03-111 | B4 | Unitaria | ídem | [R-13][D-38] | versión legal nueva: sigue `approved`, sin `canOperate`; al aceptarla recupera la habilitación sin revisión nueva (antes: volvía a pending) |
 | TC-M03-112 | B4 | Unitaria | ídem | [D-24][D-30] | rechazada cuenta como entregada; perfil incompleto → `profile` |
 | TC-M03-113 | B4 | Unitaria | ídem | [D-31] | `missing` distingue primer envío de reenvío |
 | TC-M03-114 | B4 | Unitaria | ídem | [D-31] | sin perfil de médico: solo `profile` y `legal` |
@@ -303,7 +304,7 @@ Rutas relativas a `apps/backend`; la línea es la del primer uso del identificad
 | TC-M03-164 | B6 | E2E | `test/doctors.e2e-spec.ts` | [RF-06][D-27] | revisión por HTTP hasta approved; INE no-store; 409 tras revisar |
 | TC-M03-165 | B6 | E2E | ídem | [D-25][H.3] | rechazo sin motivo 400; cédula attachment con sandbox; detalle sin claves |
 | TC-M03-166 | B6 | E2E | ídem | [Admin] | médico → 403; 400 y 404 |
-| TC-M03-167 | B7 | Unitaria | `src/modules/doctors/application/policies/doctor-operational.policy.spec.ts` | [RN-004] | solo approved opera; pending → 422; inexistente → 404 |
+| TC-M03-167 | B7 | Unitaria | `src/modules/doctors/application/policies/doctor-operational.policy.spec.ts` | [RN-004][D-38] | solo opera un médico habilitado (`canOperate`); pending → 422; inexistente → 404 |
 | TC-M03-168 | B7 | Unitaria | ídem | [D-21][D-23] | un cambio sensible suspende la operación hasta la nueva aprobación |
 | TC-M03-169 | B7 | Unitaria | ídem | [D-13] | assertActorCanOperate para el propio médico; otro rol falla cerrado |
 | TC-M03-170 | B7 | Unitaria | ídem | [D-31] | la sección del médico se registra en Identity; paciente y admin no |
@@ -396,6 +397,10 @@ Rutas relativas a `apps/backend`; la línea es la del primer uso del identificad
 | TC-M03-270 | Publicación legal | Integración (C2, datos confirmados) | `test/concurrency/legal-publication.conc-spec.ts` | [Publicación legal] | `ROLLBACK` real ante fallo de auditoría, sin documentos. PASS en `br-shy-pond-b50a3m8f` |
 | TC-M03-271 | Publicación legal | Integración (C2, datos confirmados) | `test/concurrency/legal-publication.conc-spec.ts` | [Publicación legal] | confirmación caducada rechazada con el reloj de la BD. PASS en `br-shy-pond-b50a3m8f` |
 | TC-M03-272 | Publicación legal | Integración (C2, datos confirmados) | `test/concurrency/legal-publication.conc-spec.ts` | [Publicación legal] | `main()` real: simulación, publicación y rechazo de reutilizar el token. PASS en `br-shy-pond-b50a3m8f`; no ejecuta `pnpm legal:publish` |
+| TC-M03-273 | D-38 | Unitaria | `src/modules/doctors/domain/doctor-status.spec.ts` | [D-38] | aceptar los legales no habilita a un médico pendiente o rechazado |
+| TC-M03-274 | D-38 | Unitaria | `src/modules/doctors/application/policies/doctor-operational.policy.spec.ts` | [D-38][R-13] | aprobado con aceptación pendiente: la política rechaza, `/me` informa `canOperate: false`; al aceptar vuelve a operar |
+| TC-M03-275 | D-38 | Unitaria | ídem | [D-38] | aceptación legal sin aprobación administrativa no habilita |
+| TC-M03-276 | D-38 | E2E | `test/doctors.e2e-spec.ts` | [D-38][R-13] | versión legal nueva: sigue en `?status=approved`, fuera de `pending` y de las colas, sin `returned_to_pending`; al aceptar recupera `canOperate` |
 | RT-M03-14 | B8 | Unitaria | `test/architecture.spec.ts` | [P.7] | doctors solo usa de identity dominio, puertos, registro y módulo |
 | RT-M03-15 | B8 | Unitaria | ídem | [R-11] | doctors sin SDK de AWS ni infraestructura de private-storage |
 | RT-M03-16 | B8 | Unitaria | ídem | [B8] | el spec de concurrencia exige C2, rechaza `rama` y la marca de rama desechable |

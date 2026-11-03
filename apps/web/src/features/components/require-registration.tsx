@@ -12,7 +12,7 @@ import {
 } from "@/lib/api";
 
 export const COMPLETE_REGISTRATION_PATH = "/completar-registro";
-// Pantalla provisional del administrador (app/admin).
+// Panel administrativo (app/admin).
 export const ADMIN_HOME_PATH = "/admin";
 
 // Redirección de la interfaz. Primero el rol (GET /me): el administrador va a /admin sin consultar el registro

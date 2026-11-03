@@ -31,7 +31,7 @@ Estado: **aprobadas** con el diseño v3 (2026-10-07), salvo que la sección 6 in
 | D-5, D-26, D-33, D-34 | Catálogo de especialidades configurado por el admin; una especialidad por médico; desactivar no borra y quien la tiene la conserva sin pasar a `pending`; no se asigna a nuevos médicos. Catálogo inicial: Infectología, Psicología y Medicina general |
 | D-9, D-21, D-29 | Los cambios de INE, número o documento de cédula o especialidad se aplican de inmediato y devuelven al médico a `pending`. Bio, foto y teléfono se editan libremente. **Acotada por C-16 (2026-10-28):** la CURP y el nombre legal salieron de esta lista porque el médico ya no puede cambiarlos (RN-138) |
 | D-10 | Lista mínima de eventos de auditoría (diseño v3 §I; ver la sección 6) |
-| D-13, D-23 | Si no está `approved`, el médico solo entra y consulta su estado. Las citas existentes son asunto de M08 |
+| D-13, D-23 | Si no tiene `canOperate` (aprobación administrativa `approved` y registro completo, aceptación legal vigente incluida), el médico solo entra, consulta su estado y completa su registro. Las citas existentes son asunto de M08. **Precisada por D-38 (2026-11-03):** antes se expresaba como «si no está `approved`» |
 | D-16, D-22 | La cédula se conserva en R2 privado; la ven el médico dueño y el admin (con auditoría). Plazo de conservación: dependencia legal |
 | D-17 | Respuesta genérica ante duplicados; la causa solo queda internamente |
 | D-19 | La INE del médico sigue el flujo de M02 |
@@ -65,9 +65,9 @@ Los identificadores D-6 a D-8, D-11, D-12, D-14, D-15 y D-18 no figuran en el di
 | R-10 | Trigger de coherencia `doctor_profile`/`patient_profile` con el rol | Aprobada (cerrada técnicamente en v3); implementada en A4 (`0008`): aplicada en la rama temporal `rama` y en `production` (2026-10-20) |
 | R-11 | Puerto de almacenamiento privado compartido en `modules/private-storage` | Aprobada; **implementada en A1** |
 | R-12 | La CURP pasa a `user_profile` con un único `UNIQUE`; no queda otra fuente de verdad; la migración conserva el dato del paciente de desarrollo | Aprobada; **implementada en A3** (`0007`) |
-| R-13 | Una versión nueva de un documento legal requerido invalida la aceptación anterior (registro incompleto) | Aprobada; **implementada en A2** |
+| R-13 | Una versión nueva de un documento legal requerido invalida la aceptación anterior (registro incompleto). **Precisada por D-38:** afecta `legalAccepted`, `registrationComplete` y `canOperate`, nunca el estado administrativo `status` ni las revisiones aprobadas | Aprobada; **implementada en A2**; precisión de D-38 implementada sin commit |
 | R-14 | INE del médico: JPEG o PNG, frente y reverso | Aprobada (cerrada técnicamente en v3) |
-| Z-1 | Precedencia del estado global: `pending` > `rejected` > `approved` (ambas aprobadas y registro completo) > `pending` | Aprobada |
+| Z-1 | Precedencia del estado administrativo: `pending` > `rejected` > `approved` (ambas líneas aprobadas) > `pending`. **Enmendada por D-38 (2026-11-03):** ya no exige el registro completo; la aceptación legal y el perfil no intervienen | Aprobada; enmienda implementada sin commit |
 | Z-2 | El admin puede reactivar una especialidad; nunca se elimina; activar o desactivar se audita | Aprobada |
 
 R-3 y R-9 no figuran en el diseño v3 y no se registran.
@@ -127,6 +127,7 @@ R-3 y R-9 no figuran en el diseño v3 y no se registran.
 | Evidencia formal | Procedimiento de evidencia formal en la rama temporal (E0), pendiente de autorización |
 | `admin:bootstrap` | Cierre formal de M02 con excepción documentada o esperar a la ejecución real |
 | DP-CORR | Flujo futuro definido en la sección 8 (2026-10-30), sin implementar. Hoy no existe ninguna vía para corregir una CURP o un nombre legal, ni de autoedición (prohibida por RN-138, C-16) ni del administrador. Sigue pendiente el catálogo de documentos oficiales aceptados |
+| ~~D-38 (estado global y aceptación legal)~~ | **Resuelta el 2026-11-03: ver la sección 8.4.** Hallazgo del 2026-11-03 (auditoría del panel administrativo). En `doctor-status.ts`, `status: 'approved'` exige `registrationComplete`, que incluye `legalAccepted`. Con una versión legal nueva sin reaceptar, un médico con INE y cédula aprobadas pasa a `pending`: las revisiones aprobadas se conservan (D-37 se cumple literalmente), pero el estado global mezcla la aceptación legal con la aprobación administrativa, contra la independencia de controles de D-37 y RN-140. Falta decidir si `status` refleja solo la aprobación administrativa (con la aceptación legal como indicador separado) y cómo se expone al administrador. Sin cambios en el backend hasta decidirlo. Bloquea la etapa 2 del panel administrativo (listado y filtros por estado) |
 
 ## 8. DP-CORR y orden de prioridades de M03
 
@@ -213,3 +214,40 @@ pendiente de sus módulos respectivos.
   ajustarse después. No se cambian en esta decisión.
 - `GET /me/doctor/status` solo informa el estado legal y no identifica los documentos pendientes. La consulta detallada
   se contempla en la prioridad 2 (frontend de registro de médicos).
+
+### 8.4 D-38: estado administrativo, aceptación legal y habilitación operativa
+
+**Estado: aprobada el 2026-11-03 (opción A); implementada sin commit.** Resuelve el conflicto entre Z-1 y la
+independencia de controles de D-37 y RN-140.
+
+`DoctorStatus` (`doctors/domain/doctor-status.ts`) expresa tres conceptos independientes:
+
+| Campo | Significado |
+|---|---|
+| `status` | Estado **administrativo**: resultado de las revisiones de INE y cédula (Z-1 enmendada). No depende de `registrationComplete` ni de la aceptación legal |
+| `legalAccepted` | Aceptación de las versiones vigentes de `privacy_policy` y `doctor_terms` |
+| `canOperate` | Habilitación operativa: `status === 'approved' && registrationComplete` |
+
+`identity`, `professional`, `registrationComplete` (D-30: «entregó todo», aceptación legal incluida) y `missing` no
+cambian de significado. No se introducen estados nuevos.
+
+**Reglas:**
+
+- Una versión legal nueva conserva la aprobación administrativa, no devuelve al médico a la cola de revisión ni genera
+  `doctor.status.returned_to_pending`. El médico queda con `legalAccepted: false` y `canOperate: false`.
+- Al aceptar la versión vigente recupera `canOperate` si cumple lo demás, sin una nueva aprobación.
+- Aceptar los documentos legales no aprueba ni habilita a un médico pendiente o rechazado.
+- Ninguna autorización operativa compara `status === 'approved'`: usa `isOperational` (`canOperate`) o
+  `DoctorOperationalPolicy`. RN-140 no se conecta en módulos que aún no existen.
+- Panel administrativo: el filtro «Aprobados» (`?status=approved`) es la aprobación administrativa; un aprobado con la
+  aceptación pendiente permanece ahí. «Pendientes» (`?status=pending`) agrupa las líneas en revisión o sin enviar. La
+  aceptación legal y la habilitación se muestran aparte, solo informativas.
+
+**Compatibilidad:** el estado no se persiste (N3); sin migración ni backfill. Contratos aditivos: `legalAccepted` y
+`canOperate` se añaden a `GET /me/doctor/status`, `GET /me` (sección del médico), `GET /admin/doctors`,
+`GET /admin/doctors/:id` y `doctorStatus` de aprobar o rechazar. Cambia el significado de `?status=approved`.
+
+**Maestro:** procede proponer **C-23** (ver la sección 9 del Maestro V2.3): precisar que la aprobación administrativa
+del médico no depende de la aceptación legal y que la habilitación operativa exige ambas. No se ha modificado el
+Maestro.
+

@@ -58,6 +58,8 @@ const doctorStatus = (overrides: Partial<DoctorStatus> = {}): DoctorStatus => ({
   identity: "required",
   professional: "required",
   registrationComplete: false,
+  legalAccepted: false,
+  canOperate: false,
   missing: ["legal", "identity_submission", "license_submission"],
   identityRejectionReason: null,
   licenseRejectionReason: null,
@@ -477,5 +479,48 @@ describe("/profesionales/registro", () => {
     expect(
       screen.getByRole("button", { name: "Enviar INE" }),
     ).toBeInTheDocument();
+  });
+  it("D-38: un aprobado con documentos legales pendientes conserva la aprobación y se muestra no habilitado", async () => {
+    mockFetch(
+      doctorRoutes(
+        doctorStatus({
+          status: "approved",
+          identity: "approved",
+          professional: "approved",
+          legalAccepted: false,
+          canOperate: false,
+          missing: ["legal"],
+        }),
+      ),
+    );
+    render(<DoctorPortal />);
+    expect(await screen.findByText("Registro aprobado")).toBeInTheDocument();
+    expect(screen.getByText("Pendientes de aceptar")).toBeInTheDocument();
+    expect(screen.getByText("No habilitado")).toBeInTheDocument();
+    expect(screen.getByText(/Tu aprobación se conserva/)).toBeInTheDocument();
+  });
+
+  it("D-38: aprobado con los documentos vigentes aceptados se muestra habilitado", async () => {
+    mockFetch(
+      doctorRoutes(
+        doctorStatus({
+          status: "approved",
+          identity: "approved",
+          professional: "approved",
+          registrationComplete: true,
+          legalAccepted: true,
+          canOperate: true,
+          missing: [],
+        }),
+      ),
+    );
+    render(<DoctorPortal />);
+    expect(await screen.findByText("Habilitado")).toBeInTheDocument();
+    expect(
+      screen.getByText("Versiones vigentes aceptadas"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Tu aprobación se conserva/),
+    ).not.toBeInTheDocument();
   });
 });

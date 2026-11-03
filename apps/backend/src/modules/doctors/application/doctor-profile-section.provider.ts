@@ -24,7 +24,7 @@ export class DoctorProfileSectionProvider implements RoleProfileSection, OnModul
   }
 
   async registrationStatus(actor: Actor) {
-    const status = await this.getStatus.execute(actor);
-    return { ...status, canOperate: status.status === 'approved' };
+    // D-38: canOperate lo deriva el dominio; no se recalcula a partir de status.
+    return this.getStatus.execute(actor);
   }
 }

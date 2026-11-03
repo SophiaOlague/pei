@@ -1,4 +1,4 @@
-import { deriveDoctorStatus, deriveLineStatus, type DoctorStatusSnapshot, type LineStatus, type ReviewSnapshot } from './doctor-status';
+import { deriveDoctorStatus, deriveLineStatus, isOperational, type DoctorStatusSnapshot, type LineStatus, type ReviewSnapshot } from './doctor-status';
 
 // M03 B4 (diseño v3 §D): estado derivado. Sin BD.
 
@@ -41,7 +41,7 @@ describe('Revisión vigente de una línea (diseño v3 §D.1)', () => {
 });
 
 describe('Escenarios del diseño v3 §D.5', () => {
-  // [#, snapshot, identidad, profesional, registrationComplete, global]
+  // [#, snapshot, identidad, profesional, registrationComplete, estado administrativo] (Z-1 enmendada por D-38)
   const cases: [number, string, DoctorStatusSnapshot, LineStatus, LineStatus, boolean, string][] = [
     [1, 'perfil creado; nada enviado', snap('required', 'required'), 'required', 'required', false, 'pending'],
     [2, 'todo enviado', snap('pending', 'pending'), 'pending', 'pending', true, 'pending'],
@@ -59,7 +59,7 @@ describe('Escenarios del diseño v3 §D.5', () => {
       professionalRevision: 2,
       licenseReviews: [{ attempt: 1, revision: 1, status: 'approved' }, { attempt: 2, revision: 2, status: 'pending' }],
     }), 'approved', 'pending', true, 'pending'],
-    [11, 'aprobado con doctor_terms v2 publicada', snap('approved', 'approved', { legalAccepted: false }), 'approved', 'approved', false, 'pending'],
+    [11, 'aprobado con doctor_terms v2 publicada', snap('approved', 'approved', { legalAccepted: false }), 'approved', 'approved', false, 'approved'],
     [12, 'especialidad desactivada por el admin (sigue asignada)', snap('approved', 'approved', { specialtyAssigned: true }), 'approved', 'approved', true, 'approved'],
     [13, 'legales sin aceptar; todo enviado', snap('pending', 'pending', { legalAccepted: false }), 'pending', 'pending', false, 'pending'],
     [14, 'ambas rechazadas', snap('rejected', 'rejected'), 'rejected', 'rejected', true, 'rejected'],
@@ -68,7 +68,7 @@ describe('Escenarios del diseño v3 §D.5', () => {
       licenseReviews: [{ attempt: 4, revision: 4, status: 'approved' }, { attempt: 5, revision: 5, status: 'pending' }],
     }), 'approved', 'pending', true, 'pending'],
     [16, 'INE rechazada; cédula sin enviar', snap('rejected', 'required'), 'rejected', 'required', false, 'rejected'],
-    [17, 'ambas aprobadas; legales sin aceptar', snap('approved', 'approved', { legalAccepted: false }), 'approved', 'approved', false, 'pending'],
+    [17, 'ambas aprobadas; legales sin aceptar', snap('approved', 'approved', { legalAccepted: false }), 'approved', 'approved', false, 'approved'],
     [18, 'aprobado que cambia la CURP con la cédula rechazada', snap('approved', 'rejected', { identityRevision: 2 }), 'required', 'rejected', false, 'rejected'],
   ];
 
@@ -84,10 +84,11 @@ describe('Escenarios del diseño v3 §D.5', () => {
 
 describe('Regla global Z-1: las 32 combinaciones (diseño v3 §D.3)', () => {
   const lines: LineStatus[] = ['required', 'pending', 'approved', 'rejected'];
-  const expected = (i: LineStatus, p: LineStatus, complete: boolean) => {
+  // D-38: el estado administrativo solo depende de las líneas; la aceptación legal no interviene.
+  const expected = (i: LineStatus, p: LineStatus) => {
     if (i === 'pending' || p === 'pending') return 'pending';
     if (i === 'rejected' || p === 'rejected') return 'rejected';
-    if (i === 'approved' && p === 'approved' && complete) return 'approved';
+    if (i === 'approved' && p === 'approved') return 'approved';
     return 'pending';
   };
   const combos = lines.flatMap((i) => lines.flatMap((p) => [true, false].map((legal) => [i, p, legal] as const)));
@@ -98,7 +99,17 @@ describe('Regla global Z-1: las 32 combinaciones (diseño v3 §D.3)', () => {
     const result = deriveDoctorStatus(snap(i, p, { legalAccepted: legal }));
     const complete = i !== 'required' && p !== 'required' && legal;
     expect(result.registrationComplete).toBe(complete);
-    expect(result.status).toBe(expected(i, p, complete));
+    expect(result.status).toBe(expected(i, p));
+    expect(result.legalAccepted).toBe(legal);
+    // D-38: habilitación = aprobación administrativa y registro completo (aceptación legal vigente incluida).
+    expect(result.canOperate).toBe(expected(i, p) === 'approved' && complete);
+    expect(isOperational(result)).toBe(result.canOperate);
+  });
+
+  it('[TC-M03-108][D-38] el estado administrativo es el mismo con y sin aceptación legal', () => {
+    for (const [i, p] of lines.flatMap((a) => lines.map((b) => [a, b] as const))) {
+      expect(deriveDoctorStatus(snap(i, p, { legalAccepted: false })).status).toBe(deriveDoctorStatus(snap(i, p)).status);
+    }
   });
 });
 
@@ -128,9 +139,20 @@ describe('Secuencias del diseño v3 §D.4', () => {
     expect(at([...ineRejected, { attempt: 2, revision: 1, status: 'approved' }], lic('approved'), 2)).toBe('approved');
   });
 
-  it('[TC-M03-111][R-13] una versión legal nueva vuelve a pending sin reabrir revisiones; al aceptarla vuelve a approved', () => {
-    expect(deriveDoctorStatus(snap('approved', 'approved', { legalAccepted: false }))).toMatchObject({ status: 'pending', missing: ['legal'] });
-    expect(deriveDoctorStatus(snap('approved', 'approved'))).toMatchObject({ status: 'approved', missing: [] });
+  it('[TC-M03-111][R-13][D-38] una versión legal nueva conserva la aprobación y quita la habilitación; al aceptarla la recupera sin nueva revisión', () => {
+    expect(deriveDoctorStatus(snap('approved', 'approved', { legalAccepted: false }))).toMatchObject({
+      status: 'approved', registrationComplete: false, legalAccepted: false, canOperate: false, missing: ['legal'],
+    });
+    // Mismas revisiones (ninguna nueva): solo cambia la aceptación.
+    expect(deriveDoctorStatus(snap('approved', 'approved'))).toMatchObject({
+      status: 'approved', registrationComplete: true, legalAccepted: true, canOperate: true, missing: [],
+    });
+  });
+
+  it('[TC-M03-273][D-38] aceptar los legales no aprueba: pendiente o rechazado no operan', () => {
+    for (const [i, p] of [['pending', 'approved'], ['rejected', 'approved'], ['approved', 'required']] as const) {
+      expect(deriveDoctorStatus(snap(i, p))).toMatchObject({ legalAccepted: true, canOperate: false });
+    }
   });
 });
 
@@ -138,7 +160,8 @@ describe('registrationComplete y missing (diseño v3 §D.2; plan v2 §7bis.2)', 
   it('[TC-M03-112][D-24][D-30] una revisión rechazada cuenta como entregada; la falta de perfil completo se reporta como profile', () => {
     expect(deriveDoctorStatus(snap('rejected', 'rejected')).registrationComplete).toBe(true);
     for (const field of ['legalNameComplete', 'curpValid', 'specialtyAssigned'] as const) {
-      expect(deriveDoctorStatus(snap('approved', 'approved', { [field]: false }))).toMatchObject({ registrationComplete: false, missing: ['profile'], status: 'pending' });
+      // D-38: el perfil incompleto no cambia el estado administrativo, pero impide operar.
+      expect(deriveDoctorStatus(snap('approved', 'approved', { [field]: false }))).toMatchObject({ registrationComplete: false, missing: ['profile'], status: 'approved', canOperate: false });
     }
   });
 
@@ -151,6 +174,6 @@ describe('registrationComplete y missing (diseño v3 §D.2; plan v2 §7bis.2)', 
 
   it('[TC-M03-114][D-31] sin perfil de médico: solo profile y legal; las líneas no se evalúan', () => {
     const none = { ...complete(), hasDoctorProfile: false, legalNameComplete: false, curpValid: false, specialtyAssigned: false, legalAccepted: false };
-    expect(deriveDoctorStatus(none)).toEqual({ status: 'pending', identity: 'required', professional: 'required', registrationComplete: false, missing: ['profile', 'legal'] });
+    expect(deriveDoctorStatus(none)).toEqual({ status: 'pending', identity: 'required', professional: 'required', registrationComplete: false, legalAccepted: false, canOperate: false, missing: ['profile', 'legal'] });
   });
 });

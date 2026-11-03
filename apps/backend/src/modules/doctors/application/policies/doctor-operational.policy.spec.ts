@@ -81,13 +81,40 @@ describe('DoctorOperationalPolicy (M03 B7: D-13, D-23, RN-004)', () => {
   });
 });
 
+describe('DoctorOperationalPolicy y aceptación legal (D-38, R-13)', () => {
+  // Una versión nueva publicada después de la aceptación del médico la deja sin vigencia.
+  const publishNewDoctorTerms = (env: Env) => env.world.store.publishLegalDocument('doctor_terms', '2026-11', new Date(Date.now() - 1_000));
+
+  it('[TC-M03-274][D-38][R-13] un aprobado con aceptación legal pendiente no opera, conserva la aprobación y recupera la habilitación al aceptar', async () => {
+    const env = setup();
+    const d = await doctor(env, true);
+    const v2 = publishNewDoctorTerms(env);
+    await expect(env.policy.assertCanOperate(d.doctorProfileId)).rejects.toThrow(DoctorNotOperationalError);
+    await expect(env.policy.assertActorCanOperate(d.actor)).rejects.toThrow(DoctorNotOperationalError);
+    expect(await env.policy.statusOf(d.doctorProfileId)).toMatchObject({ status: 'approved', identity: 'approved', professional: 'approved', legalAccepted: false, canOperate: false, missing: ['legal'] });
+    const section = env.registry.sectionFor('doctor')!;
+    expect(await section.registrationStatus(d.actor)).toMatchObject({ status: 'approved', canOperate: false });
+
+    env.world.store.state.acceptances.push({ userProfileId: d.actor.userProfileId!, legalDocumentId: v2.id, ipAddress: null, userAgent: null });
+    await expect(env.policy.assertCanOperate(d.doctorProfileId)).resolves.toBeUndefined();
+    expect(await section.registrationStatus(d.actor)).toMatchObject({ status: 'approved', legalAccepted: true, canOperate: true });
+  });
+
+  it('[TC-M03-275][D-38] la aceptación legal no habilita a un médico sin aprobación administrativa', async () => {
+    const env = setup();
+    const d = await doctor(env, false);
+    expect(await env.policy.statusOf(d.doctorProfileId)).toMatchObject({ status: 'pending', legalAccepted: true, canOperate: false });
+    await expect(env.policy.assertCanOperate(d.doctorProfileId)).rejects.toThrow(DoctorNotOperationalError);
+  });
+});
+
 describe('Sección del médico en GET /me (M03 B7: D-31)', () => {
   it('[TC-M03-170][D-31] la sección registrada devuelve perfil y estado con canOperate; Identity no la resuelve para el paciente', async () => {
     const env = setup();
     const d = await doctor(env, true);
     const section = env.registry.sectionFor('doctor');
     expect(section).not.toBeNull();
-    expect(await section!.registrationStatus(d.actor)).toMatchObject({ status: 'approved', registrationComplete: true, canOperate: true, missing: [] });
+    expect(await section!.registrationStatus(d.actor)).toMatchObject({ status: 'approved', registrationComplete: true, legalAccepted: true, canOperate: true, missing: [] });
     expect(await section!.profile(d.actor)).toMatchObject({ doctorProfileId: d.doctorProfileId, specialty: { code: 'medicina_general' } });
     expect(env.registry.sectionFor('admin')).toBeNull();
     expect(env.registry.sectionFor(null)).toBeNull();
