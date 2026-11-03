@@ -80,6 +80,7 @@ const DOUBLES_E2E_SPECS = [
   'test/auth-flows.e2e-spec.ts',
   'test/auth-guards.e2e-spec.ts',
   'test/auth-rate-limit.e2e-spec.ts',
+  'test/cors.e2e-spec.ts',
   'test/identity.e2e-spec.ts',
   'test/legal-regime.e2e-spec.ts',
   'test/doctors-security.e2e-spec.ts',
