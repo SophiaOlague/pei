@@ -71,6 +71,27 @@ describe('Arquitectura: dependencias permitidas (R-11)', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('[RT-M07-01][D-2] agenda usa de doctors solo la política operativa y el módulo; doctors no depende de agenda', () => {
+    const allowed = /doctors\/(application\/policies\/doctor-operational\.policy|doctors\.module)$/;
+    const offenders = files
+      .filter((file) => file.path.startsWith('modules/agenda/') && !file.path.endsWith('.spec.ts'))
+      .flatMap((file) => file.imports.filter((spec) => /(^|\/)doctors\//.test(spec) && !allowed.test(spec)).map((spec) => `${file.path} → ${spec}`));
+    const reverse = files
+      .filter((file) => file.path.startsWith('modules/doctors/'))
+      .filter((file) => file.imports.some((spec) => /(^|\/)agenda\//.test(spec)))
+      .map((file) => file.path);
+    expect(offenders).toEqual([]);
+    expect(reverse).toEqual([]);
+  });
+
+  it('[RT-M07-02] agenda no importa citas, pagos ni videoconsulta (fuera del alcance de M07)', () => {
+    const offenders = files
+      .filter((file) => file.path.startsWith('modules/agenda/'))
+      .filter((file) => file.imports.some((spec) => /(^|\/)(appointments|payments|video[\w-]*)\//.test(spec)))
+      .map((file) => file.path);
+    expect(offenders).toEqual([]);
+  });
+
   it('[RT-M03-15][R-11] doctors no importa el SDK de AWS ni la infraestructura de private-storage', () => {
     const offenders = files
       .filter((file) => file.path.startsWith('modules/doctors/'))
