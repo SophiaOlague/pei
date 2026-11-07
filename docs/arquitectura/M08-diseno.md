@@ -959,6 +959,358 @@ Quedó fuera lo que depende de M-1: el reagendamiento, `agenda_block_ends_at` (s
 **Ninguna ruta confirma citas** (RT-M08-04, TC-M08-105). La carga inicial (`pnpm appointments:seed-config`) es por
 omisión una simulación; **no se ejecutó**.
 
+
+## A.13 Validación de la etapa 1 contra PostgreSQL (C2, 2026-11-07)
+
+### A.13.1 Commit `7a730ba` aislado
+
+Se verificó en un worktree temporal, sin tocar el árbol de trabajo:
+
+| Comprobación | Resultado |
+|---|---|
+| `tsc` del backend | Sin errores nuevos. El único error, `test/support/better-auth-memory.ts`, ya existía |
+| Jest del backend (suite por omisión) | 59 suites, **794/794 pasan** |
+| E2E con dobles | 12 suites, **104/104 pasan**. Las 3 suites con base de datos solo se ejecutan con C2 (comportamiento previsto) |
+| Web: `vitest` | 13 archivos, **158/158 pasan** |
+| Web: `tsc` | `LayoutProps` no está definido en `src/app/layout.tsx`: es un tipo que genera Next en `.next/types`, que no existe en un worktree limpio. No es de M08 y en el árbol de trabajo pasa |
+| Bandera | `APPOINTMENTS_BOOKING_ENABLED` está ausente del `.env`, `.env.example` la deja en `false` y solo `"true"` la activa |
+
+### A.13.2 Pruebas C2 ejecutadas
+
+Destino: la rama de pruebas `br-shy-pond-b50a3m8f`, verificada por el lanzador antes de conectarse.
+
+| Spec | Modo | Resultado | Evidencia |
+|---|---|---|---|
+| `test/integration/appointments.int-spec.ts` | postgres (rollback, sin residuo) | **14/14 pasan** | `C:\pei-c2-evidencias\2026-11-07\c2-20261107173010-fe04` |
+| `test/concurrency/appointments.conc-spec.ts` | concurrency (dos conexiones, datos confirmados) | **3/3 pasan** | `C:\pei-c2-evidencias\2026-11-07\c2-20261107172913-2dbb` |
+
+**Cobertura:**
+- **Precio y política**: configuración inicial; versiones nuevas con una sola abierta; la cita conserva el precio y la
+  política aplicados; auditoría (TC-M08-200 a 202, TC-M08-252).
+- **Retenciones**: 5 minutos; idempotencia; dos pacientes no toman el mismo horario; una sola retención por paciente;
+  horario inválido; liberación; vencimiento; médico sin `canOperate` (TC-M08-210 a 213).
+- **Concurrencia**: dos reservas simultáneas, de las que exactamente una gana (TC-M08-250). El orden DA-2 se demostró
+  así: con el paciente bloqueado, la reserva ya tiene el candado del médico (`FOR UPDATE NOWAIT` → `55P03`,
+  TC-M08-251).
+- **Cancelaciones**: paciente con y sin reembolso según su versión de política; médico sin `canOperate` con reembolso
+  total; columnas de cancelación, historial y auditoría (TC-M08-230 a 233).
+- **Contratos**: `confirmPaid` con el importe exacto, con un importe distinto y sobre una cita vencida;
+  `getForSession`; `markNoShow` idempotente (TC-M08-220, 240).
+
+### A.13.3 Hallazgos
+
+| ID | Gravedad | Hallazgo | Propuesta |
+|---|---|---|---|
+| **H-1** | **Media** | `gst_appointment_guard` (0001) **no impide salir de `expired`**: un `UPDATE` directo `expired → confirmed` se acepta (TC-M08-221 lo documenta). La v2 del diseño decía lo contrario; la garantía de RN-012 y RN-141 la da hoy solo la aplicación (`confirmPaid`) | Incluirlo en M-1 #1b: los estados terminales (`expired`, `canceled`, `completed`, `no_show_*`, `rescheduled`) no cambian. No requiere cambios en el código de M08 |
+| H-2 | Baja | `appointment_status_history` es de solo inserción (protegida en la base de datos), así que la concurrencia no puede borrar sus citas | Aceptado como residuo sintético de la rama persistente, igual que M03. La rama conserva además una configuración base (200.00 MXN y la política inicial) y versiones de precio cerradas de ejecuciones previas que ya no se usan |
+| H-3 | Baja | El listado de médicos calcula `canOperate` y los horarios médico por médico (N+1) | Aceptable con pocos médicos; optimizar si crece |
+| H-4 | Informativo | La web, en un worktree limpio, necesita los tipos que genera Next (`LayoutProps`) | Ejecutar `next build` o `next typegen` antes de `tsc` en CI. Es ajeno a M08 |
+
+No se modificó código de M08: H-1 se resuelve en la base de datos (M-1).
+
+### A.13.4 Pruebas que no se ejecutaron
+
+- **Pagos reales y Stripe**: fuera de alcance; el contrato se probó llamando directamente a `confirmPaid`.
+- **Videoconsulta real**: no existe; se probó el contrato.
+- **Reagendamiento, `agenda_block_ends_at` y la referencia legal**: dependen de M-1 y de M02.
+- **La CLI `appointments:seed-config` contra una base real**: sin autorización para escribir con ella; solo tiene
+  pruebas unitarias.
+
+### A.13.5 Trazabilidad con el Maestro V2.4
+
+- El DOCX V2.4 (2026-10-28) llega hasta **C-22** y declara libres RF-66, RN-141 y C-23. C-23 a C-32, RF-66 y RN-141
+  están **solo** en el documento vivo `Maestro-V2.3.md`, que no sustituye al V2.4: es el registro delta que el
+  repositorio usa desde C-16.
+- Los números coinciden con la secuencia del V2.4: RF-66, RN-141 y C-23 en adelante, sin colisiones.
+- **Propuesta de consolidación** (no ejecutada):
+  1. Pasar C-23 a C-32 al DOCX como V2.4.1 (o V2.5): registro de cambios, el texto de RF-12, RF-19, RF-20, RF-66,
+     RN-025, RN-026, RN-030, RN-140 y RN-141, `rescheduled` en 6.1 marcado como pendiente de M-1, y la sección del
+     modelo de datos (C-24).
+  2. Renombrar o encabezar `Maestro-V2.3.md` como «Delta vivo posterior a V2.4» para evitar la confusión de versiones.
+  3. Corregir en el texto del V2.4 la nota sobre la aprobación de las estructuras propuestas (C-24).
+
+### A.13.6 Qué falta para autorizar M-1
+
+1. Tu aprobación del contenido actualizado: cambios 1 a 5, con H-1 dentro de 1b, y el 3 solo si se aprueba M02.
+2. La decisión sobre M02 (A.12.4).
+3. Escribir el SQL de M-1 y su script de reversión, y probar las dos cosas en la rama C2. Las pruebas de este apartado
+   sirven de regresión.
+4. Repetir las comprobaciones de datos (A.12.2) justo antes de ejecutarla.
+5. Crear una rama de respaldo en Neon antes de aplicarla en producción.
+
+
+## A.14 Preparación de M-1 y cierre de los hallazgos H-1 a H-4 (2026-11-07)
+
+### A.14.1 Entornos (aclaración de la persona responsable)
+
+| Entorno | Archivo | Rama de Neon | Uso | Migraciones |
+|---|---|---|---|---|
+| C2 | `C:\pei-c2\.env.c2` | `br-shy-pond-b50a3m8f` | Pruebas de integración, de concurrencia y validación de migraciones; se admiten pruebas destructivas controladas | Solo para validar, dentro de transacciones revertidas |
+| **Desarrollo** | `C:\pei\apps\backend\.env` | `br-royal-recipe-b54s5hnn` | La base del repositorio principal. **No es producción** | Solo con autorización expresa |
+| Producción futura | Todavía no existe | Un proyecto Neon nuevo | Recibirá el esquema completo al final del proyecto | — |
+
+**Correcciones a este documento:**
+- A.12.2 llamaba «producción» a la rama del `.env`: es **desarrollo**.
+- Las consultas de A.12.2 se hicieron en solo lectura sobre desarrollo.
+- `test/support/c2-target-guard.ts` (de M03, ajeno a M08) también la llama así; no se modificó.
+- En el código de M08 se corrigió la CLI de carga inicial: `MAIN_DEV_BRANCH_ID` y `--confirm-main-db`.
+
+Para reproducir la estructura en el Neon definitivo: aplicar `0000`–`0012` del journal de Drizzle y después M-1 (A.14.5)
+en el orden indicado. El SQL de M-1 es autocontenido; no depende de datos.
+
+### A.14.2 H-1 y la matriz de transiciones (en M-1 #1b)
+
+| Desde \ hacia | pending_payment | expired | confirmed | completed | canceled | no_show_* | rescheduled |
+|---|---|---|---|---|---|---|---|
+| **pending_payment** | — | ✓ (RN-012) | ✓ (RN-011) | ✗ | ✗ | ✗ | ✗ |
+| **confirmed** | ✗ | ✗ | — | ✓ | ✓ (RF-15) | ✓ (RN-025, 026, 030) | ✓ (C-25) |
+| **no_show_patient / doctor / both** | ✗ | ✗ | ✗ | ✓ (corrección, RN-027) | ✗ | ✓ entre ellos (RN-027) | ✗ |
+| **expired** | ✗ | — | ✗ (**H-1**) | ✗ | ✗ | ✗ | ✗ |
+| **completed, canceled, rescheduled** | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+
+- **Terminales**: `expired`, `canceled`, `completed` y `rescheduled`.
+- **Con transiciones legítimas**: `pending_payment`, `confirmed` y los tres `no_show_*` (solo para la corrección
+  administrativa, RN-027).
+- **Las copias de la reserva no cambian**: `cancellation_policy_id` (ya en 0001), `price` (RN-007), `patient_id`,
+  `doctor_id`, `scheduled_at` (reagendar crea otra cita, RN-015), `agenda_block_ends_at` y `legal_acceptance_id` (una
+  vez escritos).
+- Las columnas de cancelación sí se escriben en la transición `confirmed → canceled`.
+
+**Pruebas por SQL directo, sin pasar por la aplicación:**
+- TC-M08-301: las 72 transiciones posibles entre los 9 estados; solo pasan las de la matriz.
+- TC-M08-302: inmutabilidad de las copias.
+- TC-M08-304: un pago tardío no reactiva la cita, ni por la aplicación ni por SQL.
+
+### A.14.3 Los consumidores de `rescheduled` y la recuperación del enum
+
+| Consumidor | Impacto |
+|---|---|
+| `appointment.status` y `appointment_status_history.status` | Cambio de tipo, recreando el enum (A.14.5 #1a) |
+| `appointment_guard` (BEFORE UPDATE) | Nueva matriz (#1b) |
+| `appointment_lock_entries` (AFTER UPDATE **OF status**) | PostgreSQL no permite cambiar el tipo de una columna usada en la definición de un trigger: se quita y se recrea (#1a y #1c) |
+| `appointment_status_history_append_only` | No le afecta: la reescritura de la tabla no dispara triggers de fila |
+| `db/schema/enums.ts` (Drizzle) | Añadir `'rescheduled'` **cuando se autorice M-1**; hoy RT-M08-06 impide usarlo |
+| Dominio de M08 (`appointment-status.ts`) | Añadir el estado y la transición junto con el reagendamiento |
+| Consultas de M08 | `ACTIVE` (`confirmed` y `pending_payment`) ya excluye `rescheduled`; los listados lo mostrarán tal cual |
+| Reportes, analítica, pagos y liquidación | No existen. Su diseño debe tratar `rescheduled` como «sin reembolso ni cobro» (RN-018) y no contarlo como cancelación |
+| Web y móvil | No usan estados de cita |
+
+**Recuperación**: el script de reversión recrea el tipo sin `rescheduled` (`appointment_status_enum_v0` → cambio de
+columnas → borrado → renombrado). Se niega a ejecutarse si existe alguna fila `rescheduled`, para no perder datos. Las
+dos cosas se probaron en C2 (TC-M08-305, TC-M08-306): el esquema queda idéntico (huella de tipos, columnas,
+restricciones, triggers, índices y `md5` de las funciones) y se conservan todas las citas y su historial. Como el tipo
+se recrea en lugar de usar `ADD VALUE`, M-1 es **totalmente transaccional**.
+
+### A.14.4 H-2 a H-4
+
+| ID | Estado | Detalle |
+|---|---|---|
+| H-1 | **Corregido en la propuesta M-1** (no aplicada) | A.14.2. TC-M08-221 documenta el comportamiento actual (sin M-1); TC-M08-304, el corregido |
+| H-2 | **Resuelto en las pruebas** | La concurrencia nunca borra ni reabre versiones (compatible con M-1). Usa médicos y pacientes nuevos en cada ejecución, marca sus citas con el motivo `c2-m08-conc:<RUN>` y libera sus retenciones al terminar (`pending_payment → expired`). Si cambia el precio, publica de nuevo 200.00 como versión nueva. Se ejecutó dos veces seguidas: 3/3 y 3/3 |
+| H-3 | Documentado | `ListBookableDoctorsUseCase` llama a `canOperate` y a `generateSlots` por cada médico (N+1). Optimización futura: una lectura agregada de habilitación y franjas en un adaptador de M08, y un caché corto por médico y día. Fuera del alcance actual |
+| H-4 | Documentado; ajeno a M08 | `LayoutProps` (`apps/web/src/app/layout.tsx`) es un tipo que genera Next en `.next/types`. En un checkout limpio, `tsc` falla hasta ejecutar `next build` o `next typegen`. En el árbol de trabajo pasa. No es un error de M08 y no se tocó |
+
+**Consulta para identificar el residuo sintético en C2** (solo lectura):
+`select status, count(*) from appointment where reason like 'c2-m08-conc:%' or reason = 'x' group by status;`.
+`'x'` es el motivo de las primeras ejecuciones, anteriores a la marca. También son residuo los perfiles con el
+prefijo de `insertAuthUser` y las versiones de precio cerradas de esas ejecuciones.
+
+**Incidente durante la limpieza** (sin efecto en el repositorio):
+- Al quitar el worktree temporal de la validación del commit, `git worktree remove` siguió el enlace a
+  `apps/backend/node_modules` y borró parte de las dependencias instaladas.
+- Se repararon con `pnpm install --frozen-lockfile --force`, que no modificó `package.json` ni `pnpm-lock.yaml` (mismos
+  hashes).
+- Después de la reparación pasan 898/898 pruebas del backend y 158/158 de la web, y las dos verificaciones de tipos.
+
+### A.14.5 M-1: archivos, cambios y orden
+
+**Archivos** (en `apps/backend/src/db/proposals/m08-m1/`, **fuera** de `src/db/migrations`, así que no los aplica
+`db:migrate`):
+- `0013_m08_m1_core.up.sql` / `.down.sql`: parte A, obligatoria;
+- `0014_m08_m1_legal_acceptance.up.sql` / `.down.sql`: parte B, dependiente de M02;
+- `validate.sql`: validación posterior, de solo lectura.
+
+| # | Tabla y columna | Operación | Motivo | Dependencias | Restricciones e índices | Datos existentes | Riesgos | Reversión |
+|---|---|---|---|---|---|---|---|---|
+| **1a** (oblig.) | `appointment.status`, `appointment_status_history.status` | Recreación del enum con `rescheduled` | C-25, RN-018 | Quitar y recrear `appointment_lock_entries` | — | Conversión `::text` sin pérdida (desarrollo: 0 citas; C2: las sintéticas) | Bloqueo exclusivo durante la reescritura; tablas pequeñas | Recreación inversa; se niega si hay `rescheduled` |
+| **1b** (oblig.) | `gst_appointment_guard` | `CREATE OR REPLACE` | H-1, matriz completa, copias inmutables | 1a | Trigger existente | Solo afecta a UPDATE futuros | Bloquea UPDATE ilegítimos manuales (es lo buscado) | Texto original de 0001 (idéntico, comprobado) |
+| **1c** (oblig.) | `gst_appointment_lock_entries` y su trigger | Recrear e incluir `rescheduled` | Cerrar las entradas clínicas | 1a | — | — | — | Texto original de 0001 |
+| **2** (oblig.) | `appointment.agenda_block_ends_at` | `ADD COLUMN` + relleno + `CHECK` | DA-3, AP-23 | — | `appointment_agenda_block_ends_at_chk` | Relleno con la duración vigente | La columna admite nulos hasta M-1c (expandir y contraer) | `DROP COLUMN` |
+| **4** (oblig.) | `cancellation_policy.max_protected_wait_minutes`, `reconnect_grace_minutes` | `ADD COLUMN NOT NULL DEFAULT 60 / 5` + `CHECK` | C-26, AP-22 | — | `cancellation_policy_windows_chk` | Las versiones existentes toman 60 y 5; fallaría si alguna versión violara el orden | Los `DEFAULT` siguen hasta M-1c | `DROP COLUMN` |
+| **5** (oblig.) | `cancellation_policy`, `consultation_price_configuration` | Triggers: solo cerrar una vez; sin DELETE ni TRUNCATE | RN-021, AP-2 | 4 | 4 triggers | Compatible con `closeVersion` | Impide limpiezas manuales (es lo buscado) | `DROP TRIGGER` y `DROP FUNCTION` |
+| ~~5c~~ | — | **Retirado** | 0001 ya tiene `EXCLUDE … no_overlap` en ambas tablas | — | — | — | — | — |
+| **3** (M02) | `appointment.legal_acceptance_id` → `user_legal_acceptance` | `ADD COLUMN` + FK + índice | C-32, AP-19 | 0013 y la autorización de M02 | `appointment_legal_acceptance_idx`; inmutable mediante 1b | Admite nulos para las citas anteriores | — | `0014 down` (antes que 0013) |
+| 6 (opcional) | `EXCLUDE` de citas con `btree_gist` | **Excluido** | — | — | — | — | — | — |
+
+**Expandir y contraer**: M-1 deja el código actual funcionando sin cambios (TC-M08-304). **M-1c**, más adelante y con
+su propia autorización, hará `agenda_block_ends_at NOT NULL` y retirará los `DEFAULT` de #4, cuando el código de M08
+escriba esos datos.
+
+**Orden de ejecución** (en desarrollo, cuando se autorice):
+1. Rama de respaldo de Neon de desarrollo (autorización aparte).
+2. Comprobar el destino (identidad de la rama).
+3. Comprobaciones previas de solo lectura (A.12.2).
+4. `0013 up` en **una** transacción.
+5. `validate.sql` (todo `ok = true`).
+6. Si M02 está autorizado: `0014 up` y `validate.sql`.
+7. Registrar el journal o la migración Drizzle equivalente y actualizar `db/schema` (`enums.ts`, `appointment.ts`,
+   `configuration.ts`).
+8. Ejecutar las suites de M08.
+
+**Reversión**: `0014 down` → `0013 down`, cada uno en una transacción.
+
+**Respaldo**: una rama de Neon creada desde desarrollo justo antes (punto de restauración instantáneo) y la huella del
+esquema tomada antes y después (la consulta de TC-M08-305).
+
+### A.14.6 Pruebas de M-1 en C2
+
+`test/integration/m08-m1-migration.int-spec.ts`, modo postgres. Cada prueba usa su propia conexión: tras recrear el enum,
+una sesión reutilizada guarda el tipo eliminado en caché. Todo ocurre en transacciones revertidas, y la huella del
+esquema de C2 se compara antes y después del archivo: **es idéntica, así que M-1 no quedó aplicada**.
+
+| Prueba | Resultado |
+|---|---|
+| TC-M08-300: aplica 0013 sobre los datos existentes; `validate.sql` sin fallos; relleno completo; segunda aplicación rechazada | PASS |
+| TC-M08-301: matriz completa por SQL | PASS |
+| TC-M08-302: copias inmutables | PASS |
+| TC-M08-303: versiones de precio y política (solo cerrar, sin DELETE ni TRUNCATE, CHECK de ventanas) | PASS |
+| TC-M08-304: el código actual de M08 funciona con M-1; un pago tardío no reactiva | PASS |
+| TC-M08-305: reversión exacta, sin pérdida de citas ni historial | PASS |
+| TC-M08-306: reversión rechazada si hay `rescheduled` | PASS |
+| TC-M08-307: 0014 requiere 0013, inmutabilidad, orden de reversión | PASS |
+
+Evidencias:
+- `C:\pei-c2-evidencias\2026-11-07\c2-20261107175349-37d7` (M-1, 8/8);
+- `…\c2-20261107175749-606b` (integración, 14/14);
+- `…\c2-20261107175555-1a76` y `…\c2-20261107175639-3c9f` (concurrencia, 3/3 dos veces).
+
+### A.14.7 Cambio de M02 (sin implementar)
+
+La revisión de A.12.4 se mantiene, con dos precisiones:
+- **Trazabilidad**: la cita guarda el `id` de la fila de `user_legal_acceptance`, que es de solo inserción (0001) y ya
+  contiene la versión, la fecha, la IP y el agente de usuario. No se copia ningún dato, y la referencia no cambia (1b).
+- **Pruebas que añadir**:
+  - en M02: lector con régimen actual, régimen anterior y sin aceptación;
+  - en M08: la reserva guarda la referencia, la rechaza sin aceptación vigente y el reagendamiento la copia;
+  - en C2: TC-M08-307 más una prueba de extremo a extremo.
+
+### A.14.8 Trazabilidad
+
+- **H-1** → M-1 #1b → C-25 (6.1) y RN-141 → DA-1 y DA-9.
+- **H-2** → `appointments.conc-spec.ts`.
+- **H-3** → DA-12 y C-28.
+- **H-4**: ajeno a M08.
+- **DA-3** → M-1 #2. **DA-6** → M-1 #1a y 1c. **DA-10b** → M-1 #4 y 5. **DA-11** → M-1 (sin el 6).
+- **C-23** → AP-1, AP-2 y AP-9, M-1 #5. **C-24** → AP-3. **C-26** → M-1 #4. **C-32** → M-1 #3 (M02).
+- **Dependencias externas**:
+  - M07: sin cambios (DA-5);
+  - pagos: `confirmPaid` y `markPaymentFailed`;
+  - videoconsulta: `getForSession`, `markCompleted` y `markNoShow`.
+- **Maestro**: el DOCX V2.4 sigue siendo la referencia vigente. `Maestro-V2.3.md` es el registro vivo de cambios
+  posteriores (C-23 a C-32). La propuesta de consolidación de A.13.5 sigue en pie y no se ejecuta sin autorización.
+
+### A.14.9 Decisiones que requieren aprobación expresa
+
+1. **M-1 parte A** (0013) y su aplicación en desarrollo, con el orden y el respaldo de A.14.5.
+2. **La matriz de A.14.2**, en concreto:
+   - la corrección `no_show_* → completed`;
+   - la inmutabilidad de `price`, `patient_id`, `doctor_id` y `scheduled_at` (propuesta nueva).
+3. **Expandir y contraer**: aceptar que M-1c (`NOT NULL` y retirar los `DEFAULT`) es un paso posterior.
+4. **El cambio en M02** y, con él, M-1 parte B (0014).
+5. **La rama de respaldo** de Neon de desarrollo antes de aplicar.
+6. **Consolidar C-23 a C-32** en el DOCX V2.4.
+
+
+## A.15 Aplicación de M-1 parte A en desarrollo (2026-11-07)
+
+Autorizada solo `0013_m08_m1_core.up.sql`. No se aplicaron `0014`, M-1c, el cambio 6 ni M02.
+
+| Paso | Resultado |
+|---|---|
+| Rama de respaldo | `br-rapid-water-b5za50z4` (endpoint `ep-calm-snow-b5eox1a8`), creada por la responsable del proyecto. Verificada en solo lectura: mismo proyecto (`royal-paper-10258990`), 13 migraciones, enum de 8 valores, sin M-1 y `md5` de las funciones idéntico al de desarrollo antes de aplicar |
+| Destino | `br-royal-recipe-b54s5hnn` (endpoint `ep-wandering-bonus-b5kxacor`), desarrollo del repositorio principal; no es C2 |
+| SQL | sha256 de `0013` (`2138d406…1472`) y de `validate.sql` (`81b170b0…a467`): los mismos que se probaron en C2 |
+| Aplicación | Una sola transacción, confirmada sin errores |
+| `validate.sql` | Las 11 comprobaciones dan `ok` |
+| Catálogo | El enum tiene 9 valores (incluye `rescheduled`) y queda un solo tipo. Columnas nuevas: `agenda_block_ends_at` (admite nulos; M-1c pendiente), `max_protected_wait_minutes` (DEFAULT 60) y `reconnect_grace_minutes` (DEFAULT 5). Restricciones nuevas: `appointment_agenda_block_ends_at_chk` y `cancellation_policy_windows_chk`; los `no_overlap` siguen intactos. Triggers: 7 en las 4 tablas, incluidos los 4 nuevos de versiones. Funciones nuevas: `gst_versioned_config_guard` y `gst_versioned_config_no_truncate`. Los índices de `appointment` no cambian. Hay 63 tablas, igual que antes |
+| Comprobación de humo en desarrollo (solo lectura) | Los repositorios Drizzle de M08 consultan el esquema migrado sin errores |
+| Pruebas | Backend 898/898; E2E con dobles 104/104 (las 3 suites que necesitan base de datos solo corren con C2); C2: M-1 8/8 (`c2-20261107181417-2ea1`, esquema de C2 intacto) e integración 14/14 (`c2-20261107181554-f1b4`) |
+
+**Diferencias respecto al esquema esperado:** ninguna en la base de datos. Hay dos desfases esperados, que se resuelven
+en el paso de código:
+1. `drizzle.__drizzle_migrations` sigue con 13 entradas, porque M-1 se aplicó fuera del journal. Falta registrarla
+   como migración Drizzle `0013` equivalente.
+2. `src/db/schema` todavía no declara `rescheduled`, `agenda_block_ends_at` ni las dos columnas nuevas de la política.
+   El código actual funciona igual (TC-M08-304 y la comprobación de humo).
+
+Ambos pasos y los siguientes requieren autorización: el registro en el journal y el esquema Drizzle, M-1c, `0014`, M02
+y el reagendamiento.
+
+
+## A.16 Sincronización del repositorio con M-1 parte A (2026-11-07)
+
+**Mecanismo de Drizzle** (drizzle-orm 0.45, `pg-core/dialect.js` y `migrator.js`, verificado en el código):
+- `readMigrationFiles` lee `meta/_journal.json` y, para cada entrada, el archivo `<tag>.sql`. El hash es el sha256 del
+  contenido del archivo.
+- `migrate` lee **solo la última fila** de `drizzle.__drizzle_migrations` (ordenada por `created_at`) y aplica cada
+  entrada cuyo `when` sea mayor. Después inserta `(hash, created_at = when)`. No compara hashes de entradas anteriores.
+
+**Integración realizada (sin tocar la base de datos):**
+- `drizzle-kit generate --custom --name m08_m1_core` creó la entrada 13 del journal (`when` 1794076271586) y el archivo
+  vacío. Ese archivo se reemplazó por una copia **idéntica byte a byte** de la propuesta. Su sha256 es `2138d406…1472`,
+  el mismo de la versión aplicada en desarrollo y probada en C2; la propuesta original se conserva como trazabilidad.
+- `--custom` copia el snapshot anterior. Por eso se ejecutó un `generate` normal, que produjo un diff con exactamente
+  los cambios estructurales de 0013:
+  - `ADD VALUE 'rescheduled'`;
+  - las 3 columnas;
+  - los 2 `CHECK`.
+
+  Ese snapshot se incorporó como `0013_snapshot.json` (conservando el `id` y el `prevId` de la cadena) y se borró el
+  `0014` provisional. Un `generate` posterior responde «No schema changes».
+- **Lo que Drizzle no rastrea**: los triggers y las funciones de 0013 (igual que en 0001).
+
+**`src/db/schema` actualizado:**
+- `enums.ts`: `rescheduled`.
+- `appointment.ts`: `agendaBlockEndsAt`, que admite nulos, y el `CHECK` `appointment_agenda_block_ends_at_chk`.
+- `configuration.ts`: `maxProtectedWaitMinutes` (DEFAULT 60), `reconnectGraceMinutes` (DEFAULT 5) y el `CHECK`
+  `cancellation_policy_windows_chk`.
+
+Se comparó con el catálogo real de desarrollo (en solo lectura): **ninguna diferencia**.
+
+**Pendiente (requiere autorización: es una escritura en desarrollo):** registrar 0013 como aplicada. Mientras no se
+registre, `db:migrate` en desarrollo **intentaría** aplicarla, porque la última fila es `1792471523747`, anterior a
+`1794076271586`. Fallaría de forma segura: el bloque inicial de 0013 detecta `rescheduled`, lanza «M-1 ya está
+aplicada» y la transacción del migrador se revierte por completo. La operación propuesta, en una transacción y
+verificando el destino `br-royal-recipe-b54s5hnn`, es:
+
+```sql
+insert into drizzle.__drizzle_migrations (hash, created_at)
+values ('2138d4064d8acd97e3189c38eace19e79fbf622b97ed53ecf772c205846b1472', 1794076271586);
+```
+
+Es exactamente la fila que habría escrito `migrate`. En C2, que no tiene M-1, `db:migrate` sí aplicaría 0013, que es lo
+correcto cuando se autorice.
+
+**Ajuste fuera de M08 (estrictamente necesario):** `src/db/schema/doctor.schema.spec.ts` (TC-M03-100) tomaba «las 4
+últimas» entradas del journal como 0009–0012. Ahora toma las posiciones 9 a 12, con la misma intención.
+
+
+**Registro en el journal aplicado (2026-11-07, autorizado):** en desarrollo (`royal-paper-10258990`,
+`br-royal-recipe-b54s5hnn`, `ep-wandering-bonus-b5kxacor`) se insertó en una transacción, con la tabla bloqueada, la fila
+`(2138d406…1472, 1794076271586)` en `drizzle.__drizzle_migrations`.
+
+Comprobaciones previas:
+- no existía una fila con ese hash;
+- las 13 filas coincidían una a una con las entradas 0–12 del journal;
+- ninguna era posterior a `1794076271586`, el `when` exacto de la entrada 13;
+- el sha256 del archivo coincidía.
+
+Resultado:
+- 14 filas, y exactamente una con el hash de 0013;
+- `migrate` no tiene entradas pendientes;
+- el esquema sigue coincidiendo con 0013 (consulta de solo lectura);
+- el SQL de 0013 no se volvió a ejecutar, y la rama de respaldo y C2 no se tocaron.
+
 ---
 
 # Parte B: diseño v2 (se conserva; la parte A prevalece)

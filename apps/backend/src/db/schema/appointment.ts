@@ -1,4 +1,5 @@
-import { pgTable, uuid, varchar, text, timestamp, numeric, integer, index, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { pgTable, uuid, varchar, text, timestamp, numeric, integer, index, check, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import {
   appointmentTypeEnum,
   appointmentStatusEnum,
@@ -34,6 +35,9 @@ export const appointment = pgTable(
     cancelledByType: cancellationActorTypeEnum('cancelled_by_type'),
     cancelledByUserProfileId: uuid('cancelled_by_user_profile_id').references(() => userProfile.id),
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    // M-1 (0013, DA-3): fin del bloque reservado, solo para la ocupación de la agenda; distinto de meeting.ended_at.
+    // Admite nulos hasta M-1c.
+    agendaBlockEndsAt: timestamp('agenda_block_ends_at', { withTimezone: true }),
     rescheduledFromAppointmentId: uuid('rescheduled_from_appointment_id').references(
       (): AnyPgColumn => appointment.id,
     ),
@@ -46,6 +50,7 @@ export const appointment = pgTable(
     index('appointment_scheduled_at_idx').on(t.scheduledAt),
     index('appointment_doctor_schedule_idx').on(t.doctorId, t.scheduledAt),
     index('appointment_payment_hold_idx').on(t.paymentHoldExpiresAt),
+    check('appointment_agenda_block_ends_at_chk', sql`${t.agendaBlockEndsAt} is null or ${t.agendaBlockEndsAt} > ${t.scheduledAt}`),
   ],
 );
 

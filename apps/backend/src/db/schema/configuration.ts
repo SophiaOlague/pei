@@ -1,4 +1,5 @@
-import { pgTable, uuid, varchar, integer, numeric, boolean, timestamp, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { pgTable, uuid, varchar, integer, numeric, boolean, timestamp, index, uniqueIndex, check } from 'drizzle-orm/pg-core';
 import { userProfile } from './identity';
 
 // Política de citas versionada: plazo de reembolso, reagendamientos y ventanas de espera.
@@ -10,12 +11,21 @@ export const cancellationPolicy = pgTable(
     maxReschedules: integer('max_reschedules').notNull(),
     doctorWaitMinutes: integer('doctor_wait_minutes').notNull(),
     patientToleranceMinutes: integer('patient_tolerance_minutes').notNull(),
+    // M-1 (0013, C-26, AP-22): DEFAULT 60 y 5 hasta M-1c.
+    maxProtectedWaitMinutes: integer('max_protected_wait_minutes').notNull().default(60),
+    reconnectGraceMinutes: integer('reconnect_grace_minutes').notNull().default(5),
     effectiveFrom: timestamp('effective_from', { withTimezone: true }).notNull(),
     effectiveUntil: timestamp('effective_until', { withTimezone: true }),
     createdBy: uuid('created_by').notNull().references(() => userProfile.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('cancellation_policy_effective_from_idx').on(t.effectiveFrom)],
+  (t) => [
+    index('cancellation_policy_effective_from_idx').on(t.effectiveFrom),
+    check(
+      'cancellation_policy_windows_chk',
+      sql`${t.refundDeadlineHours} > 0 and ${t.maxReschedules} >= 0 and ${t.patientToleranceMinutes} > 0 and ${t.patientToleranceMinutes} <= ${t.doctorWaitMinutes} and ${t.doctorWaitMinutes} <= ${t.maxProtectedWaitMinutes} and ${t.reconnectGraceMinutes} > 0 and ${t.reconnectGraceMinutes} < ${t.patientToleranceMinutes}`,
+    ),
+  ],
 );
 
 // [PROPUESTO] Estructura pendiente de aprobación del líder técnico.

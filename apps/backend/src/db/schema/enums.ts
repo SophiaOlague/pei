@@ -66,6 +66,8 @@ export const appointmentStatusEnum = pgEnum('appointment_status_enum', [
   'no_show_patient',
   'no_show_doctor',
   'no_show_both',
+  // M-1 (0013, C-25): cita confirmada que se reagendó; estado final.
+  'rescheduled',
 ]);
 
 export const cancellationActorTypeEnum = pgEnum('cancellation_actor_type_enum', [
