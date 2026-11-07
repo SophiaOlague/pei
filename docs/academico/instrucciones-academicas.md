@@ -14,7 +14,7 @@ producto: eso lo define el Documento Maestro (`docs/arquitectura/Maestro-V2.3.md
 | Documento de dualidad | `Documento_Dualidad_SophiaOlague9C.pdf` (2026-09-02, 24 pp.) | Documento académico principal: introducción, objetivos, metodología, modelo de negocio, desarrollo por materias y anexos |
 | Entregables por materia | `Entregables.pdf` (2026-10-07) | Objetivos del PE y entregables del proyecto, por materia y unidad |
 | Plan de trabajo v2 | `Plan_de_trabajo_Dualidad_PEI_v2_backend_movil.md.pdf` (2026-09-17) | Calendario de 12 semanas, fases, 37 entregables con fecha, hitos y riesgos |
-| Evidencia académica del repositorio | `docs/academico/` (M00, M01, M02 y `contradicciones-dualidad-maestro.md`) | Evidencia obtenida del código y de las pruebas reales, módulo por módulo |
+| Evidencia académica del repositorio | `docs/academico/` (M00, M01, M02, M03, M07 y `contradicciones-dualidad-maestro.md`) | Evidencia obtenida del código y de las pruebas reales, módulo por módulo |
 
 **Versión vigente del documento de dualidad:** `Documento_Dualidad_SophiaOlague9C.pdf`, confirmada el 2026-10-17. Las
 versiones anteriores (`Documento_Dualidad_SophiaOlague.pdf` y `… (1).pdf`) no se usan.

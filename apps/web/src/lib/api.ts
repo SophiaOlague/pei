@@ -674,3 +674,96 @@ export function rejectDoctorLicenseReview(
     { method: "POST", body: JSON.stringify({ reason }) },
   );
 }
+
+// ── M07 Agenda médica (RF-10, RF-11). Todas las horas son del centro de México (America/Mexico_City). ──
+
+export const AGENDA_TIME_ZONE = "America/Mexico_City";
+export const AGENDA_DURATION_OPTIONS: readonly number[] = Array.from(
+  { length: (120 - 15) / 5 + 1 },
+  (_, i) => 15 + i * 5,
+);
+export const AGENDA_MAX_WINDOWS_PER_DAY = 6;
+
+// weekday: 0 = domingo … 6 = sábado. start/end "HH:MM"; end puede ser "24:00".
+export interface AgendaWindow {
+  weekday: number;
+  start: string;
+  end: string;
+}
+
+export interface AgendaTimeOff {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  reason: string | null;
+}
+
+export interface DoctorAgenda {
+  timeZone: string;
+  canOperate: boolean;
+  durationMinutes: number;
+  availability: AgendaWindow[];
+  timeOff: AgendaTimeOff[];
+}
+
+export interface AgendaSlot {
+  startsAt: string;
+  endsAt: string;
+  date: string;
+  start: string;
+  end: string;
+}
+
+export interface AgendaSlots {
+  timeZone: string;
+  durationMinutes: number;
+  from: string;
+  to: string;
+  slots: AgendaSlot[];
+}
+
+const AGENDA = "/me/doctor/agenda";
+
+export function getDoctorAgenda(): Promise<DoctorAgenda> {
+  return request(AGENDA);
+}
+
+export async function replaceAgendaAvailability(
+  windows: AgendaWindow[],
+): Promise<AgendaWindow[]> {
+  const res = await request<{ availability: AgendaWindow[] }>(
+    `${AGENDA}/availability`,
+    { method: "PUT", body: JSON.stringify({ windows }) },
+  );
+  return res.availability;
+}
+
+export async function changeAgendaDuration(minutes: number): Promise<number> {
+  const res = await request<{ durationMinutes: number }>(`${AGENDA}/duration`, {
+    method: "PUT",
+    body: JSON.stringify({ minutes }),
+  });
+  return res.durationMinutes;
+}
+
+export function addAgendaTimeOff(input: {
+  startsAt: string;
+  endsAt: string;
+  reason?: string;
+}): Promise<AgendaTimeOff> {
+  return request(`${AGENDA}/time-off`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function removeAgendaTimeOff(id: string): Promise<void> {
+  await send(`${AGENDA}/time-off/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export function getAgendaSlots(from: string, to: string): Promise<AgendaSlots> {
+  const query = new URLSearchParams({ from, to });
+  return request(`${AGENDA}/slots?${query}`);
+}

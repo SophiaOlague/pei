@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { PrivateStorageModule } from './modules/private-storage/private-storage.module';
 import { DoctorsModule } from './modules/doctors/doctors.module';
+import { AgendaModule } from './modules/agenda/agenda.module';
 
 
 @Module({
@@ -22,7 +23,8 @@ import { DoctorsModule } from './modules/doctors/doctors.module';
     AuditModule,
     PrivateStorageModule,
     IdentityModule,
-    DoctorsModule],
+    DoctorsModule,
+    AgendaModule],
   controllers: [AppController],
   providers: [AppService],
 })

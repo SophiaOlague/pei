@@ -76,6 +76,7 @@ const GUARDED_DB_SPECS = [
 // E2E con dobles (Better Auth en memoria y proveedores sustituidos): sin salvaguarda explícita para poder ejecutarse
 // sin C2; el interceptor (db-tripwire) bloquea cualquier intento de conexión.
 const DOUBLES_E2E_SPECS = [
+  'test/agenda.e2e-spec.ts',
   'test/audit.e2e-spec.ts',
   'test/auth-flows.e2e-spec.ts',
   'test/auth-guards.e2e-spec.ts',
