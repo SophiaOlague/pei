@@ -1,12 +1,16 @@
 "use client";
 
-import { Home, LogOut, type LucideIcon, UserCheck } from "lucide-react";
+import { BadgeDollarSign, Home, LogOut, type LucideIcon, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { clearMeCache } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
-import { ADMIN_HOME_PATH, ADMIN_PROFESSIONALS_PATH } from "./paths";
+import {
+  ADMIN_CONSULTATION_PRICE_PATH,
+  ADMIN_HOME_PATH,
+  ADMIN_PROFESSIONALS_PATH,
+} from "./paths";
 import { useAdmin } from "./require-admin";
 
 interface AdminNavItem {
@@ -22,6 +26,11 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
     href: ADMIN_PROFESSIONALS_PATH,
     label: "Revisión de profesionales",
     icon: UserCheck,
+  },
+  {
+    href: ADMIN_CONSULTATION_PRICE_PATH,
+    label: "Precio de consulta",
+    icon: BadgeDollarSign,
   },
 ];
 

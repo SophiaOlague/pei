@@ -77,6 +77,7 @@ const GUARDED_DB_SPECS = [
 // sin C2; el interceptor (db-tripwire) bloquea cualquier intento de conexión.
 const DOUBLES_E2E_SPECS = [
   'test/agenda.e2e-spec.ts',
+  'test/appointments.e2e-spec.ts',
   'test/audit.e2e-spec.ts',
   'test/auth-flows.e2e-spec.ts',
   'test/auth-guards.e2e-spec.ts',

@@ -767,3 +767,40 @@ export function getAgendaSlots(from: string, to: string): Promise<AgendaSlots> {
   const query = new URLSearchParams({ from, to });
   return request(`${AGENDA}/slots?${query}`);
 }
+
+// M08 (RF-66 propuesto, AP-2): precio global de consulta, en versiones. Solo administrador.
+//   GET  /admin/consultation-price            versión vigente (404 si no hay)
+//   GET  /admin/consultation-price/versions   historial
+//   POST /admin/consultation-price/versions   { price: "250.00" } → nueva versión con vigencia inmediata
+export interface ConsultationPriceVersion {
+  id: string;
+  price: string;
+  currency: string;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  createdBy: string;
+}
+
+const CONSULTATION_PRICE = "/admin/consultation-price";
+
+export function getConsultationPrice(): Promise<ConsultationPriceVersion> {
+  return request(CONSULTATION_PRICE);
+}
+
+export async function listConsultationPriceVersions(): Promise<
+  ConsultationPriceVersion[]
+> {
+  const res = await request<{ versions: ConsultationPriceVersion[] }>(
+    `${CONSULTATION_PRICE}/versions`,
+  );
+  return res.versions;
+}
+
+export function publishConsultationPrice(
+  price: string,
+): Promise<ConsultationPriceVersion> {
+  return request(`${CONSULTATION_PRICE}/versions`, {
+    method: "POST",
+    body: JSON.stringify({ price }),
+  });
+}

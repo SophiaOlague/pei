@@ -47,9 +47,20 @@ Requerimientos, reglas de negocio y consideraciones normativas de **PEI**, la ap
 | C-15 | 2026-10-17 | 7.2 | Integridad de la CURP y coherencia de rol | Modificación | DT-22; R-10 | CURP implementada (`0007`); coherencia de rol pendiente (`0008`) |
 | C-16 | 2026-10-28 | 5.1 | RN-138: ni el paciente ni el médico editan desde su cuenta su CURP ni su nombre legal. RN-004 deja de prever que el médico los cambie | Modificación | DP-12; sustituye D-28 y acota D-9/D-21/D-29 (decisión del 2026-10-28) | Implementada sin commit: se retiró `PUT /me/doctor-profile/identity`; el paciente ya cumplía (DP-12). Corrección pendiente (DP-CORR) |
 | C-22 | 2026-10-30 | 5.1 | RN-140: la falta de aceptación legal vigente restringe operaciones, no el acceso a la cuenta. Identificador tomado de la secuencia del Maestro V2.4, donde C-17 a C-21 ya están asignados | Nuevo | D-37 | Pendiente: aprobada documentalmente; bloqueos operativos sin implementar |
+| C-23 | 2026-11-07 | 3.2 | RF-66: configuración del precio global de consulta (200.00 MXN inicial, versiones con vigencia inmediata, copia en la cita, auditoría) | Nuevo | CC-5; AP-1, AP-2, AP-9 | Implementado sin commit (backend y panel); carga inicial preparada, no ejecutada |
+| C-24 | 2026-11-07 | 7.1 | Aprobadas las estructuras propuestas `appointment.cancellation_policy_id` y `consultation_price_configuration`. Las aprobó la persona responsable del proyecto, que declaró tener esa autoridad; no se atribuye al líder técnico | Aclaración | CC-10; AP-3 | Ya existían en `0000`; M08 las usa |
+| C-25 | 2026-11-07 | 6.1 | Estado `rescheduled`: `confirmed → rescheduled`, terminal. La cita nueva conserva precio, política y pago (RN-018) | Nuevo | CC-3; AP-7 | Pendiente: migración M-1 sin autorizar |
+| C-26 | 2026-11-07 | 3.3, 5.2 | RF-19, RF-20, RN-025, RN-026 y RN-030: espera protegida con límite total, gracia de reconexión, salida voluntaria y momentos de determinación de inasistencia (N8, N9, N10) | Aclaración | CC-2; AP-5, AP-6, AP-22, AP-24, AP-25 | Pendiente (videoconsulta); el límite y la gracia requieren M-1 |
+| C-27 | 2026-11-07 | 5.1 | RN-140: la cancelación protectora del médico (RN-013) no exige estar habilitado | Aclaración | CC-7; AP-13 | Implementado sin commit (M08) |
+| C-28 | 2026-11-07 | 3.2 | RF-12: listado de médicos reservables | Aclaración | CC-6; AP-12 | Implementado sin commit (M08) |
+| C-29 | 2026-11-07 | 5.2 | RN-141: reembolso automático de un pago que no puede confirmar la cita; `expired` no se reactiva | Nuevo | CC-4; AP-8 | Contrato en M08 sin commit; el reembolso lo ejecutará pagos |
+| C-30 | 2026-11-07 | 3.3 | RF-19: entrada a la sala 15 min antes, admisión por el médico (videoconsulta), resultado registrado en la cita | Aclaración | CC-9; AP-15 | Contrato en M08 sin commit; la sala está pendiente (videoconsulta) |
+| C-31 | 2026-11-07 | 3.2 | La cancelación administrativa (RN-014) no tiene RF ni módulo; queda fuera de M08 | Pendiente de alcance | CC-8; AP-14 | Sin implementar |
+| C-32 | 2026-11-07 | 3.2, 7.1 | RF-12: la cita conserva la referencia a la aceptación legal vigente al reservar, sin duplicar datos de M02 | Nuevo | CC-1, opción C; AP-19 | Pendiente: M-1 y cambio aditivo de M02, ambos sin autorizar |
 
-Las decisiones de la columna «Fuente» se detallan en `docs/arquitectura/M03-decisiones.md` (D-, N-, R-, Z-) y en
-`docs/testing/trazabilidad/M02-identity.md` (DP-, DT-).
+Las decisiones de la columna «Fuente» se detallan en `docs/arquitectura/M03-decisiones.md` (D-, N-, R-, Z-), en
+`docs/testing/trazabilidad/M02-identity.md` (DP-, DT-) y, para C-23 a C-32, en `docs/arquitectura/M08-diseno.md`
+(CC-, AP-, DA-).
 
 ---
 
@@ -73,6 +84,27 @@ Notas:
 - **RF-65, prioridad.** Must, confirmada el 2026-10-17. RF-05 (Must) exige una especialidad activa y depende de este
   catálogo.
 - **RF-65, ubicación.** Se numera a continuación del último RF de V2.2 (RF-64), pero pertenece a la sección 3.1.
+
+### 3.2 Citas y pago de consulta
+
+Solo se transcriben los requisitos que cambian. RF-13 a RF-17 siguen igual que en V2.2.
+
+| ID | Requerimiento | Prior. | Criterio de aceptación | Dep. | Cambio |
+|---|---|---|---|---|---|
+| RF-12 | Reservar, reagendar y cancelar cita | Must | La cita queda asociada a paciente, médico, scheduled_at y precio. Cancelar y reagendar siguen la política de citas (RF-15, RF-16); el reagendamiento conserva la referencia a la cita original. **El paciente elige entre los médicos reservables: solo los habilitados (`canOperate`) con al menos un horario libre en los próximos 31 días. Se muestran su nombre y su especialidad, solo con sesión de paciente, sin buscador ni perfil público. La cita conserva la referencia a la aceptación legal vigente del paciente al reservar, sin copiar sus datos.** | RF-11 | C-28, C-32 |
+| **RF-66** | **Configuración del precio global de consulta** | **Must** | **El administrador configura el precio global de consulta, único para toda la plataforma (sin precio por médico ni por especialidad). Cada cambio crea una versión nueva con vigencia inmediata; las versiones anteriores no se modifican. La cita conserva en `appointment.price` el precio vigente al reservar. Los cambios posteriores no modifican las citas ni los pagos existentes, y el reagendamiento conserva el precio original. Se audita quién hizo el cambio, cuándo, y los precios anterior y nuevo. Precio inicial: 200.00 MXN.** | **RF-12, RF-13** | C-23 (nuevo) |
+
+Notas:
+- **RF-66.** Se numera a continuación de RF-65, pero pertenece a la sección 3.2. Reglas relacionadas: RN-007 y RN-021.
+- **Cancelación administrativa (C-31).** RN-014 y la tabla de estados la prevén, pero ningún RF la asigna. Falta decidir
+  su RF y su módulo; queda fuera de M08.
+
+### 3.3 Videoconsulta
+
+| ID | Requerimiento | Prior. | Criterio de aceptación | Dep. | Cambio |
+|---|---|---|---|---|---|
+| RF-19 | Sala de espera | Must | Si el médico continúa en otra consulta, el siguiente paciente permanece en espera; se notifica al paciente y al médico. **El paciente entra a la sala desde 15 minutos antes de la hora programada. El médico admite explícitamente al paciente cuando termina la consulta anterior. La admisión corresponde a videoconsulta, y el resultado final de la cita lo registra el módulo de citas. El retraso del médico no cancela ni vence la cita.** | RF-18 | C-26, C-30 |
+| RF-20 | Ventana de espera del médico | Must | Ventana de espera configurable (por ejemplo, 30 minutos) desde la hora programada. Si vence y el paciente sí estuvo disponible pero el médico no inició la consulta, la cita queda como no_show_doctor, no como canceled, y se reembolsa el 100% al paciente. **Mientras el médico atiende otra consulta, la espera del paciente está protegida. El plazo del médico es `min(max(hora programada, fin de la consulta anterior) + ventana, hora programada + límite total)`. El límite total es configurable (valor inicial: 60 minutos) y la ventana ordinaria no se suma a él. Si se alcanza sin admisión y con el paciente disponible, la cita queda como no_show_doctor.** | RF-19, RF-46 | C-26 |
 
 ### 3.9 Notificaciones y auditoría
 
@@ -106,7 +138,7 @@ Siguen igual que en V2.2: RN-001, RN-002, RN-003, RN-005 y RN-006.
 | RN-004 | Un médico no atiende nuevas citas hasta ser aprobado por administración. **Está aprobado solo si su INE y su cédula están aprobadas y su registro está completo. Su estado se deriva de las revisiones vigentes: si alguna está pendiente, pending; si no, y alguna está rechazada, rejected. Una revisión pendiente que un cambio invalida pasa a superseded y conserva su historial. Mientras no está aprobado, el médico solo puede entrar y consultar su estado. Cambiar la INE, la cédula o la especialidad lo devuelve a pending. El médico no cambia su CURP ni su nombre legal (RN-138); su corrección es un flujo definido documentalmente (DP-CORR), pendiente de implementación; hoy no existe ninguna vía. El efecto sobre sus citas existentes corresponde a la gestión de citas.** | C-7, C-13, C-16 |
 | **RN-138** | **El paciente y el médico registran una CURP obligatoria, en mayúsculas, con el formato oficial y un dígito verificador válido. La CURP es única entre todos los usuarios, sin importar su rol. Ni el paciente ni el médico pueden editar desde su propia cuenta su CURP ni su nombre legal: se capturan al crear el perfil.** | C-1 (nuevo), C-16 |
 | **RN-139** | **Una persona no puede tener a la vez cuenta de paciente y de médico. No existe conversión de rol.** | C-2 (nuevo) |
-| **RN-140** | **La falta de aceptación de los documentos legales vigentes de su rol no impide la autenticación ni el acceso general a la cuenta: el usuario siempre puede consultar y aceptar sus documentos pendientes. Solo se rechazan, sin efectos secundarios, las operaciones que requieren expresamente esa aceptación: agendar, para el paciente; las operaciones que requieren un médico habilitado, para el médico. Toda operación de ese tipo comprueba, sea cual sea el módulo que la implemente, la aceptación legal vigente, la aprobación administrativa y los demás permisos y requisitos funcionales. El primer registro conserva su flujo de aceptación. La aceptación legal, la autenticación y la aprobación administrativa son condiciones independientes.** | C-22 (nuevo) |
+| **RN-140** | **La falta de aceptación de los documentos legales vigentes de su rol no impide la autenticación ni el acceso general a la cuenta: el usuario siempre puede consultar y aceptar sus documentos pendientes. Solo se rechazan, sin efectos secundarios, las operaciones que requieren expresamente esa aceptación: agendar, para el paciente; las operaciones que requieren un médico habilitado, para el médico. **Que el médico cancele sus propias citas confirmadas, con reembolso total al paciente (RN-013), no requiere que esté habilitado.** Toda operación de ese tipo comprueba, sea cual sea el módulo que la implemente, la aceptación legal vigente, la aprobación administrativa y los demás permisos y requisitos funcionales. El primer registro conserva su flujo de aceptación. La aceptación legal, la autenticación y la aprobación administrativa son condiciones independientes.** | C-22 (nuevo), C-27 |
 
 Notas de implementación (informativas):
 - **RN-138.** El dígito verificador se valida en la aplicación, no en la BD.
@@ -120,6 +152,24 @@ Notas de implementación (informativas):
   identifica los documentos pendientes.
 - **RN-138 y RN-139.** Se numeran a continuación del último RN de V2.2 (RN-137), pero pertenecen a la sección 5.1.
 
+### 5.2 Citas y videoconsulta
+
+| ID | Regla | Cambio |
+|---|---|---|
+| RN-025 | Ventana de espera del médico configurable (valor inicial: 30 minutos). Si vence con el paciente disponible y sin inicio, el estado es no_show_doctor; reembolso del 100% y sin importe liquidable. **La ventana se calcula como indica RF-20 (espera protegida con límite total; valor inicial: 60 minutos). Durante la espera protegida no se determina no_show_doctor ni no_show_both.** | C-26 |
+| RN-026 | Ventana de tolerancia del paciente configurable desde la hora programada (**valor inicial: 15 minutos**). Si el paciente no se conecta y el médico sí, no_show_patient; si el médico ya está conectado al vencer la tolerancia, se determina de inmediato. **Una desconexión involuntaria no es abandono: el paciente sigue disponible si se reconecta dentro de la gracia de reconexión (valor inicial: 5 minutos). Si el paciente sale voluntariamente de la sala, deja de estar disponible hasta que regrese, sin que eso cancele la cita. Los eventos de conexión y desconexión se conservan (RN-031).** | C-26 |
+| RN-030 | Se esperan ambas ventanas antes de determinar no_show_both (reembolso total, sin importe liquidable). Si vence la tolerancia del paciente y el médico no se ha conectado ni ha superado su ventana, aún no se determina. **Si el paciente se conecta por primera vez después de su tolerancia y el médico nunca se conecta, o se conecta fuera de su ventana, el resultado es no_show_both, que solo se determina cuando se cumplen las condiciones de ambas ventanas. Si el médico se conecta dentro de su ventana y los dos están presentes, la consulta continúa normalmente. No se declara una inasistencia definitiva mientras las reglas de ambas ventanas no permitan determinarla.** | C-26 |
+| **RN-141** | **Un pago exitoso que no puede confirmar la cita (retención vencida, monto distinto o estado no válido) se reembolsa automáticamente, una sola vez por pago, y queda registrado para la conciliación. Una cita expired nunca se reactiva, y los webhooks duplicados o retrasados no confirman citas.** | C-29 (nuevo) |
+
+Notas:
+- Los valores iniciales (ventana de 30, tolerancia de 15, límite de 60 y gracia de 5 minutos) son la primera versión
+  configurable de la política (RF-16, RN-021), no constantes del sistema. El límite y la gracia necesitan columnas
+  nuevas (M-1).
+- **Estado `rescheduled` (C-25)**, para la tabla de estados de la cita (6.1 de V2.2): «Cita confirmada que se
+  reagendó. Se cierra sin cancelación ni reembolso; la cita nueva conserva el precio, la política y el pago (RN-018).
+  Transición: confirmed → rescheduled, terminal». Pendiente de la migración M-1.
+- **RN-141** se numera a continuación de RN-140, pero pertenece a la sección 5.2.
+
 ---
 
 ## 7. Modelo de datos
@@ -128,6 +178,17 @@ Notas de implementación (informativas):
 
 Sin cambios. Las tablas nuevas del dominio Médico se añadirán cuando se implementen: la especialidad y las revisiones
 de la INE y de la cédula del médico.
+
+**C-24 (2026-11-07):** `appointment.cancellation_policy_id` y `consultation_price_configuration` dejan de ser
+estructura propuesta: las aprobó la persona responsable del proyecto.
+
+**Pendiente de la migración M-1 (sin autorizar):**
+- el estado `rescheduled` (C-25);
+- `appointment.agenda_block_ends_at`: el fin del bloque reservado, que solo sirve para calcular la ocupación de la
+  agenda. Es distinto de `meeting.ended_at`, el fin oficial de la videoconsulta;
+- `appointment.legal_acceptance_id` (C-32);
+- `cancellation_policy.max_protected_wait_minutes` y `reconnect_grace_minutes` (C-26);
+- la integridad de solo inserción de las versiones de precio y de política.
 
 ### 7.2 Constraints e integridad a implementar
 
@@ -149,10 +210,10 @@ Se añaden:
 
 | Tipo | Último usado | Siguiente |
 |---|---|---|
-| RF | RF-65 | RF-66 |
+| RF | RF-66 | RF-67 |
 | RNF | RNF-21 | RNF-22 |
-| RN | RN-140 | RN-141 |
-| Cambio | C-22 | C-23 (C-17 a C-21 están asignados en el Maestro V2.4) |
+| RN | RN-141 | RN-142 |
+| Cambio | C-32 | C-33 (C-17 a C-21 están asignados en el Maestro V2.4) |
 
 ## 10. Pendientes de decisión
 
@@ -163,4 +224,7 @@ Se añaden:
 | PDF V2.3 | Generarlo y aprobarlo; después, actualizar R-1 y las referencias de la trazabilidad |
 | DP-CORR | Corrección de una CURP o un nombre legal capturados con error. **Flujo definido documentalmente, pendiente de implementación** (`M03-decisiones.md`, sección 8): hoy no existe ninguna vía, ni para el propio usuario (RN-138) ni para el administrador. Cualquier vía futura debe conservar la unicidad entre roles (RN-138, RN-139), la auditoría y el efecto sobre la revisión de la INE (RN-004) |
 | RN-140 | Conectar las políticas en cada módulo con operaciones protegidas (agenda (M07), citas (M08), videoconsulta (`video`), expediente clínico (`clinical-record`) y prescripciones (`prescriptions`)), ajustar las restricciones globales de web y móvil e identificar los documentos pendientes del médico (`M03-decisiones.md`, D-37) |
+| C-31 | Asignar la cancelación administrativa (RN-014) a un RF y a un módulo |
+| M-1 | Autorizar la migración de C-25, C-26 y C-32 y de la integridad de las versiones (`M08-diseno.md`, A.11.4 y A.12) |
+| C-23 a C-32 en el DOCX | Consolidarlos en `PEI_Documento_Maestro_V2.4` (archivo binario; este documento vivo no lo modifica) |
 | Maestro V2.4 | `PEI_Documento_Maestro_V2.4_2026-10-20.docx` es anterior a C-16 y conserva el texto previo de RN-004 y RN-138: pendiente de consolidación |
