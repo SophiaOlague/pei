@@ -1,10 +1,13 @@
 // M08: punto de entrada de la carga inicial de configuración de citas (ver appointments-config-seed.run.ts).
-// Escribe en la BD de DATABASE_URL solo con --apply; en producción exige --confirm-production. NO ejecutado (AP-11).
+// Escribe solo con --apply y --target-branch autorizado (hoy, solo desarrollo, con --confirm-main-db). NO ejecutado (AP-11).
+// Todas las lecturas y escrituras usan getDbContext(): dentro de inTransaction comparten la transacción (los servicios
+// de publicación abren SAVEPOINT sobre ella mediante DrizzleUnitOfWork; la auditoría exige esa misma transacción).
 import 'dotenv/config';
 import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '../db';
+import { getDbContext, transactionStorage } from '../db/transaction-context';
 import { cancellationPolicy, consultationPriceConfiguration, userProfile } from '../db/schema';
 import { CommonModule } from '../common/common.module';
 import { AuditModule } from '../modules/audit/audit.module';
@@ -33,13 +36,19 @@ if (require.main === module) {
     const policies = app.get(CancellationPolicyService);
     const adminActor = (a: { userId: string; userProfileId: string }) => ({ ...a, role: 'admin' as const, ipAddress: null, userAgent: 'appointments:seed-config' });
     const code = await runAppointmentsConfigSeed(process.argv.slice(2), {
-      branchId: async () => ((await db.execute(sql`select current_setting('neon.branch_id', true) as b`)).rows[0] as { b: string | null })?.b ?? null,
+      identity: async () => {
+        const { rows } = await getDbContext().execute(sql`select current_setting('neon.project_id', true) as project,
+          current_setting('neon.branch_id', true) as branch, current_setting('neon.endpoint_id', true) as endpoint`);
+        const r = rows[0] as { project: string | null; branch: string | null; endpoint: string | null } | undefined;
+        return r ? { project: r.project ?? null, branch: r.branch ?? null, endpoint: r.endpoint ?? null } : null;
+      },
+      inTransaction: (work) => db.transaction((tx) => transactionStorage.run(tx as any, work)),
       isAdmin: async (id) => {
-        const [row] = await db.select({ userId: userProfile.userId }).from(userProfile).where(and(eq(userProfile.id, id), eq(userProfile.role, 'admin'))).limit(1);
+        const [row] = await getDbContext().select({ userId: userProfile.userId }).from(userProfile).where(and(eq(userProfile.id, id), eq(userProfile.role, 'admin'))).limit(1);
         return row ?? null;
       },
-      hasPriceVersion: async () => (await db.select({ id: consultationPriceConfiguration.id }).from(consultationPriceConfiguration).limit(1)).length > 0,
-      hasPolicyVersion: async () => (await db.select({ id: cancellationPolicy.id }).from(cancellationPolicy).limit(1)).length > 0,
+      hasPriceVersion: async () => (await getDbContext().select({ id: consultationPriceConfiguration.id }).from(consultationPriceConfiguration).limit(1)).length > 0,
+      hasPolicyVersion: async () => (await getDbContext().select({ id: cancellationPolicy.id }).from(cancellationPolicy).limit(1)).length > 0,
       publishPrice: async (a) => void (await prices.publish(adminActor(a), INITIAL_CONSULTATION_PRICE, 'initial_setup')),
       publishPolicy: async (a) => void (await policies.publish(adminActor(a), { ...INITIAL_POLICY }, 'initial_setup')),
     }, console.log, console.error);
