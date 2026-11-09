@@ -136,6 +136,7 @@ describe('verifyNeonRuntimeIdentity (identidad real por neon.*)', () => {
 // del módulo, ANTES de su primer describe/beforeAll: si falla, Jest no llega a definir ni ejecutar ninguna prueba.
 const GUARDED_DB_SPECS = [
   'test/integration/actor-profile-reader.int-spec.ts',
+  'test/integration/appointments.int-spec.ts',
   'test/integration/admin-bootstrap-better-auth.int-spec.ts',
   'test/integration/audit-trail.int-spec.ts',
   'test/integration/concurrency.int-spec.ts',
@@ -145,6 +146,7 @@ const GUARDED_DB_SPECS = [
   'test/integration/legal-acceptance-audit.int-spec.ts',
   'test/integration/legal-publication.int-spec.ts',
   'test/integration/legal-regime.int-spec.ts',
+  'test/integration/m08-m1-schema.int-spec.ts',
   'test/integration/postgres-errors.int-spec.ts',
   'test/integration/role-profile-coherence.int-spec.ts',
   'test/integration/unit-of-work.int-spec.ts',
