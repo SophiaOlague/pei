@@ -6,8 +6,9 @@
 //   entorno del backend (base de desarrollo).
 // - La identidad se comprueba dos veces: por la URL (endpoint directo de C2, nunca el de desarrollo) y por la conexión
 //   real (parámetros neon.* del compute, leídos en una transacción READ ONLY). No basta con lo que diga la URL.
-// - Solo se aplica la migración autorizada: la BD debe tener exactamente las anteriores (mismos hashes que el journal)
-//   y el journal, exactamente una más, con el tag y el SHA-256 autorizados.
+// - Solo se aplica la SIGUIENTE migración pendiente: la BD debe tener exactamente las primeras N del journal (mismos
+//   hashes y `when`); las pendientes deben ser consecutivas y estar todas autorizadas (tag y SHA-256). Al migrador de
+//   Drizzle se le pasa un journal que termina en la siguiente, así que no puede aplicar ninguna más.
 import { createHash } from 'crypto';
 
 export const C2_MIGRATION_TARGET = Object.freeze({
@@ -18,14 +19,13 @@ export const C2_MIGRATION_TARGET = Object.freeze({
 // Base de desarrollo: nunca es un destino válido.
 export const DEVELOPMENT_TARGET = Object.freeze({ branch: 'br-royal-recipe-b54s5hnn', endpoint: 'ep-wandering-bonus-b5kxacor' });
 
-// Única migración que este ejecutor puede aplicar. 0013 (2026-11-08) y 0014 (2026-11-09) ya están aplicadas en C2 y
-// sus hashes quedan como requisito previo. 0015 (M-1c): PREPARADA, sin aplicar; aplicarla en C2 exige autorización
-// expresa y respaldo.
-export const AUTHORIZED_MIGRATION = Object.freeze({
-  idx: 15,
-  tag: '0015_m08_m1c_agenda_block_not_null',
-  sha256: '7652c22e8ea4598ca290338ad030fec40170da46c985591bdc85874d7909ef8d',
-});
+// Migraciones que este ejecutor puede aplicar en C2, con su SHA-256. 0013 (2026-11-08) y 0014 (2026-11-09) ya están
+// aplicadas y sus hashes quedan como requisito previo. 0015 y 0016 (M-1c): PREPARADAS, sin aplicar; cada una exige
+// autorización expresa y respaldo. Pueden estar pendientes varias, pero cada ejecución aplica SOLO la siguiente.
+export const AUTHORIZED_MIGRATIONS = Object.freeze([
+  Object.freeze({ idx: 15, tag: '0015_m08_m1c_agenda_block_not_null', sha256: '7652c22e8ea4598ca290338ad030fec40170da46c985591bdc85874d7909ef8d' }),
+  Object.freeze({ idx: 16, tag: '0016_m08_m1c_wait_defaults', sha256: 'fd9f6f77a778e010a064bd45644f5754faf6b6221387cdcef35e7060aa584936' }),
+]);
 
 export class C2MigrateError extends Error {
   constructor(reason: string) {
@@ -73,29 +73,53 @@ export interface AppliedMigration { hash: string; created_at: string | number }
 
 export const sha256 = (text: string) => createHash('sha256').update(text).digest('hex');
 
-// Plan: la BD tiene exactamente las migraciones anteriores a la autorizada (mismo orden, hash y `when`) y el journal
-// tiene exactamente una más, la autorizada, con su SHA-256. Así el migrador de Drizzle solo puede aplicar esa.
-export function planAuthorizedMigration(journal: JournalEntry[], readSql: (tag: string) => string, applied: AppliedMigration[]) {
-  const target = AUTHORIZED_MIGRATION;
-  if (journal.length !== target.idx + 1) throw new C2MigrateError(`el journal tiene ${journal.length} entradas; se esperaban ${target.idx + 1}`);
+export interface MigrationPlan {
+  idx: number;
+  tag: string;
+  sha256: string;
+  when: number;
+  // Journal que se entrega al migrador de Drizzle: desde la 0000 hasta la siguiente pendiente, ninguna más.
+  entries: JournalEntry[];
+  // Todas las pendientes, en orden (la primera es la que se aplica).
+  pending: string[];
+}
+
+// Plan de UNA migración: la siguiente pendiente. La BD tiene exactamente las primeras N entradas del journal (orden,
+// hash y `when`); las pendientes son consecutivas, con `when` creciente, y todas están en AUTHORIZED_MIGRATIONS con su
+// tag y SHA-256. Cualquier diferencia detiene el plan antes de escribir.
+export function planNextMigration(journal: JournalEntry[], readSql: (tag: string) => string, applied: AppliedMigration[]): MigrationPlan {
+  if (journal.length === 0) throw new C2MigrateError('el journal está vacío');
   journal.forEach((e, i) => {
     if (e.idx !== i) throw new C2MigrateError(`el journal no es consecutivo en la entrada ${i}`);
+    if (i > 0 && !(Number(e.when) > Number(journal[i - 1].when))) throw new C2MigrateError(`el journal no tiene when creciente en la entrada ${i}`);
   });
-  const last = journal[target.idx];
-  if (last.tag !== target.tag) throw new C2MigrateError(`la última entrada del journal es ${last.tag}, no ${target.tag}`);
-  const lastHash = sha256(readSql(last.tag));
-  if (lastHash !== target.sha256) throw new C2MigrateError(`el SHA-256 de ${target.tag}.sql no es el autorizado`);
-  if (applied.length !== target.idx) throw new C2MigrateError(`la BD tiene ${applied.length} migraciones registradas; se esperaban ${target.idx}`);
+  const n = applied.length;
+  if (n === journal.length) throw new C2MigrateError(`no hay migraciones pendientes: la BD ya tiene las ${n} del journal`);
+  if (n > journal.length) throw new C2MigrateError(`la BD tiene ${n} migraciones registradas; el journal solo ${journal.length}`);
   applied.forEach((m, i) => {
     const e = journal[i];
     if (m.hash !== sha256(readSql(e.tag))) throw new C2MigrateError(`el hash registrado ${i} no coincide con ${e.tag}`);
     if (String(m.created_at) !== String(e.when)) throw new C2MigrateError(`el created_at registrado ${i} no coincide con el journal`);
   });
-  if (Math.max(...applied.map((m) => Number(m.created_at))) >= last.when) throw new C2MigrateError('el journal de la migración autorizada no es posterior a la última aplicada');
-  return { tag: last.tag, sha256: lastHash, when: last.when };
+  const pending = journal.slice(n);
+  for (const p of pending) {
+    const authorized = AUTHORIZED_MIGRATIONS.find((a) => a.idx === p.idx);
+    if (!authorized) throw new C2MigrateError(`la migración pendiente ${p.tag} (idx ${p.idx}) no está autorizada`);
+    if (p.tag !== authorized.tag) throw new C2MigrateError(`la entrada ${p.idx} del journal es ${p.tag}, no ${authorized.tag}`);
+    if (sha256(readSql(p.tag)) !== authorized.sha256) throw new C2MigrateError(`el SHA-256 de ${p.tag}.sql no es el autorizado`);
+  }
+  const next = pending[0];
+  if (n > 0 && Math.max(...applied.map((m) => Number(m.created_at))) >= Number(next.when)) {
+    throw new C2MigrateError('el journal de la siguiente migración no es posterior a la última aplicada');
+  }
+  const nextAuthorized = AUTHORIZED_MIGRATIONS.find((a) => a.idx === next.idx)!;
+  return {
+    idx: next.idx, tag: next.tag, sha256: nextAuthorized.sha256, when: next.when,
+    entries: journal.slice(0, next.idx + 1), pending: pending.map((p) => p.tag),
+  };
 }
 
-// Comprobación posterior: exactamente una migración nueva, la autorizada, con su hash y su `when`.
+// Comprobación posterior: exactamente una migración nueva, la planificada, con su hash y su `when`.
 export function assertAppliedAfter(before: AppliedMigration[], after: AppliedMigration[], plan: { sha256: string; when: number }) {
   if (after.length !== before.length + 1) throw new C2MigrateError(`tras migrar hay ${after.length} registros; se esperaban ${before.length + 1}`);
   const added = after[after.length - 1];
@@ -110,7 +134,8 @@ export interface C2MigrateDeps {
   connect: (url: string) => Promise<{
     identity: () => Promise<RuntimeIdentity>;
     applied: () => Promise<AppliedMigration[]>;
-    migrate: () => Promise<void>;
+    // Aplica lo que falte de `entries` (el migrador de Drizzle con un journal que termina en la siguiente).
+    migrate: (entries: JournalEntry[]) => Promise<void>;
     close: () => Promise<void>;
   }>;
   log: (line: string) => void;
@@ -125,15 +150,15 @@ export async function runC2Migrate(deps: C2MigrateDeps, apply: boolean) {
     assertRuntimeIdentity(await conn.identity());
     deps.log(`identidad verificada: ${C2_MIGRATION_TARGET.project} / ${C2_MIGRATION_TARGET.branch} / ${C2_MIGRATION_TARGET.endpoint}`);
     const before = await conn.applied();
-    const plan = planAuthorizedMigration(deps.readJournal(), deps.readSql, before);
-    deps.log(`plan: ${before.length} registradas; pendiente solo ${plan.tag} (sha256 ${plan.sha256})`);
+    const plan = planNextMigration(deps.readJournal(), deps.readSql, before);
+    deps.log(`plan: ${before.length} registradas; pendientes ${plan.pending.join(', ')}; esta ejecución aplica solo ${plan.tag} (sha256 ${plan.sha256})`);
     if (!apply) {
       deps.log('verificación sin escritura: use --apply para aplicar');
       return { applied: false, plan };
     }
     // Identidad otra vez justo antes de escribir (misma conexión del migrador).
     assertRuntimeIdentity(await conn.identity());
-    await conn.migrate();
+    await conn.migrate(plan.entries);
     const after = await conn.applied();
     assertAppliedAfter(before, after, plan);
     deps.log(`aplicada ${plan.tag}; ${after.length} migraciones registradas`);

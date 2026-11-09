@@ -11,9 +11,9 @@ export const cancellationPolicy = pgTable(
     maxReschedules: integer('max_reschedules').notNull(),
     doctorWaitMinutes: integer('doctor_wait_minutes').notNull(),
     patientToleranceMinutes: integer('patient_tolerance_minutes').notNull(),
-    // M-1 (0013, C-26, AP-22): DEFAULT 60 y 5 hasta M-1c.
-    maxProtectedWaitMinutes: integer('max_protected_wait_minutes').notNull().default(60),
-    reconnectGraceMinutes: integer('reconnect_grace_minutes').notNull().default(5),
+    // M-1 (0013, C-26, AP-22). Sin DEFAULT desde 0016 (M-1c): cada versión los indica (60 y 5 iniciales, en código).
+    maxProtectedWaitMinutes: integer('max_protected_wait_minutes').notNull(),
+    reconnectGraceMinutes: integer('reconnect_grace_minutes').notNull(),
     effectiveFrom: timestamp('effective_from', { withTimezone: true }).notNull(),
     effectiveUntil: timestamp('effective_until', { withTimezone: true }),
     createdBy: uuid('created_by').notNull().references(() => userProfile.id),

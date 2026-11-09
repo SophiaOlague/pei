@@ -85,6 +85,38 @@ describe('Arquitectura de M08 (citas)', () => {
     // Registrada en Drizzle (idx 15) con el SQL idéntico a la propuesta.
     expect(readFileSync(join(SRC, 'db', 'migrations', '0015_m08_m1c_agenda_block_not_null.sql'), 'utf8')).toBe(up);
     const journal = JSON.parse(readFileSync(join(SRC, 'db', 'migrations', 'meta', '_journal.json'), 'utf8')) as { entries: { idx: number; tag: string }[] };
-    expect(journal.entries.at(-1)).toMatchObject({ idx: 15, tag: '0015_m08_m1c_agenda_block_not_null' });
+    expect(journal.entries[15]).toMatchObject({ idx: 15, tag: '0015_m08_m1c_agenda_block_not_null' });
+  });
+
+  it('[RT-M08-09][M-1c][AP-22] 0016 solo retira los DEFAULT de L y G, exige 0013 y 0015, y es idéntica a la propuesta', () => {
+    const dir = join(SRC, 'db', 'proposals', 'm08-m1c');
+    const up = readFileSync(join(dir, '0016_m08_m1c_wait_defaults.up.sql'), 'utf8');
+    const code = up.replace(/--.*$/gm, '');
+    expect(code).not.toMatch(/\b(update|insert|delete|drop table|drop column|add column)\b/i);
+    expect(code.match(/alter table cancellation_policy alter column (max_protected_wait_minutes|reconnect_grace_minutes) drop default/g)).toHaveLength(2);
+    expect(code).toMatch(/0016 requiere 0013/);
+    expect(code).toMatch(/0016 requiere 0015/);
+    const down = readFileSync(join(dir, '0016_m08_m1c_wait_defaults.down.sql'), 'utf8');
+    expect(down).toMatch(/max_protected_wait_minutes set default 60/);
+    expect(down).toMatch(/reconnect_grace_minutes set default 5/);
+    expect(readFileSync(join(SRC, 'db', 'migrations', '0016_m08_m1c_wait_defaults.sql'), 'utf8')).toBe(up);
+    const journal = JSON.parse(readFileSync(join(SRC, 'db', 'migrations', 'meta', '_journal.json'), 'utf8')) as { entries: { idx: number; tag: string }[] };
+    expect(journal.entries.at(-1)).toMatchObject({ idx: 16, tag: '0016_m08_m1c_wait_defaults' });
+    // El esquema de Drizzle ya no declara DEFAULT para L y G.
+    const config = readFileSync(join(SRC, 'db', 'schema', 'configuration.ts'), 'utf8');
+    expect(config).toMatch(/maxProtectedWaitMinutes: integer\('max_protected_wait_minutes'\)\.notNull\(\),/);
+    expect(config).toMatch(/reconnectGraceMinutes: integer\('reconnect_grace_minutes'\)\.notNull\(\),/);
+  });
+
+  it('[RT-M08-10][M-1c] los INSERT de cancellation_policy en el código y en los fixtures SQL indican L y G', () => {
+    // Código: el repositorio inserta la versión completa (PolicyVersion incluye L y G; TC-M08-386).
+    const repo = readFileSync(join(SRC, 'modules', 'appointments', 'infrastructure', 'persistence', 'drizzle-configuration.repositories.ts'), 'utf8');
+    expect(repo).toMatch(/insert\(cancellationPolicy\)\.values\(v\)/);
+    // Fixtures SQL directos: todo insert en cancellation_policy nombra las dos columnas, salvo la rama 0000–0012.
+    const support = readFileSync(join(SRC, '..', 'test', 'support', 'm08-m1-sql.ts'), 'utf8');
+    const inserts = [...support.matchAll(/insert into cancellation_policy \(([^)]*)\)/g)].map((m) => m[1]);
+    const withWait = inserts.filter((cols) => /max_protected_wait_minutes/.test(cols) && /reconnect_grace_minutes/.test(cols));
+    expect(inserts.length - withWait.length).toBe(1);
+    expect(support).toMatch(/\(await policyHasWaitColumns\(\)\)\s*\?\s*await tx\(\)\.execute<\{ id: string \}>\(sql`\s*insert into cancellation_policy \([^)]*max_protected_wait_minutes/);
   });
 });

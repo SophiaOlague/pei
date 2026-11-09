@@ -49,6 +49,7 @@ de diseño de M08. Las demás siguen pendientes (A.7).
 | AP-24 | 2026-11-07 | E7: al alcanzar el límite porque el médico sigue en otra consulta, `no_show_doctor` con reembolso total y sin pago al médico, sin duplicar la ventana ordinaria | Responsable del proyecto | La fórmula T1 (A.11.2) |
 | AP-25 | 2026-11-07 | E14: N9 y N10 `no_show_both` solo cuando se cumplen las condiciones de ambas ventanas; N8 consulta normal. Autoriza preparar M-1 (cambios 1 a 5, sin el 6) sin ejecutarla, las cuatro consultas de solo lectura, formalizar C-23 a C-32 y la implementación sin M-1. El cambio en M02 sigue pendiente | Responsable del proyecto | A.12 |
 | AP-26 | 2026-11-08 | Precisa AP-19: la cita guarda **las dos** aceptaciones legales del paciente (privacidad y términos), en dos columnas de `appointment` (`privacy_legal_acceptance_id` y `terms_legal_acceptance_id`): las dos presentes o las dos nulas; un trigger valida paciente, tipo documental y régimen; inmutables después del INSERT. `0014` redefine `gst_appointment_guard` con `CREATE OR REPLACE` sin modificar `0013`, y su reversión restaura exactamente el guard de `0013`. Solo se autoriza la documentación: el lector de M02, las columnas en Drizzle, `0014` y TC-M08-307 siguen sin implementar | Responsable del proyecto | A.17 |
+| AP-27 | 2026-11-09 | RF-46: regla de `RootPaymentLookup`. Solo por la cita raíz; `type = 'consultation'` y `status = 'succeeded'`; ninguna fila → `null`; una → `{ paymentId, rootAppointmentId }`; varias → error de integridad, sin elegir una. Solo documentación: el módulo de pagos no existe | Responsable del proyecto | A.20 |
 | — | 2026-11-07 | **Pendientes expresamente**: E14; la ejecución de M-1; la modificación aditiva de M02. C-23 a C-32 siguen como propuestas | — | A.7 |
 
 Notas:
@@ -1487,6 +1488,26 @@ pendiente** de que exista el módulo de pagos, que es el consumidor.
   (siempre la raíz), registre `PaymentLedgerPort` con `RootResolvingPaymentLedger` y `AppointmentChainService`
   (importando `AppointmentsModule`), y use el pago de la raíz para el reembolso de una cita reagendada y luego cancelada
   (RF-46: el acumulado no supera el monto). Prueba de integración en C2 de `rootOf` sobre filas reales.
+- **Revisión de la integración real (RF-46, 2026-11-09): bloqueada; no hay módulo de pagos.** `src/modules/payments`
+  está vacío (sin módulo, repositorio, casos de uso ni pruebas) y nada importa la tabla `payment`, que solo existe en el
+  esquema (0000). No se implementó ningún adaptador: hacerlo desde M08 lo acoplaría a una tabla de otro módulo y
+  obligaría a decidir reglas de pagos. Lo que falta, en el módulo de pagos:
+  1. `PaymentsModule` con su repositorio sobre `payment`, que importe `AppointmentsModule` (exporta
+     `AppointmentChainService`).
+  2. Una clase que implemente `RootPaymentLookup.paymentForRootAppointment(rootAppointmentId)` y devuelva
+     `{ paymentId, rootAppointmentId }` o `null`.
+  3. Un proveedor de `PaymentLedgerPort` (token propio de pagos) construido como
+     `new RootResolvingPaymentLedger(chain, lookup)`. M08 no registra ninguno (RT-M08-03: M08 no importa pagos).
+  4. **Regla de selección del pago (AP-27, confirmada 2026-11-09).** `payment.appointment_id` no es único (solo
+     índice) y una cita puede tener varios intentos (`pending`, `requires_action`, `succeeded`, `failed`, `canceled`).
+     `RootPaymentLookup.paymentForRootAppointment(rootAppointmentId)`:
+     - busca **solo** por el `rootAppointmentId` recibido (nunca por una cita derivada de un reagendamiento);
+     - filtra `type = 'consultation'` y `status = 'succeeded'`;
+     - ninguna fila: `null`;
+     - exactamente una: `{ paymentId, rootAppointmentId }`;
+     - varias: error explícito de integridad; **nunca** elige una arbitrariamente.
+     Implementarla corresponde al módulo de pagos (sin implementar).
+  5. Pruebas del adaptador contra PostgreSQL (C2), además de las de contrato de M08 (TC-M08-390 a 395).
 - **Reglas de arquitectura actualizadas (2026-11-09):** RT-M08-05 y RT-M08-06 prohibían `agenda_block_ends_at` y
   `rescheduled` (anteriores a M-1) y fallaban desde los commits de DA-6 y DA-3. Ahora: M08 no usa `meeting.ended_at`, el
   fin del bloque no aparece en `integration/` ni en `presentation/` (AP-23), y solo el caso de uso de reagendamiento
@@ -1546,9 +1567,21 @@ falsa). **Integración con notificaciones: pendiente** de que exista el módulo 
 - **Hasta aplicar 0015 en un entorno, el código declara una columna NOT NULL que allí admite nulos:** los INSERT
   funcionan (siempre escriben el valor), pero una fila nula leída tendría `null` donde el tipo dice `Date`. En C2 no
   queda ninguna; en un entorno nuevo, 0013 rellena todas las filas al aplicarse.
-- **Fuera de 0015 (sin cambios):** retirar los DEFAULT de `max_protected_wait_minutes` y `reconnect_grace_minutes`. El
-  código ya escribe ambos, pero los fixtures SQL directos (`test/support/m08-m1-sql.ts`, `rawFixtures`) insertan
-  políticas sin ellos y también se usan sobre el esquema 0000–0012; hay que adaptarlos antes.
+- **0016 (`src/db/migrations/0016_m08_m1c_wait_defaults.sql`, idx 16, SHA-256
+  `fd9f6f77a778e010a064bd45644f5754faf6b6221387cdcef35e7060aa584936`; preparada, no aplicada):** retira los DEFAULT de
+  `max_protected_wait_minutes` y `reconnect_grace_minutes`; exige 0013 y 0015 y no toca filas ni el CHECK. La
+  reversión restaura `DEFAULT 60` y `DEFAULT 5`. Idéntica a la propuesta de `src/db/proposals/m08-m1c/`; el snapshot
+  difiere del de 0015 solo en esos dos DEFAULT. El esquema de Drizzle ya no los declara.
+  - Toda inserción de políticas indica L y G: el repositorio (versión completa), `concurrency.int-spec.ts` y
+    `postgres-errors.int-spec.ts` (60 y 5) y `rawFixtures`, que los indica cuando el esquema tiene las columnas (0013 o
+    posterior) y los omite en 0000–0012, donde no existen (RT-M08-10).
+  - **`c2-migrate` con varias pendientes (2026-11-09):** admite que el journal vaya varias migraciones por delante de
+    C2, siempre que la BD tenga exactamente un prefijo del journal (hash y `when`) y que TODAS las pendientes sean
+    consecutivas, con `when` creciente, y estén en `AUTHORIZED_MIGRATIONS` (0015 y 0016, con su SHA-256). Cada
+    ejecución aplica **solo la siguiente**: al migrador de Drizzle (que aplica todo lo pendiente de su carpeta) se le
+    entrega una carpeta temporal fuera del repositorio con el journal hasta esa migración y copias exactas de su SQL.
+    Después exige exactamente un registro nuevo con su hash y `when`; si hubiera dos, se detiene. Con C2 en 0014: la
+    primera ejecución aplica 0015 y la segunda, 0016.
 - **Desarrollo:** no tiene 0013 ni 0014. Para llevarlo al estado actual hay que aplicar 0013, 0014 y 0015 en orden,
   cada una con su respaldo y autorización. `scripts/c2-migrate.ts` es exclusivo de C2 (rechaza la URL y la identidad
   de desarrollo), así que desarrollo necesita su propio procedimiento. Antes de 0015, `precheck.sql` debe devolver 0

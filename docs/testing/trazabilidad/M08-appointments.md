@@ -184,6 +184,14 @@ Implementado sin commit; validado **solo con dobles**. Sin prueba contra Postgre
   pago con `RootPaymentLookup`). Detalle en M08-diseno A.20.
 - **Integración real con pagos: pendiente**; el módulo de pagos no existe. `RootPaymentLookup` solo tiene un doble de
   prueba. Sin tablas, migraciones ni cambios de esquema.
+- **Revisión RF-46 (2026-11-09):** confirmado que `src/modules/payments` está vacío y que ningún código usa la tabla
+  `payment`. No se implementó el adaptador; la lista de lo que falta está en M08-diseno A.20.
+- **AP-27 (confirmada 2026-11-09):** `RootPaymentLookup` busca solo por la cita raíz, con `type = 'consultation'` y
+  `status = 'succeeded'`; ninguna fila → `null`; una → `{ paymentId, rootAppointmentId }`; varias → error de
+  integridad. **Solo documentada:** sin implementación ni pruebas hasta que exista el módulo de pagos. Pruebas previstas
+  del adaptador (C2): cero, una y dos filas `succeeded` de la raíz; filas `failed`/`pending` ignoradas; filas de
+  `type = 'medication'` ignoradas; nunca una consulta por el id de una cita derivada. Los escenarios de RF-46 (raíz, uno y varios reagendamientos, sin pago, cadena
+  rota, ninguna consulta de pago para citas derivadas) ya los cubren TC-M08-390 a 395 a nivel de contrato.
 - RT-M08-05 y RT-M08-06 (`test/appointments-architecture.spec.ts`) se actualizaron: fallaban desde DA-6 y DA-3 porque
   prohibían `rescheduled` y `agenda_block_ends_at`. Ese spec no lo ejecuta la configuración de Jest por defecto
   (`rootDir` en `src`); se ejecutó aparte, 6/6.
@@ -204,7 +212,11 @@ Implementado sin commit; validado **solo con dobles**. Sin prueba contra Postgre
   verificación de `agenda.duration.changed`; `precheck.sql` devolvió 0 filas. Historial y auditoría intactos.
 - Fallback O1 retirado del código; TC-M08-018 y 385 reescritas (fin guardado, sin O1).
 - Pendiente: aplicar 0015 en C2 (`c2-migrate --apply`, con respaldo y autorización); después ejecutar
-  TC-M08-310 y 315 (ya contemplan 0015). Desarrollo: 0013, 0014 y 0015 en orden. Retirar los DEFAULT de L y G, aparte.
+  TC-M08-310 y 315 (ya contemplan 0015). Desarrollo: 0013 a 0016 en orden.
+- **0016 (retira los DEFAULT de L y G): preparada, no aplicada** (idx 16, SHA-256 `fd9f6f77…`). `rawFixtures` indica L y
+  G cuando el esquema los tiene.
+- **`c2-migrate` con varias pendientes:** cada ejecución aplica solo la siguiente (0015 y, en otra ejecución, 0016);
+  TC-M08-320 a 336 (unitarias, sin conexiones), 33/33. Ver M08-diseno A.22.
 ## Residuo persistente aceptado en C2 (no se limpia)
 
 Solo lo genera la suite de concurrencia (las otras dos revierten todo y lo comprueban en `afterAll`). Diferencia frente
@@ -232,7 +244,7 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 | TC-M08-300 a 306 (7) | `m08-m1-migration.int-spec.ts` | Rama aislada 0000–0012 (modo `migration`): 7/7 en `c2-20261109041826-79f9` |
 | TC-M08-310 a 316 (7) | `m08-m1-schema.int-spec.ts` | 0013 en C2. Adaptadas a `0014` y sin ejecutar: TC-M08-310 exige los hashes de `0014` (última) y `0013`; TC-M08-315 revierte `0014 down` → `0013 down` y reaplica `0013 up` → `0014 up` (exige que no haya citas con referencias, que `0014 down` perdería) |
 | TC-M08-317 a 319 | `m08-m1-schema.int-spec.ts` | NUEVAS, sin ejecutar (`0014` ya está en C2; pendiente de ejecutar el spec): las dos o ninguna e históricas nulas; otro paciente, tipo incorrecto, regímenes mezclados, id inexistente y régimen anterior válido; inmutabilidad |
-| TC-M08-320 a 331 | `scripts/c2-migrate-core.spec.ts` | unitarias, sin conexiones. Autorizan `0014` (idx 14); TC-M08-320 comprueba el SHA-256 de `0014` y que `0013` conserva el suyo |
+| TC-M08-320 a 336 | `scripts/c2-migrate-core.spec.ts` | unitarias, sin conexiones, 33/33 (2026-11-09). Autorizan 0015 y 0016 con su SHA-256 (320); con C2 en 0014 aplica solo 0015 y entrega el journal hasta 0015 (332); después, solo 0016 y luego nada pendiente (333); prefijo exacto (334); sin `--apply` no escribe (335); la CLI usa una carpeta temporal con el journal limitado (336); dos registros nuevos detienen el proceso (330) |
 | TC-M08-307 (5 pruebas) | `m08-m1-part-b.int-spec.ts` | Rama aislada 0000–0012 con `--authorize-part-b 0014`: 4/5 en `c2-20261109042210-b3ee`; 5/5 en `c2-20261109042944-1726` tras ajustar el trigger |
 | TC-M08-340 a 342 | `test/support/m08-m1-part-b-gate.spec.ts` | unitarias, sin conexiones. TC-M08-341: TC-M08-307 sigue exclusiva del spec de parte B; los archivos de `0014` solo los nombran ese spec y la lectura perezosa `partB()` de `m08-m1-sql.ts` (lista exacta), y solo `m08-m1-schema.int-spec.ts` invoca `partB()` |
 | TC-M08-360 a 364 | `src/modules/appointments/application/use-cases/booking-legal-acceptances.spec.ts` | integración en memoria (adaptador de M08 sobre el doble del lector de M02): régimen actual y anterior, sin aceptaciones, sin privacidad, sin términos, versión nueva no aceptada, rollback completo y RB-2 |
@@ -244,5 +256,6 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 | TC-M08-390 a 395 | `src/modules/appointments/application/integration/appointment-chain.services.spec.ts` | Unitarias con dobles, aprobadas (2026-11-09): raíz propia (390); un reagendamiento (391); varios niveles y largo máximo (392); cita inexistente 404 y antecesor inexistente (393); autorreferencia, ciclo de tres y cadena demasiado larga (394); `paymentForAppointment` al pago de la raíz, sin pago y sin consultar pagos ante una cadena rota (395) |
 | TC-M08-400 a 408 | `src/modules/appointments/application/appointment-events.spec.ts` | Unitarias con dobles, aprobadas (2026-11-09): confirmación una sola vez, sin evento al retener, duplicado o importe distinto (400); cancelación del paciente y del médico con origen, motivo y resultado (401); cancelaciones rechazadas sin eventos (402); un evento por reagendamiento con original, nueva, raíz y número; rechazado sin eventos (403); vencimiento por liberación, pago fallido y confirmación tardía, una sola vez cada uno (404); vencimiento perezoso sin repetirse (405); sin publicación tras rollback, incluido el vencimiento preparado antes del fallo (406); semántica AFTER_COMMIT con unidades anidadas (407); suscriptor que falla (408) |
 | TC-M00-024 a 026 | `src/common/infrastructure/drizzle-unit-of-work.spec.ts` | Unitarias sin BD (transacción falsa), aprobadas: acción después de terminar la transacción (024); descarte con rollback y con SAVEPOINT fallido (025); fallo de una acción y ejecución inmediata fuera de una unidad (026) |
+| RT-M08-09 y 10 | `test/appointments-architecture.spec.ts` | Análisis estático, aprobadas (2026-11-09): 0016 solo retira los DEFAULT, exige 0013 y 0015, reversión a 60/5, idéntica a la propuesta y última del journal; el esquema no declara DEFAULT; los INSERT de políticas en el repositorio y en `m08-m1-sql.ts` indican L y G (salvo la rama 0000–0012) |
 | RT-M08-01 a 08 | `test/appointments-architecture.spec.ts` | Análisis estático, 8/8 (2026-11-09); RT-M08-05 y 06 actualizadas a M-1 aplicada; RT-M08-07: todo INSERT de citas escribe el fin de bloque; RT-M08-08: 0015 sin relleno, exige 0013 y 0014, se detiene ante nulos y es idéntica a la propuesta registrada como idx 15 |
 | TC-M08-383 a 387 | `src/modules/appointments/application/use-cases/agenda-block.spec.ts` | Unitarias con dobles, aprobadas: fin de bloque al reservar (383); ocupación con el fin guardado tras cambiar la duración (384); O1 para históricas (385); publicación y lectura de L y G, valores por omisión y auditoría (386); `getForSession` con W, Tol, L y G de la política aplicada y sin el fin del bloque (387) |

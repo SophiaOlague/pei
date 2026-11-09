@@ -1,13 +1,14 @@
 // Ejecutor de migraciones EXCLUSIVO de C2 (rama br-shy-pond-b50a3m8f). Ver scripts/c2-migrate-core.ts.
 //
 //   npx ts-node --transpile-only scripts/c2-migrate.ts            verifica destino y plan (sin escribir)
-//   npx ts-node --transpile-only scripts/c2-migrate.ts --apply    aplica SOLO la migración autorizada
+//   npx ts-node --transpile-only scripts/c2-migrate.ts --apply    aplica SOLO la siguiente migración pendiente
 //
 // No carga ningún archivo de entorno del backend ni variables heredadas: la URL sale solo del archivo de C2. Una única
 // conexión (Client, no Pool) sirve para verificar la identidad y para migrar, así que la sesión verificada es la que
 // escribe. El migrador es el de drizzle-orm (el mismo que usa drizzle-kit migrate): journal, hashes y tabla
 // drizzle.__drizzle_migrations del proyecto.
-import { readFileSync } from 'fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import { Client, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
@@ -51,7 +52,24 @@ async function main() {
           if (!rows[0].present) throw new C2MigrateError('no existe drizzle.__drizzle_migrations');
           return (await client.query('select hash, created_at::text as created_at from drizzle.__drizzle_migrations order by created_at, id')).rows as AppliedMigration[];
         },
-        migrate: () => migrate(drizzle({ client }), { migrationsFolder: MIGRATIONS }),
+        // El migrador de Drizzle aplica TODO lo pendiente de su carpeta: se le entrega una carpeta temporal (fuera del
+        // repositorio) cuyo journal termina en la siguiente migración, con copias exactas de sus SQL.
+        migrate: async (entries) => {
+          const dir = mkdtempSync(join(tmpdir(), 'pei-c2-migrate-'));
+          try {
+            const journal = JSON.parse(readFileSync(join(MIGRATIONS, 'meta', '_journal.json'), 'utf8')) as { entries: JournalEntry[] };
+            const limited = journal.entries.slice(0, entries.length);
+            if (limited.length !== entries.length || limited.some((e, i) => e.tag !== entries[i].tag || e.when !== entries[i].when)) {
+              throw new C2MigrateError('el journal cambió durante la ejecución');
+            }
+            mkdirSync(join(dir, 'meta'));
+            writeFileSync(join(dir, 'meta', '_journal.json'), JSON.stringify({ ...journal, entries: limited }, null, 2));
+            for (const e of limited) copyFileSync(join(MIGRATIONS, `${e.tag}.sql`), join(dir, `${e.tag}.sql`));
+            await migrate(drizzle({ client }), { migrationsFolder: dir });
+          } finally {
+            rmSync(dir, { recursive: true, force: true });
+          }
+        },
         close: () => client.end(),
       };
     },

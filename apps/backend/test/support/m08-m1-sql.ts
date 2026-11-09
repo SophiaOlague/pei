@@ -169,14 +169,29 @@ export async function assertSchemaHasM1(executor: { execute: typeof db.execute }
   }
 }
 
-// Paciente, médico y política mínimos para insertar citas directamente por SQL.
+// ¿Tiene cancellation_policy las columnas L y G (0013)? Sin ellas (esquema 0000–0012) no se pueden indicar.
+async function policyHasWaitColumns(): Promise<boolean> {
+  const { rows } = await tx().execute<{ n: string }>(sql`
+    select count(*) as n from information_schema.columns
+     where table_schema = 'public' and table_name = 'cancellation_policy'
+       and column_name in ('max_protected_wait_minutes', 'reconnect_grace_minutes')`);
+  return Number(rows[0].n) === 2;
+}
+
+// Paciente, médico y política mínimos para insertar citas directamente por SQL. Con L y G en el esquema (0013 o
+// posterior) los indica explícitamente (60 y 5, AP-22): desde 0016 no tienen DEFAULT. Sin ellos (0000–0012), los omite.
 export async function rawFixtures() {
   const admin = await createAdminActor(identityUseCases());
   const p = await createPatient(identityUseCases());
   const d = await createDoctor(doctorUseCases());
-  const { rows } = await tx().execute<{ id: string }>(sql`
-    insert into cancellation_policy (refund_deadline_hours, max_reschedules, doctor_wait_minutes, patient_tolerance_minutes, effective_from, effective_until, created_by)
-    values (24, 2, 30, 15, now() - interval '400 days', now() - interval '399 days', ${admin.userProfileId}) returning id`);
+  const { rows } = (await policyHasWaitColumns())
+    ? await tx().execute<{ id: string }>(sql`
+        insert into cancellation_policy (refund_deadline_hours, max_reschedules, doctor_wait_minutes, patient_tolerance_minutes,
+                                         max_protected_wait_minutes, reconnect_grace_minutes, effective_from, effective_until, created_by)
+        values (24, 2, 30, 15, 60, 5, now() - interval '400 days', now() - interval '399 days', ${admin.userProfileId}) returning id`)
+    : await tx().execute<{ id: string }>(sql`
+        insert into cancellation_policy (refund_deadline_hours, max_reschedules, doctor_wait_minutes, patient_tolerance_minutes, effective_from, effective_until, created_by)
+        values (24, 2, 30, 15, now() - interval '400 days', now() - interval '399 days', ${admin.userProfileId}) returning id`);
   return { admin, patientId: p.patientProfileId, doctorId: d.doctorProfileId, policyId: rows[0].id };
 }
 export type RawFixtures = Awaited<ReturnType<typeof rawFixtures>>;
