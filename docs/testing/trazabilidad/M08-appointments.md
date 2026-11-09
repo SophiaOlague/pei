@@ -43,8 +43,12 @@ datos de forma autorizada (ver «Residuo persistente aceptado»). Su equivalenci
 con SHA-256 frente a la línea base del 2026-11-08 (`appointments.conc-spec.ts`, `jest-concurrency.json`,
 `c2-mode-concurrency.ts` y `c2-mode-setup.ts`); se ejecutó sobre la misma copia de trabajo, no sobre el commit de B2.
 
-**No versionados en esta entrega:** las pruebas de migración desde 0000–0012 (D) y la parte B de M-1 (`0014`) con su
-bloqueo. Sus casos y evidencias se documentarán en sus propias entregas.
+**Pruebas de migración desde 0000–0012 (D):** `m08-m1-migration.int-spec.ts` (TC-M08-300 a 306) está **versionado, no
+ejecutado**. Requiere una rama aislada con esquema 0000–0012 (sin `0013`): en C2 falla a propósito en `beforeAll`, y la
+salvaguarda y el lanzador todavía no admiten otro destino. No tiene evidencia de ejecución en su forma actual.
+
+**No versionados en esta entrega:** la parte B de M-1 (`0014`) con su bloqueo. Sus casos y evidencias se documentarán
+en su propia entrega.
 
 ## Residuo persistente aceptado en C2 (no se limpia)
 
@@ -68,5 +72,6 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 |---|---|---|
 | TC-M08-200 a 240 (14) | `appointments.int-spec.ts` | 0013 en C2 (TC-M08-221: la BD impide `expired → *` y `confirmed → pending_payment/expired`) |
 | TC-M08-250 a 252 (3) | `appointments.conc-spec.ts` | 0013 en C2 |
+| TC-M08-300 a 306 (7) | `m08-m1-migration.int-spec.ts` | Versionados, no ejecutados: requieren una rama aislada con esquema 0000–0012 |
 | TC-M08-310 a 316 (7) | `m08-m1-schema.int-spec.ts` | 0013 en C2 |
 | TC-M08-320 a 331 | `scripts/c2-migrate-core.spec.ts` | unitarias, sin conexiones |
