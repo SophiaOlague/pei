@@ -110,6 +110,11 @@ describe('M-1 de M08 sobre el esquema persistente de C2 (0013 y 0014 aplicadas, 
     withIsolatedRollback(async () => {
       const id = await insertAppointment(await rawFixtures(), 'confirmed');
       await run(`update appointment set status = 'rescheduled' where id = '${id}'`);
+      // Orden de dependencias 0015 → 0014 → 0013: con 0014 aplicada, 0013 down se niega primero por esa dependencia.
+      expect(message(await attempt(DOWN_A))).toMatch(/Revierta primero 0014/);
+      if (await hasM1c(tx())) await run(m1c().down);
+      await run(partB().down);
+      // Sin 0014 (ni 0015), lo que impide revertir 0013 es la cita rescheduled.
       expect(message(await attempt(DOWN_A))).toMatch(/hay citas o historial en rescheduled/);
       const { rows } = await tx().execute<{ status: string }>(sql`select status::text as status from appointment where id = ${id}`);
       expect(rows[0].status).toBe('rescheduled');
@@ -145,7 +150,9 @@ describe('M-1 de M08 sobre el esquema persistente de C2 (0013 y 0014 aplicadas, 
       // Un identificador inexistente: lo rechaza el trigger (no hay usuario que coincida) o la FK.
       expect(message(await tryInsertWithAcceptances(f, privacy, '00000000-0000-4000-8000-000000000000'))).toMatch(/no pertenecen a su paciente|appointment_terms_legal_acceptance_fk/);
       // El régimen anterior completo sí es válido.
-      expect(await tryInsertWithAcceptances(f, await legalAcceptance(patient, 'privacy_notice'), await legalAcceptance(patient, 'terms_and_conditions'))).toBeNull();
+      // published_at distinto del terms_and_conditions anterior (now() es fijo en la transacción; la unicidad
+      // legal_document_type_published_at_uq sigue vigente).
+      expect(await tryInsertWithAcceptances(f, await legalAcceptance(patient, 'privacy_notice'), await legalAcceptance(patient, 'terms_and_conditions', 1))).toBeNull();
     }));
 
   it('[TC-M08-319][AP-26] las dos referencias son inmutables después del INSERT, también de NULL a un valor', () =>
