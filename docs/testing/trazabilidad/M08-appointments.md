@@ -43,9 +43,15 @@ datos de forma autorizada (ver «Residuo persistente aceptado»). Su equivalenci
 con SHA-256 frente a la línea base del 2026-11-08 (`appointments.conc-spec.ts`, `jest-concurrency.json`,
 `c2-mode-concurrency.ts` y `c2-mode-setup.ts`); se ejecutó sobre la misma copia de trabajo, no sobre el commit de B2.
 
-**Pruebas de migración desde 0000–0012 (D):** `m08-m1-migration.int-spec.ts` (TC-M08-300 a 306) está **versionado, no
-ejecutado**. Requiere una rama aislada con esquema 0000–0012 (sin `0013`): en C2 falla a propósito en `beforeAll`, y la
-salvaguarda y el lanzador todavía no admiten otro destino. No tiene evidencia de ejecución en su forma actual.
+**Pruebas de migración desde 0000–0012 (D):** `m08-m1-migration.int-spec.ts` (TC-M08-300 a 306). En C2 falla a propósito
+en `beforeAll` (C2 ya tiene `0013`); se ejecuta en la rama aislada `br-green-grass-b5yhyp89` (endpoint `ep-nameless-sun-b5njoeb3`, proyecto `royal-paper-10258990`; hija del respaldo `c2-pre-0013`, `br-silent-butterfly-b5z128fu`), modo `migration` del lanzador (identidad real verificada antes de cada ejecución).
+
+| Ejecución | Resultado | C2_RUN_ID | SHA-256 de `SHA256SUMS` |
+|---|---|---|---|
+| D, 2026-11-09 | **7/7** (TC-M08-300 a 306) | `c2-20261109041826-79f9` | `ed99da72a71db875f553ad3ca883d0f4543024badbf4ae81893bd8f24429774a` |
+
+`beforeAll` comprobó el esquema 0000–0012 y `afterAll`, que la huella del esquema final es igual a la inicial: `0013`
+no quedó aplicada. Los recuentos de datos **no se midieron**: los specs comparan solo la huella del esquema. Todo ocurrió en transacciones revertidas por diseño, pero no se afirma la ausencia de residuo de datos sin una medición. Paquete: `C:\pei-c2-evidencias\2026-11-09\c2-20261109041826-79f9\`.
 
 **Parte B de M-1 (`0014`): propuesta versionada y BLOQUEADA por dependencia de M02.** Se conservan
 `src/db/proposals/m08-m1/0014_m08_m1_legal_acceptance.up.sql` y `.down.sql`, `m08-m1-part-b.int-spec.ts`
@@ -68,9 +74,27 @@ salvaguarda y el lanzador todavía no admiten otro destino. No tiene evidencia d
   ejecutor `scripts/c2-migrate.ts` solo autoriza `0013` y su SQL exige `0013`. No se ha aplicado en ningún entorno.
 - `m08-m1-part-b.int-spec.ts` se detiene al cargarse sin `M08_PART_B_AUTHORIZED=0014`, que el lanzador C2 no
   transmite; además exige una rama aislada con esquema 0000–0012.
-- **No existe evidencia de ejecución** de esta parte. TC-M08-307 está reescrito para las dos referencias (A.17.4):
-  dependencia de `0013`, las dos o ninguna, otro paciente, tipo incorrecto, regímenes distintos, inmutabilidad, rechazo
-  de `0013 down` y restauración del guard de `0013` (md5). No se ha ejecutado.
+- **Validación aislada de TC-M08-307** (5 pruebas: dependencia de `0013`, las dos o ninguna, otro paciente, tipo
+  incorrecto, regímenes distintos, inmutabilidad, rechazo de `0013 down` y restauración del guard de `0013`), en la
+  rama aislada `br-green-grass-b5yhyp89` (endpoint `ep-nameless-sun-b5njoeb3`, proyecto `royal-paper-10258990`; hija del respaldo `c2-pre-0013`, `br-silent-butterfly-b5z128fu`), modo `migration` del lanzador (identidad real verificada antes de cada ejecución), con `--authorize-part-b 0014` (la variable solo llega a este spec en ese modo):
+
+  | Ejecución | Resultado | C2_RUN_ID | SHA-256 de `SHA256SUMS` |
+  |---|---|---|---|
+  | 1.ª, 2026-11-09 | **4/5, fallida** | `c2-20261109042210-b3ee` | `f7a1f5f1e3d8963505d9bee65aaa3f6f21e1d0a1a74e105f5d1133a4928e4e31` |
+  | 2.ª, 2026-11-09 (tras el ajuste del trigger) | **5/5** | `c2-20261109042944-1726` | `47e03f4874e98ab90c181e528fa018661c19339393e1329515bbf60a9b207ee8` |
+
+  - **Fallo de la 1.ª:** la pareja parcial se rechazaba, pero por el trigger de validación (que en PostgreSQL se ejecuta
+    antes que el CHECK) con el mensaje «no pertenecen a su paciente», en lugar de por `appointment_legal_acceptances_chk`.
+    Corrección: el trigger devuelve `NEW` si alguna referencia es nula y deja la pareja parcial al CHECK; las
+    validaciones de paciente, tipo y régimen siguen cuando las dos tienen valor.
+  - **2.ª:** las dos parejas parciales se rechazan por `appointment_legal_acceptances_chk`; el md5 de
+    `gst_appointment_guard` cambia con `0014` y vuelve a ser exactamente el de `0013` tras `0014 down`; la huella del
+    esquema tras `0014 down` es igual a la de después de `0013`, y la final, igual a la inicial (`afterAll`): ni `0014` ni
+    `0013` quedaron aplicadas. Los recuentos de datos **no se midieron**: los specs comparan solo la huella del esquema. Todo ocurrió en transacciones revertidas por diseño, pero no se afirma la ausencia de residuo de datos sin una medición.
+  - Paquetes: `C:\pei-c2-evidencias\2026-11-09\c2-20261109042210-b3ee\` y
+    `C:\pei-c2-evidencias\2026-11-09\c2-20261109042944-1726\`.
+- `0014` **sigue sin aplicarse de forma persistente** en ningún entorno. Esta validación aislada no autoriza aplicarla
+  en C2, en desarrollo ni en producción.
 
 ## Residuo persistente aceptado en C2 (no se limpia)
 
@@ -94,8 +118,8 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 |---|---|---|
 | TC-M08-200 a 240 (14) | `appointments.int-spec.ts` | 0013 en C2 (TC-M08-221: la BD impide `expired → *` y `confirmed → pending_payment/expired`) |
 | TC-M08-250 a 252 (3) | `appointments.conc-spec.ts` | 0013 en C2 |
-| TC-M08-300 a 306 (7) | `m08-m1-migration.int-spec.ts` | Versionados, no ejecutados: requieren una rama aislada con esquema 0000–0012 |
+| TC-M08-300 a 306 (7) | `m08-m1-migration.int-spec.ts` | Rama aislada 0000–0012 (modo `migration`): 7/7 en `c2-20261109041826-79f9` |
 | TC-M08-310 a 316 (7) | `m08-m1-schema.int-spec.ts` | 0013 en C2 |
 | TC-M08-320 a 331 | `scripts/c2-migrate-core.spec.ts` | unitarias, sin conexiones |
-| TC-M08-307 (5 pruebas) | `m08-m1-part-b.int-spec.ts` | autorización de 0014 (bloqueado) y rama aislada 0000–0012; reescrito para las dos referencias (AP-26), no ejecutado |
+| TC-M08-307 (5 pruebas) | `m08-m1-part-b.int-spec.ts` | Rama aislada 0000–0012 con `--authorize-part-b 0014`: 4/5 en `c2-20261109042210-b3ee`; 5/5 en `c2-20261109042944-1726` tras ajustar el trigger |
 | TC-M08-340 a 342 | `test/support/m08-m1-part-b-gate.spec.ts` | unitarias, sin conexiones |

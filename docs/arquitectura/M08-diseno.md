@@ -1341,7 +1341,9 @@ identificadores del Maestro. Los requisitos sí se citan con su número del Maes
 
 Precisa AP-19 y C-32. **Estado (2026-11-08):** el lector de M02 está implementado (contrato de A.17.1, pruebas unitarias
 TC-M02-249 a 256; ver `docs/testing/trazabilidad/M02-identity.md`), pero M08 todavía no lo consume. La propuesta `0014` y
-TC-M08-307 están reescritos según A.17.3 y A.17.4, sin aplicar ni ejecutar. No están implementadas las columnas en el
+TC-M08-307 están reescritos según A.17.3 y A.17.4 y validados en una rama aislada (TC-M08-307 5/5,
+`c2-20261109042944-1726`; ver `docs/testing/trazabilidad/M08-appointments.md`); `0014` no está aplicada de forma
+persistente en ningún entorno. No están implementadas las columnas en el
 esquema de Drizzle ni la integración en la reserva. Para que `0013 down` siga
 negándose con `0014` aplicada, su comprobación de dependencia se amplió a las dos columnas nuevas (la migración
 aplicada `0013` y `0013 up` no cambian).

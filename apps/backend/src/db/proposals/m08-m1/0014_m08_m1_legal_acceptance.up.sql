@@ -47,7 +47,9 @@ declare
   terms_user uuid;
   terms_type text;
 begin
-  if new.privacy_legal_acceptance_id is null and new.terms_legal_acceptance_id is null then
+  -- Con alguna referencia nula no hay pareja que validar: las dos nulas son válidas (citas anteriores) y una pareja
+  -- parcial la rechaza appointment_legal_acceptances_chk, que se evalúa después de los triggers BEFORE.
+  if new.privacy_legal_acceptance_id is null or new.terms_legal_acceptance_id is null then
     return new;
   end if;
   select pp.user_profile_id into patient_user from patient_profile pp where pp.id = new.patient_id;
