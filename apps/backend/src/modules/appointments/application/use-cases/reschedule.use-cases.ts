@@ -12,10 +12,11 @@ import {
 import { assertTransition } from '../../domain/appointment-status';
 import { occupiesSchedule } from '../../domain/hold';
 import { blockOf, occupancyOf, overlaps } from '../../domain/occupancy';
-import { assertReschedulable, MAX_CHAIN_LENGTH } from '../../domain/reschedule-rules';
+import { assertReschedulable } from '../../domain/reschedule-rules';
+import { resolveChain } from '../../domain/appointment-chain';
 import { AppointmentAuditEvents } from '../appointments-audit-events';
 import {
-  APPOINTMENT_REPOSITORY, BOOKING_ELIGIBILITY, BOOKING_FEATURE, CANCELLATION_POLICY_REPOSITORY, type AppointmentRecord, type AppointmentRepository,
+  APPOINTMENT_REPOSITORY, BOOKING_ELIGIBILITY, BOOKING_FEATURE, CANCELLATION_POLICY_REPOSITORY, type AppointmentRepository,
   type BookingEligibility, type BookingFeature, type CancellationPolicyRepository,
 } from '../ports/appointments.ports';
 import { PatientSlotsService, toAppointmentView, type AppointmentView } from './booking.use-cases';
@@ -72,7 +73,8 @@ export class RescheduleByPatientUseCase {
       const policy = await this.policies.findById(original.cancellationPolicyId);
       if (!policy) throw new CancellationPolicyNotConfiguredError();
       const now = this.clock.now();
-      const chain = await this.chainOf(original);
+      // DA-7: raíz y reagendamientos previos (el mismo recorrido que rootOf).
+      const chain = await resolveChain(original, (previousId) => this.appointments.findById(previousId));
       assertReschedulable({
         originalScheduledAt: original.scheduledAt, now, refundDeadlineHours: policy.refundDeadlineHours,
         previousReschedules: chain.depth, maxReschedules: policy.maxReschedules,
@@ -110,17 +112,4 @@ export class RescheduleByPatientUseCase {
     });
   }
 
-  // Raíz y profundidad de la cadena (DA-7): reagendamientos previos = número de antecesores de la cita.
-  private async chainOf(a: AppointmentRecord): Promise<{ rootId: string; depth: number }> {
-    let current = a;
-    let depth = 0;
-    while (current.rescheduledFromAppointmentId) {
-      if (depth >= MAX_CHAIN_LENGTH) throw new InvalidAppointmentStateError(a.status);
-      const previous = await this.appointments.findById(current.rescheduledFromAppointmentId);
-      if (!previous) throw new AppointmentNotFoundError();
-      current = previous;
-      depth++;
-    }
-    return { rootId: current.id, depth };
-  }
 }

@@ -373,7 +373,7 @@ migración.
 
 | Módulo | Necesita de M08 | M08 necesita de él | Bloquea a M08 |
 |---|---|---|---|
-| Pagos (RF-13, RF-46) | `confirmPaid`, `markPaymentFailed`, `rootOf`, `refundOutcome`, eventos | Nada en tiempo de compilación. Sin pagos no hay citas confirmadas en producción | La puesta en producción (DA-1), no la implementación |
+| Pagos (RF-13, RF-46) | `confirmPaid`, `markPaymentFailed`, `rootOf` y `PaymentLedgerPort` (implementados, A.20), `refundOutcome`, eventos | Nada en tiempo de compilación. Sin pagos no hay citas confirmadas en producción | La puesta en producción (DA-1), no la implementación |
 | Videoconsulta (RF-18 a RF-22) | `getForSession`, `markCompleted`, `markNoShow`, parámetros de ventanas | Nada | No; CC-2 y CC-9 lo bloquean a él |
 | Notificaciones (RF-51) | Los eventos de cita | Nada | No |
 
@@ -1456,6 +1456,41 @@ PostgreSQL. No cambia el esquema (todo existe desde 0013).
 - **`getForSession`** devuelve W, Tol, L y G de la política aplicada a la cita.
 - **Pendiente real:** M-1c (`NOT NULL` en `agenda_block_ends_at` y retirar los DEFAULT de L y G), cuando no queden
   citas con el fin nulo; prueba de integración en C2 de la escritura del fin del bloque y de L y G.
+
+## A.20 Contrato con pagos para citas reagendadas (DA-6, RN-018; 2026-11-09)
+
+**Contrato implementado** (sin commit; validado con dobles, TC-M08-390 a 395). **Integración real con pagos:
+pendiente** de que exista el módulo de pagos, que es el consumidor.
+
+| Contrato | Firma | Dónde | Quién lo implementa |
+|---|---|---|---|
+| Raíz de la cadena | `AppointmentChainService.rootOf(appointmentId: string): Promise<string>` | `application/integration/appointment-chain.services.ts`; proveedor y export de `AppointmentsModule` | M08 |
+| Pago de una cita | `PaymentLedgerPort.paymentForAppointment(appointmentId: string): Promise<PaymentReference \| null>` | mismo archivo (interfaz) | `RootResolvingPaymentLedger` (M08) compone `rootOf` + `RootPaymentLookup` |
+| Pago de una raíz | `RootPaymentLookup.paymentForRootAppointment(rootAppointmentId: string): Promise<PaymentReference \| null>` | mismo archivo (interfaz) | **Pagos** (pendiente) |
+
+- `PaymentReference = { paymentId, rootAppointmentId }`: solo identificadores; M08 no conoce montos, estados ni
+  proveedores, y no se crea ninguna tabla ni entidad de pagos.
+- **Decisión de diseño:** `paymentForAppointment` resuelve la raíz con `rootOf` (M08 es el dueño de la relación entre
+  citas) y pagos solo busca el pago de una raíz. Así pagos no recorre `rescheduled_from_appointment_id` ni duplica la
+  regla. Precisa la redacción anterior («pagos implementa `paymentForAppointment` resolviendo la raíz»): la resolución
+  queda en M08 y pagos aporta solo la búsqueda por raíz.
+- **Resolución (`domain/appointment-chain.ts`, `resolveChain`):** recorrido iterativo desde la cita por
+  `rescheduled_from_appointment_id` hasta la primera sin antecesor; cadenas de cualquier longitud hasta
+  `MAX_CHAIN_LENGTH` (100). Cita inexistente: `AppointmentNotFoundError` (404). Antecesor inexistente, ciclo
+  (incluida la autorreferencia) o cadena más larga: `AppointmentChainBrokenError` (409) con `cause`
+  `missing_ancestor | cycle | too_long`; nunca se adivina la raíz. El reagendamiento usa el mismo recorrido para el
+  contador (DA-7); ante una cadena inconsistente ahora responde `AppointmentChainBrokenError` en lugar de 404/409
+  genéricos (solo con datos corruptos).
+- Sin dependencia de M08 hacia pagos (RT-M08-03) y sin ruta HTTP. `RootResolvingPaymentLedger` no se registra como
+  proveedor porque `RootPaymentLookup` aún no tiene implementación.
+- **Pendiente para integrar pagos:** que pagos implemente `RootPaymentLookup` sobre `payment.appointment_id`
+  (siempre la raíz), registre `PaymentLedgerPort` con `RootResolvingPaymentLedger` y `AppointmentChainService`
+  (importando `AppointmentsModule`), y use el pago de la raíz para el reembolso de una cita reagendada y luego cancelada
+  (RF-46: el acumulado no supera el monto). Prueba de integración en C2 de `rootOf` sobre filas reales.
+- **Reglas de arquitectura actualizadas (2026-11-09):** RT-M08-05 y RT-M08-06 prohibían `agenda_block_ends_at` y
+  `rescheduled` (anteriores a M-1) y fallaban desde los commits de DA-6 y DA-3. Ahora: M08 no usa `meeting.ended_at`, el
+  fin del bloque no aparece en `integration/` ni en `presentation/` (AP-23), y solo el caso de uso de reagendamiento
+  lleva una cita a `rescheduled` (DA-6).
 
 ## 1. Alcance y límites
 

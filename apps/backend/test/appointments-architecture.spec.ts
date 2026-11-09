@@ -53,13 +53,16 @@ describe('Arquitectura de M08 (citas)', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('[RT-M08-05][AP-23] M08 no usa meeting.ended_at ni agenda_block_ends_at (M-1 no aplicada)', () => {
-    const offenders = m08.filter((f) => /endedAt|ended_at|agendaBlockEndsAt|agenda_block_ends_at/.test(f.text.replace(/\/\/.*$/gm, ''))).map((f) => f.path);
-    expect(offenders).toEqual([]);
+  // M-1 (0013) está aplicada: DA-3 guarda agenda_block_ends_at (solo ocupación) y DA-6 usa rescheduled.
+  it('[RT-M08-05][AP-23] M08 no usa meeting.ended_at; el fin del bloque no sale en contratos de integración ni en la presentación', () => {
+    const code = (t: string) => t.replace(/\/\/.*$/gm, '');
+    expect(m08.filter((f) => /endedAt|ended_at/.test(code(f.text))).map((f) => f.path)).toEqual([]);
+    const exposed = m08.filter((f) => /\/(integration|presentation)\//.test(f.path) && /agendaBlockEndsAt|agenda_block_ends_at/.test(code(f.text)));
+    expect(exposed.map((f) => f.path)).toEqual([]);
   });
 
-  it('[RT-M08-06] M08 no usa el estado rescheduled (depende de M-1 y C-25)', () => {
-    const offenders = m08.filter((f) => /'rescheduled'/.test(f.text)).map((f) => f.path);
-    expect(offenders).toEqual([]);
+  it('[RT-M08-06][DA-6] solo el caso de uso de reagendamiento lleva una cita al estado rescheduled', () => {
+    const offenders = m08.filter((f) => /status:\s*'rescheduled'/.test(f.text)).map((f) => f.path);
+    expect(offenders).toEqual(['modules/appointments/application/use-cases/reschedule.use-cases.ts']);
   });
 });

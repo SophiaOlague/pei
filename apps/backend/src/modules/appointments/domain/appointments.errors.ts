@@ -116,6 +116,18 @@ export class RescheduleLimitReachedError extends DomainError {
   }
 }
 
+// DA-6: la cadena rescheduled_from_appointment_id no lleva a una raíz (antecesor inexistente, ciclo o longitud
+// excesiva). Es un dato inconsistente: se falla de forma cerrada, nunca se adivina la raíz.
+export class AppointmentChainBrokenError extends DomainError {
+  readonly kind = 'conflict' as const;
+  constructor(readonly appointmentId: string, readonly cause: 'missing_ancestor' | 'cycle' | 'too_long') {
+    super('La cadena de reagendamientos de la cita es inconsistente');
+  }
+  override get details() {
+    return { appointmentId: this.appointmentId, cause: this.cause };
+  }
+}
+
 export class InvalidAppointmentInputError extends DomainError {
   readonly kind = 'validation' as const;
   constructor(reason: string) {

@@ -3,6 +3,7 @@ import { AgendaModule } from '../agenda/agenda.module';
 import { DoctorsModule } from '../doctors/doctors.module';
 import { IdentityModule } from '../identity/identity.module';
 import { AppointmentConfirmationService, AppointmentSessionService } from './application/integration/appointment-integration.services';
+import { AppointmentChainService } from './application/integration/appointment-chain.services';
 import {
   DoctorAppointmentsQuery, DoctorOccupancyService, GetDoctorSlotsForPatientUseCase, HoldSlotUseCase, ListBookableDoctorsUseCase, PatientAppointmentsQuery,
   PatientSlotsService, ReleaseHoldUseCase,
@@ -44,6 +45,7 @@ import {
     CancellationPolicyService,
     AppointmentConfirmationService,
     AppointmentSessionService,
+    AppointmentChainService,
     { provide: APPOINTMENT_REPOSITORY, useClass: DrizzleAppointmentRepository },
     { provide: CONSULTATION_PRICE_REPOSITORY, useClass: DrizzleConsultationPriceRepository },
     { provide: CANCELLATION_POLICY_REPOSITORY, useClass: DrizzleCancellationPolicyRepository },
@@ -52,6 +54,6 @@ import {
     { provide: BOOKING_FEATURE, useClass: EnvBookingFeature },
     { provide: BOOKING_LEGAL_ACCEPTANCES, useClass: ReaderBookingLegalAcceptances },
   ],
-  exports: [AppointmentConfirmationService, AppointmentSessionService, ConsultationPriceService, CancellationPolicyService],
+  exports: [AppointmentConfirmationService, AppointmentSessionService, AppointmentChainService, ConsultationPriceService, CancellationPolicyService],
 })
 export class AppointmentsModule {}

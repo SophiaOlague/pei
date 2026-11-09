@@ -7,9 +7,6 @@ import { hoursUntil } from './cancellation-rules';
 // La cita nueva conserva precio, política, motivo y las dos referencias legales (RN-018, AP-26); no hay cobro ni
 // reembolso, y el pago sigue ligado a la cita raíz.
 
-// Recorrido máximo de la cadena: defensa ante datos corruptos (un ciclo), muy por encima de cualquier tope razonable.
-export const MAX_CHAIN_LENGTH = 100;
-
 export function assertReschedulable(input: {
   originalScheduledAt: Date;
   now: Date;
