@@ -1146,7 +1146,7 @@ prefijo de `insertAuthUser` y las versiones de precio cerradas de esas ejecucion
 | **4** (oblig.) | `cancellation_policy.max_protected_wait_minutes`, `reconnect_grace_minutes` | `ADD COLUMN NOT NULL DEFAULT 60 / 5` + `CHECK` | C-26, AP-22 | — | `cancellation_policy_windows_chk` | Las versiones existentes toman 60 y 5; fallaría si alguna versión violara el orden | Los `DEFAULT` siguen hasta M-1c | `DROP COLUMN` |
 | **5** (oblig.) | `cancellation_policy`, `consultation_price_configuration` | Triggers: solo cerrar una vez; sin DELETE ni TRUNCATE | RN-021, AP-2 | 4 | 4 triggers | Compatible con `closeVersion` | Impide limpiezas manuales (es lo buscado) | `DROP TRIGGER` y `DROP FUNCTION` |
 | ~~5c~~ | — | **Retirado** | 0001 ya tiene `EXCLUDE … no_overlap` en ambas tablas | — | — | — | — | — |
-| **3** (M02) | `appointment.privacy_legal_acceptance_id` y `terms_legal_acceptance_id` → `user_legal_acceptance` (AP-26; sustituye a `legal_acceptance_id`) | `ADD COLUMN` ×2 + FK + índices + CHECK + trigger de validación; `CREATE OR REPLACE` del guard | C-32, AP-19, AP-26 | 0013 y la autorización de M02 | Las dos o ninguna; paciente, tipo y régimen validados; inmutables desde el INSERT | Admiten nulos para las citas anteriores | La propuesta versionada (`c8233a7`) todavía usa una sola columna: pendiente de reescribir | `0014 down` (antes que 0013), que restaura el guard exacto de `0013` |
+| **3** (M02) | `appointment.privacy_legal_acceptance_id` y `terms_legal_acceptance_id` → `user_legal_acceptance` (AP-26; sustituye a `legal_acceptance_id`) | `ADD COLUMN` ×2 + FK + índices + CHECK + trigger de validación; `CREATE OR REPLACE` del guard | C-32, AP-19, AP-26 | 0013 y la autorización de M02 | Las dos o ninguna; paciente, tipo y régimen validados; inmutables desde el INSERT | Admiten nulos para las citas anteriores | Reescrita según A.17.3, sin aplicar | `0014 down` (antes que 0013), que restaura el guard exacto de `0013` |
 | 6 (opcional) | `EXCLUDE` de citas con `btree_gist` | **Excluido** | — | — | — | — | — | — |
 
 **Expandir y contraer**: M-1 deja el código actual funcionando sin cambios (TC-M08-304). **M-1c**, más adelante y con
@@ -1340,9 +1340,11 @@ identificadores del Maestro. Los requisitos sí se citan con su número del Maes
 ## A.17 Dos referencias legales en la cita (AP-26, 2026-11-08)
 
 Precisa AP-19 y C-32. **Estado (2026-11-08):** el lector de M02 está implementado (contrato de A.17.1, pruebas unitarias
-TC-M02-249 a 256; ver `docs/testing/trazabilidad/M02-identity.md`), pero M08 todavía no lo consume. No están implementados
-las columnas en el esquema de Drizzle, la reescritura de `0014` ni la de TC-M08-307. La propuesta `0014` versionada en `c8233a7` todavía usa una sola
-columna (`legal_acceptance_id`) y queda **desactualizada y bloqueada** hasta su reescritura.
+TC-M02-249 a 256; ver `docs/testing/trazabilidad/M02-identity.md`), pero M08 todavía no lo consume. La propuesta `0014` y
+TC-M08-307 están reescritos según A.17.3 y A.17.4, sin aplicar ni ejecutar. No están implementadas las columnas en el
+esquema de Drizzle ni la integración en la reserva. Para que `0013 down` siga
+negándose con `0014` aplicada, su comprobación de dependencia se amplió a las dos columnas nuevas (la migración
+aplicada `0013` y `0013 up` no cambian).
 
 ### A.17.1 Contrato del lector de M02
 

@@ -11,8 +11,10 @@ begin
                   where t.typname = 'appointment_status_enum' and e.enumlabel = 'rescheduled') then
     raise exception '0013 no está aplicada' using errcode = 'P0001';
   end if;
-  if exists (select 1 from information_schema.columns where table_name = 'appointment' and column_name = 'legal_acceptance_id') then
-    raise exception 'Revierta primero 0014 (legal_acceptance_id)' using errcode = 'P0001';
+  if exists (select 1 from information_schema.columns
+              where table_name = 'appointment'
+                and column_name in ('legal_acceptance_id', 'privacy_legal_acceptance_id', 'terms_legal_acceptance_id')) then
+    raise exception 'Revierta primero 0014 (referencias legales de la cita)' using errcode = 'P0001';
   end if;
   if exists (select 1 from appointment where status = 'rescheduled')
      or exists (select 1 from appointment_status_history where status = 'rescheduled') then
