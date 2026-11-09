@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { db } from '../../src/db';
 import { transactionStorage } from '../../src/db/transaction-context';
 import { RegistrationDataConflictError } from '../../src/modules/identity/domain/identity.errors';
 import {
@@ -41,9 +42,16 @@ describe('Médicos contra PostgreSQL (M03 B8, rollback)', () => {
   });
 
   afterAll(async () => {
-    expect(await countM00Residue()).toEqual(before.m00);
-    expect(await countM02Residue()).toEqual(before.m02);
-    expect(await withRollback(() => countM03Residue())).toEqual(before.m03);
+    try {
+      expect(await countM00Residue()).toEqual(before.m00);
+      expect(await countM02Residue()).toEqual(before.m02);
+      expect(await withRollback(() => countM03Residue())).toEqual(before.m03);
+    } finally {
+      // El pool de src/db (compartido por los adaptadores Drizzle) mantiene conexiones abiertas: sin cerrarlo, Jest no
+      // termina («did not exit one second after the test run»). Se cierra al final y se comprueba que quedó vacío.
+      await db.$client.end();
+      expect(db.$client.totalCount).toBe(0);
+    }
   });
 
   it('[TC-M03-172][RF-05][R-10] el registro crea user_profile doctor y doctor_profile (pasa los triggers de 0008) y audita', () =>
@@ -159,15 +167,18 @@ describe('Médicos contra PostgreSQL (M03 B8, rollback)', () => {
       const d = await createDoctor(uc);
       const ine = await uc.submitIne.execute(d, { front: JPEG, back: JPEG });
       const lic = await uc.submitLicense.execute(d, { licenseNumber: 'INT-DOC', document: PDF });
-      expect((await uc.queue.execute(admin, 'identity', 1, 100)).items.map((i) => i.id)).toContain(ine.reviewId);
+      // La rama C2 puede contener médicos preexistentes: las aserciones solo comparan booleanos e identificadores de
+      // este médico sintético, de modo que un fallo nunca imprime listas, nombres, CURP ni correos de otros registros.
+      const queue = await uc.queue.execute(admin, 'identity', 1, 100);
+      expect(queue.items.some((i) => i.id === ine.reviewId)).toBe(true);
       await uc.documents.identity(admin, ine.reviewId, 'front');
       await uc.documents.license(admin, lic.reviewId);
       expect(await doctorAuditActions([ine.reviewId, lic.reviewId])).toEqual(expect.arrayContaining(['doctor.identity_document.viewed', 'doctor.license_document.viewed']));
-      expect((await uc.detail.identityDetail(admin, ine.reviewId)).doctor.lastName).toBe('Sintética');
+      expect((await uc.detail.identityDetail(admin, ine.reviewId)).doctor.lastName === 'Sintética').toBe(true);
       await uc.review.execute(admin, 'identity', ine.reviewId, { decision: 'reject', reason: REASON });
       await expect(uc.documents.identity(admin, ine.reviewId, 'front')).rejects.toThrow(DoctorIdentityDocumentUnavailableError);
-      const pending = await uc.list.execute(admin, { status: 'rejected', page: 1, pageSize: 100 });
-      expect(pending.items.map((i) => i.doctorProfileId)).not.toContain(d.doctorProfileId); // cédula pendiente → pending (Z-1)
+      const rejected = await uc.list.execute(admin, { status: 'rejected', page: 1, pageSize: 100 });
+      expect(rejected.items.some((i) => i.doctorProfileId === d.doctorProfileId)).toBe(false); // cédula pendiente → pending (Z-1)
     }));
 
   it('[TC-M03-182][D-19][DT-6] si la purga falla, la CLI de conciliación la encuentra y la completa', () =>

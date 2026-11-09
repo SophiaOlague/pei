@@ -4,28 +4,29 @@ import { transactionStorage } from '../../src/db/transaction-context';
 import type { Actor } from '../../src/common/application/actor';
 import { DrizzleUserProfileRepository } from '../../src/modules/identity/infrastructure/persistence/drizzle-user-profile.repository';
 import { ReviewNotPendingError } from '../../src/modules/doctors/domain/doctor.errors';
-import { assertC2BranchTarget } from '../support/c2-target-guard';
+import { assertC2BranchTarget, C2_PERSISTENT_FIXTURES, C2_TARGET } from '../support/c2-target-guard';
 import { captureError, deferred, type Tx } from '../support/with-rollback';
 import { insertAuthUser, sessionActor } from '../support/identity-integration';
-import { acceptDoctorRegime, doctorUseCases, JPEG, PDF, specialtyId } from '../support/doctors-integration';
+import {
+  acceptCurrentDoctorRegime, assertReusableDoctorRegime, doctorUseCases, JPEG, PDF, readCurrentDoctorRegime, specialtyId, type CurrentDoctorRegime,
+} from '../support/doctors-integration';
 import { syntheticCurp } from '../support/synthetic-identity';
 
 // M03 B8 (plan v2 §9 y §13; diseño v3 §E.5): concurrencia con DOS conexiones y datos CONFIRMADOS. La conexión B
 // necesita ver al médico que crea la preparación, y las tablas de revisión bloquean DELETE y TRUNCATE (0012): estos
-// datos NO se pueden limpiar. Por eso este spec solo se ejecuta contra una rama de Neon DESECHABLE (X-6), nunca contra
-// `rama` ni `production`, y fuera de la suite de integración (config propia: test/jest-concurrency.json).
+// datos NO se pueden limpiar. Solo se ejecuta contra la rama de pruebas C2 persistente aprobada (C2_TARGET, nunca
+// la base de desarrollo br-royal-recipe-b54s5hnn), con conexión directa (jest-concurrency.json) y la aceptación
+// explícita de conservar los datos sintéticos, que el lanzador C2 inyecta como
+// C2_COMMITTED_FIXTURES=c2-persistent-accepted (2026-11-03).
 assertC2BranchTarget();
-const RAMA = 'br-autumn-sun-b52qoep4';
-// Excepción (2026-10-20): el usuario aceptó por escrito ejecutarlo en `rama` con datos permanentes; C2 v11.1 lo marca
-// con un valor propio que solo inyecta para `rama`.
-const allowed = process.env.C2_EXPECTED_BRANCH === RAMA
-  ? process.env.C2_COMMITTED_FIXTURES === 'rama-permanent-accepted'
-  : process.env.C2_COMMITTED_FIXTURES === 'disposable-branch';
+const allowed = process.env.C2_EXPECTED_BRANCH === C2_TARGET.branch && process.env.C2_COMMITTED_FIXTURES === C2_PERSISTENT_FIXTURES;
 if (!allowed) {
-  throw new Error('doctors.conc-spec confirma datos: solo contra una rama desechable autorizada (C2_COMMITTED_FIXTURES=disposable-branch)');
+  throw new Error(`doctors.conc-spec confirma datos: solo en la rama C2 aprobada con C2_COMMITTED_FIXTURES=${C2_PERSISTENT_FIXTURES}`);
 }
 
 const uc = doctorUseCases();
+// Régimen legal vigente de la rama, leído una vez antes de las pruebas y reutilizado (nunca se publica, ver beforeAll).
+let regime: CurrentDoctorRegime;
 const REASON = 'Documento ilegible, envía otra imagen';
 
 // Ejecuta `work` en una transacción que se mantiene abierta hasta release() y después se CONFIRMA.
@@ -70,7 +71,7 @@ async function submittedDoctor() {
   const { doctorProfileId, userProfileId } = await uc.register.execute(base, {
     firstName: 'Médica', lastName: 'Concurrencia', curp: syntheticCurp(), specialtyId: await committed(() => specialtyId('medicina_general')),
   });
-  await committed(() => acceptDoctorRegime(userProfileId));
+  await committed(() => acceptCurrentDoctorRegime(userProfileId, regime));
   const actor: Actor = { ...base, userProfileId, role: 'doctor' };
   const ine = await uc.submitIne.execute(actor, { front: JPEG, back: JPEG });
   const lic = await uc.submitLicense.execute(actor, { licenseNumber: `CONC${Math.floor(Math.random() * 1e9)}`, document: PDF });
@@ -78,8 +79,20 @@ async function submittedDoctor() {
 }
 
 describe('Concurrencia del médico (M03 B8, dos conexiones, datos confirmados)', () => {
+  beforeAll(async () => {
+    regime = await committed(() => readCurrentDoctorRegime());
+    assertReusableDoctorRegime(regime, new Date());
+  });
+
   afterAll(async () => {
-    await db.$client.end();
+    try {
+      // La versión legal vigente no cambió y no se publicó ningún documento.
+      const after = await committed(() => readCurrentDoctorRegime());
+      expect(after.documents).toEqual(regime.documents);
+      expect(after.totalLegalDocuments).toBe(regime.totalLegalDocuments);
+    } finally {
+      await db.$client.end();
+    }
   });
 
   it('[TC-M03-183][E.5] cambio sensible primero: la aprobación espera el candado y después ve la revisión superseded (409)', async () => {
