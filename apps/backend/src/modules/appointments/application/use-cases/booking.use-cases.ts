@@ -15,6 +15,7 @@ import { holdExpiresAt, isHoldActive, occupiesSchedule } from '../../domain/hold
 import { addLocalDays, LISTING_HORIZON_DAYS, localDateString, PLATFORM_TIME_ZONE } from '../../domain/local-date';
 import { blockOf, excludeBusy, occupancyOf, overlaps, type Interval } from '../../domain/occupancy';
 import { AppointmentAuditEvents } from '../appointments-audit-events';
+import { APPOINTMENT_EVENT_PUBLISHER, type AppointmentEventPublisher } from '../appointment-events';
 import {
   APPOINTMENT_REPOSITORY, BOOKABLE_DOCTORS_READER, BOOKING_ELIGIBILITY, BOOKING_FEATURE, BOOKING_LEGAL_ACCEPTANCES, CANCELLATION_POLICY_REPOSITORY,
   CONSULTATION_PRICE_REPOSITORY, type AppointmentRecord, type AppointmentRepository, type BookableDoctorsReader, type BookingEligibility,
@@ -160,6 +161,7 @@ export class HoldSlotUseCase {
     private readonly slots: PatientSlotsService,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(BOOKING_LEGAL_ACCEPTANCES) private readonly legal: BookingLegalAcceptances,
+    @Inject(APPOINTMENT_EVENT_PUBLISHER) private readonly events: AppointmentEventPublisher,
   ) {}
 
   async execute(actor: Actor, input: HoldInput): Promise<AppointmentView> {
@@ -227,6 +229,11 @@ export class HoldSlotUseCase {
     for (const stale of await this.appointments.listExpiredHolds(doctorProfileId, now)) {
       await this.appointments.changeStatus(stale.id, { status: 'expired', actorType: 'system', actorUserProfileId: null, reason: 'hold_timeout' });
       await this.audit.record(AppointmentAuditEvents.holdExpired(systemActor(SYSTEM_PROCESS.holdExpiry), stale.id, 'timeout'));
+      // Tras el COMMIT: si la reserva falla después, la transacción (y este evento) se revierte.
+      this.events.publish({
+        type: 'AppointmentExpired', appointmentId: stale.id, patientProfileId: stale.patientId, doctorProfileId: stale.doctorId,
+        occurredAt: now.toISOString(), cause: 'timeout',
+      });
     }
   }
 }
@@ -238,6 +245,8 @@ export class ReleaseHoldUseCase {
     @Inject(UNIT_OF_WORK) private readonly uow: UnitOfWork,
     @Inject(AUDIT_TRAIL) private readonly audit: AuditTrail,
     @Inject(APPOINTMENT_REPOSITORY) private readonly appointments: AppointmentRepository,
+    @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(APPOINTMENT_EVENT_PUBLISHER) private readonly events: AppointmentEventPublisher,
   ) {}
 
   async execute(actor: Actor, appointmentId: string): Promise<void> {
@@ -254,6 +263,10 @@ export class ReleaseHoldUseCase {
       assertTransition(a.status, 'expired');
       await this.appointments.changeStatus(a.id, { status: 'expired', actorType: 'patient', actorUserProfileId: userProfileId, reason: 'hold_released' });
       await this.audit.record(AppointmentAuditEvents.holdReleased(AuditActor.fromActor(actor), a.id));
+      this.events.publish({
+        type: 'AppointmentExpired', appointmentId: a.id, patientProfileId: a.patientId, doctorProfileId: a.doctorId,
+        occurredAt: this.clock.now().toISOString(), cause: 'released',
+      });
     });
   }
 }

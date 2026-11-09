@@ -1,6 +1,11 @@
 import type { Actor } from '../../src/common/application/actor';
 import type { Clock } from '../../src/common/application/ports/clock';
 import type { UnitOfWork } from '../../src/common/application/ports/unit-of-work';
+import type { AfterCommit, AfterCommitAction } from '../../src/common/application/ports/after-commit';
+import { runAfterCommitActions } from '../../src/common/infrastructure/after-commit-runner';
+import {
+  AfterCommitAppointmentEventPublisher, AppointmentEventSubscribers, type AppointmentDomainEvent,
+} from '../../src/modules/appointments/application/appointment-events';
 import type { AuditTrail } from '../../src/modules/audit/application/ports/audit-trail';
 import type { AuditEvent } from '../../src/modules/audit/domain/audit-event';
 import type {
@@ -256,19 +261,39 @@ export class InMemoryAppointmentsWorld
   };
 }
 
-// Revierte todo el estado si el trabajo o la auditoría fallan.
-export class InMemoryAppointmentsUnitOfWork implements UnitOfWork {
+// Revierte todo el estado si el trabajo o la auditoría fallan. Como DrizzleUnitOfWork, ejecuta las acciones
+// AFTER_COMMIT solo si la unidad exterior termina bien; `events` publica en `published` después del «commit».
+export class InMemoryAppointmentsUnitOfWork implements UnitOfWork, AfterCommit {
   calls = 0;
-  constructor(private readonly world: InMemoryAppointmentsWorld) {}
+  private readonly frames: AfterCommitAction[][] = [];
+  readonly subscribers = new AppointmentEventSubscribers();
+  readonly events = new AfterCommitAppointmentEventPublisher(this, this.subscribers);
+  readonly published: AppointmentDomainEvent[] = [];
+  constructor(private readonly world: InMemoryAppointmentsWorld) {
+    this.subscribers.subscribe((e) => {
+      this.published.push(e);
+    });
+  }
   async runInTransaction<T>(work: () => Promise<T>): Promise<T> {
     this.calls++;
     const before = structuredClone(this.world.state);
+    this.frames.push([]);
+    let result: T;
     try {
-      return await work();
+      result = await work();
     } catch (e) {
+      this.frames.pop();
       this.world.state = before;
       throw e;
     }
+    const actions = this.frames.pop()!;
+    if (this.frames.length > 0) this.frames[this.frames.length - 1].push(...actions);
+    else await runAfterCommitActions(actions);
+    return result;
+  }
+  afterCommit(action: AfterCommitAction): void {
+    if (this.frames.length > 0) this.frames[this.frames.length - 1].push(action);
+    else void runAfterCommitActions([action]);
   }
 }
 

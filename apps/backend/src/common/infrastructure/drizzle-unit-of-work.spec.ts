@@ -50,6 +50,79 @@ describe('DrizzleUnitOfWork (sin BD)', () => {
   });
 });
 
+describe('DrizzleUnitOfWork: acciones AFTER_COMMIT (sin BD)', () => {
+  const unitOfWork = new DrizzleUnitOfWork();
+  // Transacción falsa: `fail` simula el rollback rechazando la promesa de transaction().
+  const ambient = (fail = false) => ({
+    transaction: jest.fn(async (callback: (inner: unknown) => Promise<unknown>) => {
+      const result = await callback({ transaction: async (cb: (t: unknown) => Promise<unknown>) => cb({}) });
+      if (fail) throw new Error('rollback');
+      return result;
+    }),
+  });
+
+  it('[TC-M00-024][RF-51] la acción se ejecuta después de que transaction() termina bien, nunca antes', async () => {
+    const order: string[] = [];
+    const tx = ambient();
+    await transactionStorage.run(tx as any, () =>
+      unitOfWork.runInTransaction(async () => {
+        unitOfWork.afterCommit(() => {
+          order.push('acción');
+        });
+        order.push('trabajo');
+      }),
+    );
+    expect(order).toEqual(['trabajo', 'acción']);
+  });
+
+  it('[TC-M00-025][RF-51] con rollback la acción se descarta; una unidad interior fallida descarta solo las suyas', async () => {
+    const ran: string[] = [];
+    await expect(transactionStorage.run(ambient(true) as any, () =>
+      unitOfWork.runInTransaction(async () => unitOfWork.afterCommit(() => {
+        ran.push('exterior-revertida');
+      })),
+    )).rejects.toThrow('rollback');
+    await transactionStorage.run(ambient() as any, () =>
+      unitOfWork.runInTransaction(async () => {
+        await unitOfWork.runInTransaction(async () => unitOfWork.afterCommit(() => {
+          ran.push('interior-ok');
+        }));
+        await unitOfWork.runInTransaction(async () => {
+          unitOfWork.afterCommit(() => {
+            ran.push('interior-fallida');
+          });
+          throw new Error('fallo interior');
+        }).catch(() => undefined);
+        // La interior que terminó bien no se ejecuta hasta que termine la exterior.
+        expect(ran).toEqual([]);
+      }),
+    );
+    expect(ran).toEqual(['interior-ok']);
+  });
+
+  it('[TC-M00-026][RF-51] una acción que falla no afecta al resultado ni a las siguientes; fuera de una unidad se ejecuta enseguida', async () => {
+    const ran: string[] = [];
+    const result = await transactionStorage.run(ambient() as any, () =>
+      unitOfWork.runInTransaction(async () => {
+        unitOfWork.afterCommit(() => {
+          throw new Error('suscriptor caído');
+        });
+        unitOfWork.afterCommit(() => {
+          ran.push('segunda');
+        });
+        return 'ok';
+      }),
+    );
+    expect(result).toBe('ok');
+    expect(ran).toEqual(['segunda']);
+    unitOfWork.afterCommit(() => {
+      ran.push('sin-unidad');
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(ran).toEqual(['segunda', 'sin-unidad']);
+  });
+});
+
 describe('SystemClock', () => {
   it('[TC-M00-023][RT-M00-04] devuelve la hora actual del sistema', () => {
     const before = Date.now();

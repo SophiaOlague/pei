@@ -4,6 +4,7 @@ import { DoctorsModule } from '../doctors/doctors.module';
 import { IdentityModule } from '../identity/identity.module';
 import { AppointmentConfirmationService, AppointmentSessionService } from './application/integration/appointment-integration.services';
 import { AppointmentChainService } from './application/integration/appointment-chain.services';
+import { AfterCommitAppointmentEventPublisher, APPOINTMENT_EVENT_PUBLISHER, AppointmentEventSubscribers } from './application/appointment-events';
 import {
   DoctorAppointmentsQuery, DoctorOccupancyService, GetDoctorSlotsForPatientUseCase, HoldSlotUseCase, ListBookableDoctorsUseCase, PatientAppointmentsQuery,
   PatientSlotsService, ReleaseHoldUseCase,
@@ -46,6 +47,8 @@ import {
     AppointmentConfirmationService,
     AppointmentSessionService,
     AppointmentChainService,
+    AppointmentEventSubscribers,
+    { provide: APPOINTMENT_EVENT_PUBLISHER, useClass: AfterCommitAppointmentEventPublisher },
     { provide: APPOINTMENT_REPOSITORY, useClass: DrizzleAppointmentRepository },
     { provide: CONSULTATION_PRICE_REPOSITORY, useClass: DrizzleConsultationPriceRepository },
     { provide: CANCELLATION_POLICY_REPOSITORY, useClass: DrizzleCancellationPolicyRepository },
@@ -54,6 +57,6 @@ import {
     { provide: BOOKING_FEATURE, useClass: EnvBookingFeature },
     { provide: BOOKING_LEGAL_ACCEPTANCES, useClass: ReaderBookingLegalAcceptances },
   ],
-  exports: [AppointmentConfirmationService, AppointmentSessionService, AppointmentChainService, ConsultationPriceService, CancellationPolicyService],
+  exports: [AppointmentConfirmationService, AppointmentSessionService, AppointmentChainService, AppointmentEventSubscribers, ConsultationPriceService, CancellationPolicyService],
 })
 export class AppointmentsModule {}

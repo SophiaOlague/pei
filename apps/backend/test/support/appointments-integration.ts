@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { getDbContext } from '../../src/db/transaction-context';
 import type { Actor } from '../../src/common/application/actor';
 import { DrizzleUnitOfWork } from '../../src/common/infrastructure/drizzle-unit-of-work';
+import { AfterCommitAppointmentEventPublisher, AppointmentEventSubscribers } from '../../src/modules/appointments/application/appointment-events';
 import { DrizzleAuditTrail } from '../../src/modules/audit/infrastructure/drizzle-audit-trail';
 import { AgendaService } from '../../src/modules/agenda/application/use-cases/agenda.use-cases';
 import { NoBusyIntervalsProvider } from '../../src/modules/agenda/application/ports/busy-intervals.provider';
@@ -35,6 +36,8 @@ export const ENABLED: BookingFeature = { enabled: () => true };
 
 export function appointmentsUseCases(clock: FixedClock) {
   const uow = new DrizzleUnitOfWork();
+  // Eventos de cita (RF-51) tras el COMMIT; sin suscriptores en estas pruebas.
+  const events = new AfterCommitAppointmentEventPublisher(uow, new AppointmentEventSubscribers());
   const audit = new DrizzleAuditTrail();
   const repo = new DrizzleAppointmentRepository();
   const prices = new DrizzleConsultationPriceRepository();
@@ -47,13 +50,13 @@ export function appointmentsUseCases(clock: FixedClock) {
     repo, eligibility, agenda, doctors,
     prices: new ConsultationPriceService(uow, audit, prices, clock),
     policies: new CancellationPolicyService(uow, audit, policies, clock),
-    hold: new HoldSlotUseCase(uow, audit, repo, prices, policies, eligibility, ENABLED, slots, clock, new ReaderBookingLegalAcceptances(new DrizzleBookingLegalAcceptanceReader())),
-    release: new ReleaseHoldUseCase(uow, audit, repo),
+    hold: new HoldSlotUseCase(uow, audit, repo, prices, policies, eligibility, ENABLED, slots, clock, new ReaderBookingLegalAcceptances(new DrizzleBookingLegalAcceptanceReader()), events),
+    release: new ReleaseHoldUseCase(uow, audit, repo, clock, events),
     patientQuery: new PatientAppointmentsQuery(repo, clock),
     doctorQuery: new DoctorAppointmentsQuery(repo, clock),
-    cancelPatient: new CancelByPatientUseCase(uow, audit, repo, policies, clock),
-    cancelDoctor: new CancelByDoctorUseCase(uow, audit, repo, eligibility, clock),
-    confirmation: new AppointmentConfirmationService(uow, audit, repo, clock),
+    cancelPatient: new CancelByPatientUseCase(uow, audit, repo, policies, clock, events),
+    cancelDoctor: new CancelByDoctorUseCase(uow, audit, repo, eligibility, clock, events),
+    confirmation: new AppointmentConfirmationService(uow, audit, repo, clock, events),
     session: new AppointmentSessionService(uow, audit, repo, policies),
     listDoctors: new ListBookableDoctorsUseCase(new DrizzleBookableDoctorsReader(), eligibility, slots, clock),
     doctorSlots: new GetDoctorSlotsForPatientUseCase(slots, eligibility),

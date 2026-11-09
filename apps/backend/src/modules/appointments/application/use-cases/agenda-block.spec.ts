@@ -28,7 +28,7 @@ async function setup(durationMinutes = 30) {
   const occupancy = new DoctorOccupancyService(world);
   const slots = new PatientSlotsService(agenda as unknown as AgendaService, occupancy, clock);
   const policies = new CancellationPolicyService(uow, world, world.policies, clock);
-  const hold = new HoldSlotUseCase(uow, world, world, world, world.policies, world, world, slots, clock, world);
+  const hold = new HoldSlotUseCase(uow, world, world, world, world.policies, world, world, slots, clock, world, uow.events);
   const admin = actor('admin');
   await new ConsultationPriceService(uow, world, world, clock).publish(admin, '200.00', 'initial_setup');
   await policies.publish(admin, { ...INITIAL_POLICY }, 'initial_setup');

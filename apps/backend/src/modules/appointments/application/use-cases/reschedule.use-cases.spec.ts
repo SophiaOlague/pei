@@ -34,8 +34,8 @@ async function setup() {
   const slots = new PatientSlotsService(agenda as unknown as AgendaService, new DoctorOccupancyService(world), clock);
   const prices = new ConsultationPriceService(uow, world, world, clock);
   const policies = new CancellationPolicyService(uow, world, world.policies, clock);
-  const reschedule = new RescheduleByPatientUseCase(uow, world, world, world.policies, world, world, slots, clock);
-  const hold = new HoldSlotUseCase(uow, world, world, world, world.policies, world, world, slots, clock, world);
+  const reschedule = new RescheduleByPatientUseCase(uow, world, world, world.policies, world, world, slots, clock, uow.events);
+  const hold = new HoldSlotUseCase(uow, world, world, world, world.policies, world, world, slots, clock, world, uow.events);
   const admin = actor('admin');
   await prices.publish(admin, '200.00', 'initial_setup');
   await policies.publish(admin, { ...INITIAL_POLICY }, 'initial_setup');

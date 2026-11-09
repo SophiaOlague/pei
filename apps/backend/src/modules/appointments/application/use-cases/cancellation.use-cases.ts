@@ -8,6 +8,7 @@ import { AppointmentNotFoundError, CancellationPolicyNotConfiguredError, Invalid
 import { assertTransition } from '../../domain/appointment-status';
 import { DOCTOR_CANCELLATION_OUTCOME, hoursUntil, MAX_REASON, MIN_DOCTOR_REASON, patientCancellationOutcome, type RefundOutcome } from '../../domain/cancellation-rules';
 import { AppointmentAuditEvents } from '../appointments-audit-events';
+import { APPOINTMENT_EVENT_PUBLISHER, type AppointmentEventPublisher } from '../appointment-events';
 import {
   APPOINTMENT_REPOSITORY, BOOKING_ELIGIBILITY, CANCELLATION_POLICY_REPOSITORY, type AppointmentRepository, type BookingEligibility,
   type CancellationPolicyRepository,
@@ -34,6 +35,7 @@ export class CancelByPatientUseCase {
     @Inject(APPOINTMENT_REPOSITORY) private readonly appointments: AppointmentRepository,
     @Inject(CANCELLATION_POLICY_REPOSITORY) private readonly policies: CancellationPolicyRepository,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(APPOINTMENT_EVENT_PUBLISHER) private readonly events: AppointmentEventPublisher,
   ) {}
 
   async execute(actor: Actor, appointmentId: string, rawReason?: string | null): Promise<CancellationResult> {
@@ -61,6 +63,10 @@ export class CancelByPatientUseCase {
       await this.audit.record(AppointmentAuditEvents.canceled(AuditActor.fromActor(actor), a.id, {
         actorType: 'patient', refundOutcome, hoursBefore: round(hoursUntil(a.scheduledAt, now)),
       }));
+      this.events.publish({
+        type: 'AppointmentCanceled', appointmentId: a.id, patientProfileId: a.patientId, doctorProfileId: a.doctorId,
+        occurredAt: now.toISOString(), canceledBy: 'patient', reason, refundOutcome,
+      });
       return { id: a.id, status: 'canceled', refundOutcome };
     });
   }
@@ -76,6 +82,7 @@ export class CancelByDoctorUseCase {
     @Inject(APPOINTMENT_REPOSITORY) private readonly appointments: AppointmentRepository,
     @Inject(BOOKING_ELIGIBILITY) private readonly eligibility: BookingEligibility,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(APPOINTMENT_EVENT_PUBLISHER) private readonly events: AppointmentEventPublisher,
   ) {}
 
   async execute(actor: Actor, appointmentId: string, rawReason: string): Promise<CancellationResult> {
@@ -100,6 +107,10 @@ export class CancelByDoctorUseCase {
       await this.audit.record(AppointmentAuditEvents.canceled(AuditActor.fromActor(actor), a.id, {
         actorType: 'doctor', refundOutcome: DOCTOR_CANCELLATION_OUTCOME, hoursBefore: round(hoursUntil(a.scheduledAt, now)), doctorCanOperate,
       }));
+      this.events.publish({
+        type: 'AppointmentCanceled', appointmentId: a.id, patientProfileId: a.patientId, doctorProfileId: a.doctorId,
+        occurredAt: now.toISOString(), canceledBy: 'doctor', reason, refundOutcome: DOCTOR_CANCELLATION_OUTCOME,
+      });
       return { id: a.id, status: 'canceled', refundOutcome: DOCTOR_CANCELLATION_OUTCOME };
     });
   }

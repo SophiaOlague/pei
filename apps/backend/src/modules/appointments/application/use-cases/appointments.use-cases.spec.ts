@@ -39,13 +39,13 @@ function setup() {
   const policies = new CancellationPolicyService(uow, world, world.policies, clock);
   return {
     world, uow, clock, agenda, prices, policies,
-    hold: new HoldSlotUseCase(uow, world, world, world, world.policies, world, world, slots, clock, world),
-    release: new ReleaseHoldUseCase(uow, world, world),
+    hold: new HoldSlotUseCase(uow, world, world, world, world.policies, world, world, slots, clock, world, uow.events),
+    release: new ReleaseHoldUseCase(uow, world, world, clock, uow.events),
     patientQuery: new PatientAppointmentsQuery(world, clock),
     doctorQuery: new DoctorAppointmentsQuery(world, clock),
-    cancelPatient: new CancelByPatientUseCase(uow, world, world, world.policies, clock),
-    cancelDoctor: new CancelByDoctorUseCase(uow, world, world, world, clock),
-    confirmation: new AppointmentConfirmationService(uow, world, world, clock),
+    cancelPatient: new CancelByPatientUseCase(uow, world, world, world.policies, clock, uow.events),
+    cancelDoctor: new CancelByDoctorUseCase(uow, world, world, world, clock, uow.events),
+    confirmation: new AppointmentConfirmationService(uow, world, world, clock, uow.events),
     session: new AppointmentSessionService(uow, world, world, world.policies),
     listDoctors: new ListBookableDoctorsUseCase(world, world, slots, clock),
     doctorSlots: new GetDoctorSlotsForPatientUseCase(slots, world),

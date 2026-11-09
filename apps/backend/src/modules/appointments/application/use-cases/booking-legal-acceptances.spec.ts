@@ -35,7 +35,7 @@ async function setup() {
   // Lector real de M08 sobre el doble de M02.
   const identity = new InMemoryIdentityStore();
   world.legalSource = new ReaderBookingLegalAcceptances(identity);
-  const hold = new HoldSlotUseCase(uow, world, world, world, world.policies, world, world, slots, clock, world);
+  const hold = new HoldSlotUseCase(uow, world, world, world, world.policies, world, world, slots, clock, world, uow.events);
   const admin = actor('admin');
   await prices.publish(admin, '200.00', 'initial_setup');
   await policies.publish(admin, { ...INITIAL_POLICY }, 'initial_setup');

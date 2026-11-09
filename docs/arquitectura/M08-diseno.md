@@ -336,7 +336,7 @@ Maestro no lo dice.
 | M08 | `AppointmentOutcomePort.markCompleted / markNoShow(id, tipo, actor)` | Videoconsulta | La única salida de `confirmed` hacia los resultados; el historial y la auditoría quedan en M08 |
 | Videoconsulta | `PatientWaiting {appointmentId, doctorId, since}` | Notificaciones | `appointment_waiting` al médico y al paciente (RF-19) |
 | Videoconsulta | `PatientAdmitted {appointmentId}` | Notificaciones (opcional) | Avisar al paciente |
-| M08 | `AppointmentConfirmed / Canceled / Rescheduled / Expired` | Notificaciones | Avisos transaccionales (RF-51) |
+| M08 | `AppointmentConfirmed / Canceled / Rescheduled / Expired` (implementados, A.21) | Notificaciones | Avisos transaccionales (RF-51) |
 
 **¿Control de cambios?** Sí: ampliar el criterio de RF-19 con la admisión explícita por el médico y sus condiciones.
 
@@ -1491,6 +1491,39 @@ pendiente** de que exista el módulo de pagos, que es el consumidor.
   `rescheduled` (anteriores a M-1) y fallaban desde los commits de DA-6 y DA-3. Ahora: M08 no usa `meeting.ended_at`, el
   fin del bloque no aparece en `integration/` ni en `presentation/` (AP-23), y solo el caso de uso de reagendamiento
   lleva una cita a `rescheduled` (DA-6).
+
+## A.21 Eventos de dominio de la cita (RF-51; 2026-11-09)
+
+**Contrato y emisión implementados** (sin commit; validados con dobles y con `DrizzleUnitOfWork` sobre una transacción
+falsa). **Integración con notificaciones: pendiente** de que exista el módulo consumidor.
+
+| Evento | Se emite en | Datos además de `appointmentId`, `patientProfileId`, `doctorProfileId`, `occurredAt` |
+|---|---|---|
+| `AppointmentConfirmed` | `AppointmentConfirmationService.confirmPaid`, tras `pending_payment → confirmed` | `scheduledAt`, `paymentId` |
+| `AppointmentCanceled` | `CancelByPatientUseCase` y `CancelByDoctorUseCase`, tras `confirmed → canceled` | `canceledBy` (`patient` / `doctor`), `reason` (o `null`), `refundOutcome` |
+| `AppointmentRescheduled` | `RescheduleByPatientUseCase`, tras crear la cita nueva | `fromAppointmentId`, `toAppointmentId` (= `appointmentId`), `rootAppointmentId`, `rescheduleNumber`, `scheduledAt` |
+| `AppointmentExpired` | Cada transición efectiva `pending_payment → expired`: vencimiento perezoso al reservar (`HoldSlotUseCase`), confirmación tardía (`confirmPaid`), `markPaymentFailed`, `ReleaseHoldUseCase` | `cause`: `timeout`, `payment_failed` o `released` |
+
+- **Sin duplicados:** cada evento sale de la transición efectiva, bajo el candado `FOR UPDATE` de la cita; la segunda
+  vía encuentra la cita ya `expired` y no cambia nada. El reagendamiento emite solo `AppointmentRescheduled` (ni
+  `AppointmentCanceled` por la original ni `AppointmentConfirmed` por la nueva, RN-018). La retención no emite
+  `AppointmentConfirmed`. Las operaciones rechazadas no emiten nada.
+- **Consistencia transaccional:** contrato común `AFTER_COMMIT` (`common/application/ports/after-commit.ts`),
+  implementado por `DrizzleUnitOfWork` (la misma instancia que `UNIT_OF_WORK`). Las acciones se guardan en el marco de la
+  unidad en curso; una unidad interior (SAVEPOINT) que termina bien las pasa a la exterior, y solo la exterior las
+  ejecuta, después del COMMIT. Con rollback (de la transacción o del SAVEPOINT) se descartan. M08 publica con
+  `AfterCommitAppointmentEventPublisher` (puerto `APPOINTMENT_EVENT_PUBLISHER`), que entrega a
+  `AppointmentEventSubscribers`, exportado por `AppointmentsModule` para que notificaciones se suscriba. Un suscriptor
+  que falla se registra en el log y no afecta a los demás ni a la operación.
+- **Auditoría:** se conserva sin cambios; los eventos no la sustituyen.
+- **Limitaciones (decisiones pendientes):**
+  - Entrega en memoria, sin durabilidad: si el proceso cae entre el COMMIT y el despacho, el evento se pierde. Un
+    outbox persistente requiere tabla y migración, con autorización aparte.
+  - La garantía vale cuando la transacción exterior la abre `UnitOfWork`. Si alguien abre una transacción de Drizzle
+    por fuera (p. ej., `withRollback` en las pruebas de C2), la unidad interior se trata como exterior y sus eventos se
+    despachan al liberar su SAVEPOINT. En producción todas las transacciones de M08 pasan por `UnitOfWork`.
+  - `AppointmentCanceled.reason` es el texto libre de quien cancela (pedido explícitamente). Puede contener datos
+    sensibles: el consumidor no debería reenviarlo sin filtrarlo.
 
 ## 1. Alcance y límites
 

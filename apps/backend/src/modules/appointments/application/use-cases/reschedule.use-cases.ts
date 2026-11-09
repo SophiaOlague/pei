@@ -15,6 +15,7 @@ import { blockOf, occupancyOf, overlaps } from '../../domain/occupancy';
 import { assertReschedulable } from '../../domain/reschedule-rules';
 import { resolveChain } from '../../domain/appointment-chain';
 import { AppointmentAuditEvents } from '../appointments-audit-events';
+import { APPOINTMENT_EVENT_PUBLISHER, type AppointmentEventPublisher } from '../appointment-events';
 import {
   APPOINTMENT_REPOSITORY, BOOKING_ELIGIBILITY, BOOKING_FEATURE, CANCELLATION_POLICY_REPOSITORY, type AppointmentRepository,
   type BookingEligibility, type BookingFeature, type CancellationPolicyRepository,
@@ -49,6 +50,7 @@ export class RescheduleByPatientUseCase {
     @Inject(BOOKING_FEATURE) private readonly feature: BookingFeature,
     private readonly slots: PatientSlotsService,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(APPOINTMENT_EVENT_PUBLISHER) private readonly events: AppointmentEventPublisher,
   ) {}
 
   async execute(actor: Actor, appointmentId: string, startsAt: Date): Promise<RescheduleView> {
@@ -107,6 +109,12 @@ export class RescheduleByPatientUseCase {
       await this.audit.record(AppointmentAuditEvents.rescheduled(AuditActor.fromActor(actor), {
         fromId: original.id, toId: id, rootId: chain.rootId, n: chain.depth + 1,
       }));
+      // Un solo evento: ni AppointmentCanceled por la original ni AppointmentConfirmed por la nueva (RN-018).
+      this.events.publish({
+        type: 'AppointmentRescheduled', appointmentId: id, patientProfileId: original.patientId, doctorProfileId: original.doctorId,
+        occurredAt: now.toISOString(), fromAppointmentId: original.id, toAppointmentId: id, rootAppointmentId: chain.rootId,
+        rescheduleNumber: chain.depth + 1, scheduledAt: block.startsAt.toISOString(),
+      });
       const created = await this.appointments.findById(id);
       return { ...toAppointmentView(created!, now), rescheduledFromAppointmentId: original.id };
     });

@@ -188,6 +188,14 @@ Implementado sin commit; validado **solo con dobles**. Sin prueba contra Postgre
   prohibían `rescheduled` y `agenda_block_ends_at`. Ese spec no lo ejecuta la configuración de Jest por defecto
   (`rootDir` en `src`); se ejecutó aparte, 6/6.
 
+## Eventos de dominio de la cita (RF-51, 2026-11-09)
+
+- **Contrato y emisión implementados** (sin commit): `AppointmentConfirmed`, `AppointmentCanceled`,
+  `AppointmentRescheduled` y `AppointmentExpired`, publicados solo después del COMMIT (`AFTER_COMMIT`, implementado por
+  `DrizzleUnitOfWork`). Detalle en M08-diseno A.21.
+- **Integración con notificaciones: pendiente**; no hay suscriptores todavía. Sin tablas ni migraciones (sin outbox).
+- Validación solo con dobles y con una transacción falsa; sin prueba contra PostgreSQL.
+
 ## Residuo persistente aceptado en C2 (no se limpia)
 
 Solo lo genera la suite de concurrencia (las otras dos revierten todo y lo comprueban en `afterAll`). Diferencia frente
@@ -225,5 +233,7 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 | TC-M08-015, 017, 018 | `src/modules/appointments/domain/appointments-domain.spec.ts` | Unitarias, aprobadas (2026-11-09): valores iniciales con L 60 y G 5 (015, actualizada); L y G por omisión y rechazos `W > L`, `G >= Tol`, `G = 0`, no enteros (017); `blockOf` con fin guardado y O1 para nulos (018) |
 | TC-M08-382 | `reschedule.use-cases.spec.ts` | Unitaria, aprobada: la cita reagendada guarda el fin de bloque con la duración vigente al reagendar |
 | TC-M08-390 a 395 | `src/modules/appointments/application/integration/appointment-chain.services.spec.ts` | Unitarias con dobles, aprobadas (2026-11-09): raíz propia (390); un reagendamiento (391); varios niveles y largo máximo (392); cita inexistente 404 y antecesor inexistente (393); autorreferencia, ciclo de tres y cadena demasiado larga (394); `paymentForAppointment` al pago de la raíz, sin pago y sin consultar pagos ante una cadena rota (395) |
+| TC-M08-400 a 408 | `src/modules/appointments/application/appointment-events.spec.ts` | Unitarias con dobles, aprobadas (2026-11-09): confirmación una sola vez, sin evento al retener, duplicado o importe distinto (400); cancelación del paciente y del médico con origen, motivo y resultado (401); cancelaciones rechazadas sin eventos (402); un evento por reagendamiento con original, nueva, raíz y número; rechazado sin eventos (403); vencimiento por liberación, pago fallido y confirmación tardía, una sola vez cada uno (404); vencimiento perezoso sin repetirse (405); sin publicación tras rollback, incluido el vencimiento preparado antes del fallo (406); semántica AFTER_COMMIT con unidades anidadas (407); suscriptor que falla (408) |
+| TC-M00-024 a 026 | `src/common/infrastructure/drizzle-unit-of-work.spec.ts` | Unitarias sin BD (transacción falsa), aprobadas: acción después de terminar la transacción (024); descarte con rollback y con SAVEPOINT fallido (025); fallo de una acción y ejecución inmediata fuera de una unidad (026) |
 | RT-M08-01 a 06 | `test/appointments-architecture.spec.ts` | Análisis estático, 6/6 (2026-11-09); RT-M08-05 y 06 actualizadas a M-1 aplicada |
 | TC-M08-383 a 387 | `src/modules/appointments/application/use-cases/agenda-block.spec.ts` | Unitarias con dobles, aprobadas: fin de bloque al reservar (383); ocupación con el fin guardado tras cambiar la duración (384); O1 para históricas (385); publicación y lectura de L y G, valores por omisión y auditoría (386); `getForSession` con W, Tol, L y G de la política aplicada y sin el fin del bloque (387) |

@@ -6,6 +6,7 @@ import { AppointmentNotFoundError, CancellationPolicyNotConfiguredError, Invalid
 import { assertTransition, NO_SHOW_STATUS, type AppointmentStatus, type NoShowKind } from '../../domain/appointment-status';
 import { isHoldActive } from '../../domain/hold';
 import { AppointmentAuditEvents } from '../appointments-audit-events';
+import { APPOINTMENT_EVENT_PUBLISHER, type AppointmentEventPublisher } from '../appointment-events';
 import { APPOINTMENT_REPOSITORY, CANCELLATION_POLICY_REPOSITORY, type AppointmentRepository, type CancellationPolicyRepository } from '../ports/appointments.ports';
 import { SYSTEM_PROCESS, systemActor } from '../use-cases/actors';
 
@@ -27,6 +28,7 @@ export class AppointmentConfirmationService {
     @Inject(AUDIT_TRAIL) private readonly audit: AuditTrail,
     @Inject(APPOINTMENT_REPOSITORY) private readonly appointments: AppointmentRepository,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(APPOINTMENT_EVENT_PUBLISHER) private readonly events: AppointmentEventPublisher,
   ) {}
 
   async confirmPaid(appointmentId: string, paymentId: string, amount: string): Promise<ConfirmationResult> {
@@ -49,12 +51,20 @@ export class AppointmentConfirmationService {
       if (!isHoldActive(a, now)) {
         await this.appointments.changeStatus(a.id, { status: 'expired', actorType: 'system', actorUserProfileId: null, reason: 'hold_timeout' });
         await this.audit.record(AppointmentAuditEvents.holdExpired(actor, a.id, 'timeout'));
+        this.events.publish({
+          type: 'AppointmentExpired', appointmentId: a.id, patientProfileId: a.patientId, doctorProfileId: a.doctorId,
+          occurredAt: now.toISOString(), cause: 'timeout',
+        });
         return reject('expired');
       }
       if (Number(amount) !== Number(a.price)) return reject('amount_mismatch');
       assertTransition(a.status, 'confirmed');
       await this.appointments.changeStatus(a.id, { status: 'confirmed', actorType: 'system', actorUserProfileId: null, reason: 'payment_succeeded' });
       await this.audit.record(AppointmentAuditEvents.confirmed(actor, a.id, paymentId));
+      this.events.publish({
+        type: 'AppointmentConfirmed', appointmentId: a.id, patientProfileId: a.patientId, doctorProfileId: a.doctorId,
+        occurredAt: now.toISOString(), scheduledAt: a.scheduledAt.toISOString(), paymentId,
+      });
       return { result: 'confirmed' };
     });
   }
@@ -69,6 +79,10 @@ export class AppointmentConfirmationService {
       if (!a || a.status !== 'pending_payment') return;
       await this.appointments.changeStatus(a.id, { status: 'expired', actorType: 'system', actorUserProfileId: null, reason: 'payment_failed' });
       await this.audit.record(AppointmentAuditEvents.holdExpired(systemActor(SYSTEM_PROCESS.payments), a.id, 'payment_failed'));
+      this.events.publish({
+        type: 'AppointmentExpired', appointmentId: a.id, patientProfileId: a.patientId, doctorProfileId: a.doctorId,
+        occurredAt: this.clock.now().toISOString(), cause: 'payment_failed',
+      });
     });
   }
 }
