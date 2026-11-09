@@ -317,6 +317,49 @@ contraseña, así que no les afecta (TC-M02-241), salvo una consulta más por ve
 
 **Bootstrap real:** ejecutado en `production` (informado por la responsable del producto el 2026-10-18; sin evidencia versionada). Como el CLI exige `APP_WEB_URL` antes de cualquier operación, esa variable estaba definida en el entorno de ejecución, que no está versionado. El recorrido real del administrador no está documentado como evidencia formal.
 
+## Lector de aceptaciones legales para reservas (AP-19, AP-25 y AP-26; 2026-11-08)
+
+Cambio aditivo de M02 para M08 (`docs/arquitectura/M08-diseno.md`, A.17.1). M08 todavía no lo consume: la integración
+con la reserva, las columnas de `appointment` y la migración `0014` siguen sin implementar.
+
+| Elemento | Archivo |
+|---|---|
+| Puerto `BOOKING_LEGAL_ACCEPTANCE_READER.currentFor(userProfileId)` | `src/modules/identity/application/ports/booking-legal-acceptance.reader.ts` |
+| Contrato y regla (lógica pura) | `src/modules/identity/domain/booking-legal-acceptance.ts` (`selectBookingLegalAcceptances`) |
+| Adaptador Drizzle | `src/modules/identity/infrastructure/persistence/drizzle-booking-legal-acceptance.reader.ts` |
+| Registro y export | `src/modules/identity/identity.module.ts` |
+| Doble en memoria | `test/support/identity-in-memory.ts` (`currentFor`; `recordAcceptances` asigna un `id` a cada aceptación) |
+| Dependencia permitida para M08 | `test/appointments-architecture.spec.ts` (RT-M08-01) |
+
+**Contrato.** `currentFor` devuelve `{ regime: 'current' | 'legacy', privacy, terms }`, donde cada aceptación tiene
+`acceptanceId` (`user_legal_acceptance.id`), `legalDocumentId`, `type` y `version`; o `null`.
+
+**Reglas.**
+
+- Documentos vigentes: el más reciente por tipo con `published_at <= now()`, con la hora de la BD y la misma regla que
+  `DrizzleRegistrationStatusReader`. El régimen se resuelve con `resolveLegalRegime`.
+- Devuelve las dos aceptaciones solo si el perfil es de paciente, hay un régimen completo publicado y el paciente aceptó
+  los dos documentos vigentes de ese régimen.
+- Devuelve `null` si falta cualquiera de las dos, si no hay un régimen completo publicado, si el perfil no es de paciente
+  (o no existe) o si se publicó una versión nueva que el paciente no aceptó.
+- Lee con `getDbContext()`: dentro de una transacción activa usa esa transacción. Es de solo lectura.
+- No cambian `CanBookAppointmentsPolicy`, `REGISTRATION_STATUS_READER` ni ningún endpoint.
+
+| Caso | Spec | Qué comprueba |
+|---|---|---|
+| TC-M02-249 | `src/modules/identity/domain/booking-legal-acceptance.spec.ts` | Régimen actual completo: `privacy_policy` y `patient_terms` con sus ids |
+| TC-M02-250 | ídem | Régimen anterior: `privacy_notice` y `terms_and_conditions` |
+| TC-M02-251 | ídem (3) | Falta la aceptación de privacidad, la de términos o las dos: `null` |
+| TC-M02-252 | ídem | Sin régimen completo publicado: `null` |
+| TC-M02-253 | ídem (3) | Perfil de médico, de administrador o inexistente: `null` |
+| TC-M02-254 | ídem | Versión vigente nueva no aceptada: `null` |
+| TC-M02-255 | `test/support/booking-legal-acceptance-in-memory.spec.ts` | El doble devuelve las dos aceptaciones con el id que asignó `recordAcceptances` |
+| TC-M02-256 | ídem | El doble devuelve `null` sin aceptación completa, con una versión nueva no aceptada, para otro rol y para un perfil inexistente |
+
+**Sin ejecutar.** El adaptador Drizzle no tiene todavía una prueba de integración contra PostgreSQL (régimen actual y
+régimen anterior en C2, revertida); requiere una autorización aparte. En el doble, una aceptación insertada a mano sin
+`id` cuenta como inexistente (falla cerrado).
+
 ## Infraestructura real
 
 | Validación | Resultado |

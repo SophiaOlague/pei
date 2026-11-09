@@ -56,7 +56,7 @@ Requerimientos, reglas de negocio y consideraciones normativas de **PEI**, la ap
 | C-29 | 2026-11-07 | 5.2 | RN-141: reembolso automático de un pago que no puede confirmar la cita; `expired` no se reactiva | Nuevo | CC-4; AP-8 | Contrato en M08 sin commit; el reembolso lo ejecutará pagos |
 | C-30 | 2026-11-07 | 3.3 | RF-19: entrada a la sala 15 min antes, admisión por el médico (videoconsulta), resultado registrado en la cita | Aclaración | CC-9; AP-15 | Contrato en M08 sin commit; la sala está pendiente (videoconsulta) |
 | C-31 | 2026-11-07 | 3.2 | La cancelación administrativa (RN-014) no tiene RF ni módulo; queda fuera de M08 | Pendiente de alcance | CC-8; AP-14 | Sin implementar |
-| C-32 | 2026-11-07 | 3.2, 7.1 | RF-12: la cita conserva la referencia a la aceptación legal vigente al reservar, sin duplicar datos de M02 | Nuevo | CC-1, opción C; AP-19 | Pendiente: M-1 y cambio aditivo de M02, ambos sin autorizar |
+| C-32 | 2026-11-07 (precisado el 2026-11-08) | 3.2, 7.1 | RF-12: la cita conserva las referencias a las dos aceptaciones legales vigentes al reservar (privacidad y términos), sin duplicar datos de M02; inmutables desde la reserva y copiadas al reagendar | Nuevo | CC-1, opción C; AP-19, AP-26 | Pendiente: M-1 parte B y cambio aditivo de M02, ambos sin implementar |
 
 Las decisiones de la columna «Fuente» se detallan en `docs/arquitectura/M03-decisiones.md` (D-, N-, R-, Z-), en
 `docs/testing/trazabilidad/M02-identity.md` (DP-, DT-) y, para C-23 a C-32, en `docs/arquitectura/M08-diseno.md`

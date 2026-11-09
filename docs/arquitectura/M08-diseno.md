@@ -48,6 +48,7 @@ de diseño de M08. Las demás siguen pendientes (A.7).
 | AP-23 | 2026-11-07 | Confirma `agenda_block_ends_at` como fin del bloque, independiente de `meeting.ended_at`; nunca se envía a videoconsulta como límite ni se usa para cortar una consulta | Responsable del proyecto | A.10.2 |
 | AP-24 | 2026-11-07 | E7: al alcanzar el límite porque el médico sigue en otra consulta, `no_show_doctor` con reembolso total y sin pago al médico, sin duplicar la ventana ordinaria | Responsable del proyecto | La fórmula T1 (A.11.2) |
 | AP-25 | 2026-11-07 | E14: N9 y N10 `no_show_both` solo cuando se cumplen las condiciones de ambas ventanas; N8 consulta normal. Autoriza preparar M-1 (cambios 1 a 5, sin el 6) sin ejecutarla, las cuatro consultas de solo lectura, formalizar C-23 a C-32 y la implementación sin M-1. El cambio en M02 sigue pendiente | Responsable del proyecto | A.12 |
+| AP-26 | 2026-11-08 | Precisa AP-19: la cita guarda **las dos** aceptaciones legales del paciente (privacidad y términos), en dos columnas de `appointment` (`privacy_legal_acceptance_id` y `terms_legal_acceptance_id`): las dos presentes o las dos nulas; un trigger valida paciente, tipo documental y régimen; inmutables después del INSERT. `0014` redefine `gst_appointment_guard` con `CREATE OR REPLACE` sin modificar `0013`, y su reversión restaura exactamente el guard de `0013`. Solo se autoriza la documentación: el lector de M02, las columnas en Drizzle, `0014` y TC-M08-307 siguen sin implementar | Responsable del proyecto | A.17 |
 | — | 2026-11-07 | **Pendientes expresamente**: E14; la ejecución de M-1; la modificación aditiva de M02. C-23 a C-32 siguen como propuestas | — | A.7 |
 
 Notas:
@@ -472,6 +473,9 @@ paciente para el precio vigente. El resumen lo obtiene de la propia operación d
 | Sin migración (situación actual) | Derivación por fecha, más `legal_document_id` en la auditoría de la reserva | No cambia el esquema | La derivación es frágil con el régimen anterior (`terms_and_conditions`) y la auditoría no es una relación de integridad |
 
 **Recomendación: C2.**
+
+> **Precisado por AP-26 (2026-11-08):** la cita no guarda una sola referencia, sino las dos aceptaciones del régimen del
+> paciente (privacidad y términos), en dos columnas. Las reglas de abajo se aplican a ambas. Detalle en A.17.
 
 Reglas:
 - Se fija al crear la cita y no cambia: se amplía `gst_appointment_guard`, como ya se hace con `cancellation_policy_id`.
@@ -932,6 +936,9 @@ comprobación justo antes de ejecutar M-1 y en la rama C2.
 
 ### A.12.4 Revisión de impacto del cambio en M02 (sin implementar)
 
+> **Contrato sustituido por AP-26 (2026-11-08):** `currentFor` devuelve las dos aceptaciones del régimen vigente, no una.
+> El contrato vigente está en A.17.1. El resto de esta revisión (aislamiento, contratos existentes, riesgo) se mantiene.
+
 | Pregunta | Respuesta |
 |---|---|
 | Qué se exporta | Un puerto nuevo de solo lectura en M02: `BOOKING_LEGAL_ACCEPTANCE_READER` con `currentFor(userProfileId): Promise<{ acceptanceId: string; legalDocumentId: string; type: 'patient_terms' \| 'terms_and_conditions' } \| null>`. Devuelve la fila de `user_legal_acceptance` que satisface el régimen legal vigente del paciente (`resolveLegalRegime`), con su implementación Drizzle en `identity/infrastructure` |
@@ -1139,7 +1146,7 @@ prefijo de `insertAuthUser` y las versiones de precio cerradas de esas ejecucion
 | **4** (oblig.) | `cancellation_policy.max_protected_wait_minutes`, `reconnect_grace_minutes` | `ADD COLUMN NOT NULL DEFAULT 60 / 5` + `CHECK` | C-26, AP-22 | — | `cancellation_policy_windows_chk` | Las versiones existentes toman 60 y 5; fallaría si alguna versión violara el orden | Los `DEFAULT` siguen hasta M-1c | `DROP COLUMN` |
 | **5** (oblig.) | `cancellation_policy`, `consultation_price_configuration` | Triggers: solo cerrar una vez; sin DELETE ni TRUNCATE | RN-021, AP-2 | 4 | 4 triggers | Compatible con `closeVersion` | Impide limpiezas manuales (es lo buscado) | `DROP TRIGGER` y `DROP FUNCTION` |
 | ~~5c~~ | — | **Retirado** | 0001 ya tiene `EXCLUDE … no_overlap` en ambas tablas | — | — | — | — | — |
-| **3** (M02) | `appointment.legal_acceptance_id` → `user_legal_acceptance` | `ADD COLUMN` + FK + índice | C-32, AP-19 | 0013 y la autorización de M02 | `appointment_legal_acceptance_idx`; inmutable mediante 1b | Admite nulos para las citas anteriores | — | `0014 down` (antes que 0013) |
+| **3** (M02) | `appointment.privacy_legal_acceptance_id` y `terms_legal_acceptance_id` → `user_legal_acceptance` (AP-26; sustituye a `legal_acceptance_id`) | `ADD COLUMN` ×2 + FK + índices + CHECK + trigger de validación; `CREATE OR REPLACE` del guard | C-32, AP-19, AP-26 | 0013 y la autorización de M02 | Las dos o ninguna; paciente, tipo y régimen validados; inmutables desde el INSERT | Admiten nulos para las citas anteriores | La propuesta versionada (`c8233a7`) todavía usa una sola columna: pendiente de reescribir | `0014 down` (antes que 0013), que restaura el guard exacto de `0013` |
 | 6 (opcional) | `EXCLUDE` de citas con `btree_gist` | **Excluido** | — | — | — | — | — | — |
 
 **Expandir y contraer**: M-1 deja el código actual funcionando sin cambios (TC-M08-304). **M-1c**, más adelante y con
@@ -1185,6 +1192,9 @@ Evidencias:
 - `…\c2-20261107175555-1a76` y `…\c2-20261107175639-3c9f` (concurrencia, 3/3 dos veces).
 
 ### A.14.7 Cambio de M02 (sin implementar)
+
+> **Precisado por AP-26 (2026-11-08):** donde abajo dice «la referencia», léase «las dos referencias» (privacidad y
+> términos). Contrato, persistencia y pruebas actualizados en A.17.
 
 La revisión de A.12.4 se mantiene, con dos precisiones:
 - **Trazabilidad**: la cita guarda el `id` de la fila de `user_legal_acceptance`, que es de solo inserción (0001) y ya
@@ -1326,6 +1336,77 @@ Secciones sustituidas por la parte A:
 Nota sobre la numeración: el Maestro no numera los módulos posteriores a M03 (§ arquitectura: common, audit, identity,
 private-storage, doctors). «M08», «M09 Pagos», «Videoconsulta» y «Notificaciones» son nombres de trabajo de este diseño, no
 identificadores del Maestro. Los requisitos sí se citan con su número del Maestro.
+
+## A.17 Dos referencias legales en la cita (AP-26, 2026-11-08)
+
+Precisa AP-19 y C-32. **Estado (2026-11-08):** el lector de M02 está implementado (contrato de A.17.1, pruebas unitarias
+TC-M02-249 a 256; ver `docs/testing/trazabilidad/M02-identity.md`), pero M08 todavía no lo consume. No están implementados
+las columnas en el esquema de Drizzle, la reescritura de `0014` ni la de TC-M08-307. La propuesta `0014` versionada en `c8233a7` todavía usa una sola
+columna (`legal_acceptance_id`) y queda **desactualizada y bloqueada** hasta su reescritura.
+
+### A.17.1 Contrato del lector de M02
+
+```ts
+export interface BookingLegalAcceptance {
+  acceptanceId: string;      // user_legal_acceptance.id
+  legalDocumentId: string;
+  type: LegalDocumentType;
+  version: string;
+}
+export interface BookingLegalAcceptances {
+  regime: 'current' | 'legacy';
+  privacy: BookingLegalAcceptance;   // privacy_policy | privacy_notice
+  terms: BookingLegalAcceptance;     // patient_terms | terms_and_conditions
+}
+export const BOOKING_LEGAL_ACCEPTANCE_READER = Symbol('BOOKING_LEGAL_ACCEPTANCE_READER');
+export interface BookingLegalAcceptanceReader {
+  currentFor(userProfileId: string): Promise<BookingLegalAcceptances | null>;
+}
+```
+
+- Devuelve las dos aceptaciones del régimen vigente del paciente (`resolveLegalRegime`, con la hora de la BD).
+- Devuelve `null` si falta cualquiera de las dos, si no hay un régimen completo publicado, si el perfil no es de paciente o
+  si existe una versión vigente más nueva que no aceptó. M08 rechaza entonces la reserva.
+- Lee con `getDbContext()`, dentro de la transacción de la reserva, después de `CanBookAppointmentsPolicy`.
+
+### A.17.2 Persistencia
+
+| Elemento | Definición |
+|---|---|
+| Columnas | `appointment.privacy_legal_acceptance_id` y `appointment.terms_legal_acceptance_id`, `uuid`, FK a `user_legal_acceptance(id)` `on delete no action`, con índice cada una |
+| Presencia | CHECK: las dos nulas o las dos presentes. Nulas solo en las citas anteriores a `0014`; las reservas nuevas las exigen en la aplicación (y, en M-1c, con `NOT NULL` cuando no queden citas sin ellas) |
+| Validación | Trigger BEFORE INSERT OR UPDATE en `appointment`: cada aceptación pertenece al `user_profile` del paciente de la cita, su documento es del tipo correspondiente (privacidad o términos) y ambas pertenecen al mismo régimen |
+| Inmutabilidad | Solo se escriben en el INSERT: ningún UPDATE puede ponerlas, cambiarlas ni quitarlas (tampoco de nulo a un valor) |
+| Alternativa descartada | Tabla de relación `appointment_legal_acceptance`: no garantiza con una restricción simple «exactamente dos filas» y admite evidencia parcial; requeriría triggers propios contra UPDATE, DELETE y TRUNCATE |
+
+### A.17.3 Migración
+
+- **`0013` no se modifica**: ya está versionada (`67f266d`) y aplicada en desarrollo y en C2. Su guard lee
+  `legal_acceptance_id` con `to_jsonb`; esa columna no llegará a existir.
+- **`0014` (up)**: comprueba que `0013` está aplicada; añade las dos columnas, sus FK, índices y el CHECK; crea el trigger
+  de validación; y redefine `gst_appointment_guard` con `CREATE OR REPLACE` para que las dos columnas sean inmutables
+  desde el INSERT.
+- **`0014` (down)**: elimina el trigger, el CHECK, los índices y las columnas, y restaura **exactamente** la definición
+  de `gst_appointment_guard` de `0013`. `0013 down` sigue negándose mientras `0014` esté aplicada.
+- `0014` sigue fuera del journal de Drizzle y del ejecutor `scripts/c2-migrate.ts`. Aplicarla requiere una autorización
+  aparte.
+
+### A.17.4 Pruebas previstas (sin implementar)
+
+- **M02**: el lector con el régimen actual, el régimen anterior, sin una de las dos aceptaciones, sin régimen publicado,
+  con un usuario que no es paciente y con una versión nueva publicada después de aceptar (debe devolver `null`).
+- **TC-M08-307 (a reescribir)**: `0014` requiere `0013`; las dos o ninguna; rechazo de una aceptación de otro paciente y
+  de un tipo equivocado; inmutabilidad de ambas, también de nulo a un valor; orden de reversión; y la reversión restaura
+  la huella del esquema y el md5 de `gst_appointment_guard` de `0013`.
+- **M08**: la reserva guarda las dos referencias y la rechaza sin aceptación vigente; el reagendamiento las copia.
+
+### A.17.5 Reagendamiento
+
+La cita nueva **copia** las dos referencias de la cita original, dentro de la misma transacción, en lugar de leer las
+vigentes; el trigger las valida igual y quedan inmutables. La cadena `rescheduled_from_appointment_id` conserva la
+trazabilidad hasta la aceptación de la reserva original. **Pendiente de decisión:** si entre la reserva y el
+reagendamiento se publica una versión legal nueva, si el reagendamiento debe exigir aceptarla. M08 todavía no tiene el
+caso de uso de reagendamiento.
 
 ## 1. Alcance y límites
 

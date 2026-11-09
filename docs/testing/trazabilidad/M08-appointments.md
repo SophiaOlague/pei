@@ -51,14 +51,22 @@ salvaguarda y el lanzador todavía no admiten otro destino. No tiene evidencia d
 `src/db/proposals/m08-m1/0014_m08_m1_legal_acceptance.up.sql` y `.down.sql`, `m08-m1-part-b.int-spec.ts`
 (TC-M08-307) y su bloqueo `test/support/m08-m1-part-b-gate.spec.ts` (TC-M08-340 a 342). Estado:
 
-- El lector de M02 `BOOKING_LEGAL_ACCEPTANCE_READER` (A.12.4 y A.14.7 de M08-diseno) **no está implementado** y su
-  autorización sigue pendiente (AP-19, AP-25).
-- M08 **todavía no guarda ni copia** `legalAcceptanceId`: ni el código ni el esquema de Drizzle declaran la columna.
+- **Contrato aprobado (AP-26, 2026-11-08; A.17 de M08-diseno):** la cita guarda **las dos** aceptaciones legales del
+  paciente, privacidad y términos, en `appointment.privacy_legal_acceptance_id` y `appointment.terms_legal_acceptance_id`:
+  las dos presentes o las dos nulas, validadas por un trigger (paciente, tipo documental y régimen) e inmutables desde el
+  INSERT. `currentFor(userProfileId)` devuelve ambas o `null`. Al reagendar, la cita nueva copia las dos referencias.
+- El lector de M02 `BOOKING_LEGAL_ACCEPTANCE_READER` **está implementado en M02** (TC-M02-249 a 256, unitarias), pero M08
+  **no lo consume todavía** y no tiene prueba de integración contra PostgreSQL.
+- M08 **todavía no guarda ni copia** las referencias legales: ni el código ni el esquema de Drizzle declaran las columnas.
+- **La propuesta `0014` versionada está desactualizada:** todavía añade una sola columna (`legal_acceptance_id`) y no
+  redefine `gst_appointment_guard`. Debe reescribirse según A.17.3 (`0013` no se modifica; la reversión de `0014` restaura
+  exactamente el guard de `0013`).
 - `0014` **no está habilitada** para ejecución: solo existe en `proposals/`, no está en el journal de Drizzle, el
   ejecutor `scripts/c2-migrate.ts` solo autoriza `0013` y su SQL exige `0013`. No se ha aplicado en ningún entorno.
 - `m08-m1-part-b.int-spec.ts` se detiene al cargarse sin `M08_PART_B_AUTHORIZED=0014`, que el lanzador C2 no
   transmite; además exige una rama aislada con esquema 0000–0012.
-- **No existe evidencia de ejecución** de esta parte. TC-M08-307 no se ha ejecutado en su forma actual.
+- **No existe evidencia de ejecución** de esta parte. TC-M08-307 no se ha ejecutado en su forma actual y debe
+  reescribirse para las dos referencias (A.17.4).
 
 ## Residuo persistente aceptado en C2 (no se limpia)
 
@@ -85,5 +93,5 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 | TC-M08-300 a 306 (7) | `m08-m1-migration.int-spec.ts` | Versionados, no ejecutados: requieren una rama aislada con esquema 0000–0012 |
 | TC-M08-310 a 316 (7) | `m08-m1-schema.int-spec.ts` | 0013 en C2 |
 | TC-M08-320 a 331 | `scripts/c2-migrate-core.spec.ts` | unitarias, sin conexiones |
-| TC-M08-307 (1) | `m08-m1-part-b.int-spec.ts` | autorización de 0014 (bloqueado) |
+| TC-M08-307 (1) | `m08-m1-part-b.int-spec.ts` | autorización de 0014 (bloqueado); pendiente de reescribir para las dos referencias (AP-26) |
 | TC-M08-340 a 342 | `test/support/m08-m1-part-b-gate.spec.ts` | unitarias, sin conexiones |

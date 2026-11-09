@@ -20,11 +20,11 @@ const files = sourceFiles(SRC).map((path) => ({
 const m08 = files.filter((f) => f.path.startsWith('modules/appointments/'));
 
 describe('Arquitectura de M08 (citas)', () => {
-  it('[RT-M08-01] de módulos anteriores, M08 usa solo AgendaService, DoctorOperationalPolicy, CanBookAppointmentsPolicy y sus módulos', () => {
+  it('[RT-M08-01][AP-26] de módulos anteriores, M08 usa solo AgendaService, DoctorOperationalPolicy, CanBookAppointmentsPolicy, el lector de aceptaciones legales para reservas y sus módulos', () => {
     const allowed = [
       /agenda\/(application\/use-cases\/agenda\.use-cases|agenda\.module)$/,
       /doctors\/(application\/policies\/doctor-operational\.policy|doctors\.module)$/,
-      /identity\/(application\/policies\/can-book-appointments|identity\.module)$/,
+      /identity\/(application\/policies\/can-book-appointments|application\/ports\/booking-legal-acceptance\.reader|identity\.module)$/,
     ];
     const offenders = m08.flatMap((f) =>
       f.imports
