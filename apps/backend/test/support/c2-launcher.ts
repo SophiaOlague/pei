@@ -23,12 +23,20 @@ export const REQUIRED_KEYS: readonly string[] = [...IDENTITY_KEYS, ...AUTH_KEYS]
 const SYSTEM_KEYS = ['PATH', 'Path', 'PATHEXT', 'SYSTEMROOT', 'SystemRoot', 'WINDIR', 'COMSPEC', 'TEMP', 'TMP', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'HOMEDRIVE', 'HOMEPATH'];
 
 // Modalidad → configuración de Jest y specs admitidos. Un spec solo se ejecuta en su modalidad.
+// Los dos specs de migración de M-1 (D y la parte B) solo se ejecutan en `migration`, contra la rama aislada.
+export const MIGRATION_SPECS = ['test/integration/m08-m1-migration.int-spec.ts', 'test/integration/m08-m1-part-b.int-spec.ts'] as const;
 export const MODE_CONFIG: Record<C2Mode, { config: string; spec: RegExp }> = {
-  postgres: { config: 'test/jest-integration.json', spec: /^test\/integration\/[a-z0-9-]+\.int-spec\.ts$/ },
+  postgres: { config: 'test/jest-integration.json', spec: /^test\/integration\/(?!m08-m1-(?:migration|part-b)\.)[a-z0-9-]+\.int-spec\.ts$/ },
   concurrency: { config: 'test/jest-concurrency.json', spec: /^test\/concurrency\/[a-z0-9-]+\.conc-spec\.ts$/ },
   r2: { config: 'test/jest-r2.json', spec: /^test\/r2\/[a-z0-9-]+\.r2-spec\.ts$/ },
   auth: { config: 'test/jest-integration.json', spec: /^test\/integration\/[a-z0-9-]*better-auth[a-z0-9-]*\.int-spec\.ts$/ },
+  migration: { config: 'test/jest-migration.json', spec: /^test\/integration\/m08-m1-(?:migration|part-b)\.int-spec\.ts$/ },
 };
+
+// Autorización explícita de M-1 parte B (0014) para TC-M08-307: solo con --authorize-part-b 0014, en el modo
+// `migration` y para el spec de la parte B. Nunca se lee de .env.c2 ni del proceso padre.
+export const PART_B_SPEC = 'test/integration/m08-m1-part-b.int-spec.ts';
+export const PART_B_AUTHORIZATION = Object.freeze({ variable: 'M08_PART_B_AUTHORIZED', value: '0014' });
 
 // Marcas de datos confirmados que aceptan los specs que no revierten sus transacciones (rama C2 persistente).
 export const COMMITTED_FIXTURE_MARKERS = [C2_PERSISTENT_FIXTURES] as const;
@@ -111,6 +119,7 @@ export interface RunOptions {
   systemEnv?: NodeJS.ProcessEnv;
   committedFixtures?: string;
   runId?: string;
+  authorizePartB?: string;
 }
 
 export const newRunId = (now: Date = new Date()) => `c2-${now.toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${randomBytes(2).toString('hex')}`;
@@ -129,6 +138,15 @@ export function buildChildEnv(options: RunOptions): NodeJS.ProcessEnv {
   if (options.committedFixtures !== undefined && !(COMMITTED_FIXTURE_MARKERS as readonly string[]).includes(options.committedFixtures)) {
     throw new C2LaunchError('marca de datos confirmados no admitida');
   }
+  if (mode === 'migration' && options.committedFixtures !== undefined) {
+    throw new C2LaunchError('el modo migration no admite datos confirmados');
+  }
+  const spec = options.spec.replace(/\\/g, '/').replace(/^\.\//, '');
+  if (options.authorizePartB !== undefined) {
+    if (mode !== 'migration' || spec !== PART_B_SPEC || options.authorizePartB !== PART_B_AUTHORIZATION.value) {
+      throw new C2LaunchError('--authorize-part-b solo se admite como 0014, en el modo migration y para el spec de la parte B');
+    }
+  }
 
   const system = options.systemEnv ?? process.env;
   const env: NodeJS.ProcessEnv = {};
@@ -145,6 +163,7 @@ export function buildChildEnv(options: RunOptions): NodeJS.ProcessEnv {
   env.NODE_ENV = 'test';
   env.NODE_OPTIONS = '';
   if (options.committedFixtures !== undefined) env.C2_COMMITTED_FIXTURES = options.committedFixtures;
+  if (options.authorizePartB !== undefined) env[PART_B_AUTHORIZATION.variable] = PART_B_AUTHORIZATION.value;
 
   // Las mismas salvaguardas que ejecutará cada spec, antes de iniciar Jest.
   try {

@@ -1,11 +1,31 @@
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { ALLOWED_KEYS, buildChildEnv, C2LaunchError, secretFingerprint } from './c2-launcher';
+import { C2_ISOLATED_TARGET, C2_TARGET } from './c2-target-guard';
 
 // La parte B de M-1 (0014) no está autorizada: ningún lanzador debe poder ejecutar TC-M08-307 por accidente.
-// Pruebas de código fuente, sin conexiones.
+// Pruebas de código fuente y del lanzador con configuración sintética, sin conexiones.
 const ROOT = join(__dirname, '..', '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
 const PART_B = 'test/integration/m08-m1-part-b.int-spec.ts';
+
+// Configuración sintética de .env.c2 (sin secretos reales): la de C2 y la de la rama aislada.
+const SECRET = 'S'.repeat(64);
+const varsFor = (target: { project: string; branch: string; endpoint: string }): Record<string, string> => ({
+  DATABASE_URL: `postgresql://rol:clave@${target.endpoint}.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require`,
+  C2_EXPECTED_PROJECT: target.project,
+  C2_EXPECTED_BRANCH: target.branch,
+  C2_EXPECTED_ENDPOINT: target.endpoint,
+  BETTER_AUTH_URL: 'http://localhost:3000',
+  BETTER_AUTH_SECRET: SECRET,
+  C2_AUTH_SECRET_FINGERPRINT: secretFingerprint(SECRET),
+  C2_AUTH_SECRET_GENERATED_AT: '2026-11-09T00:00:00.000Z',
+  AUTH_TRUSTED_ORIGINS: 'http://localhost:3001',
+  RESEND_API_KEY: '',
+  EMAIL_FROM: '',
+});
+const C2_VARS = varsFor(C2_TARGET);
+const ISOLATED_VARS = varsFor(C2_ISOLATED_TARGET);
 
 describe('M-1 parte B (0014) bloqueada', () => {
   it('[TC-M08-340] el spec de parte B se detiene al cargarse sin M08_PART_B_AUTHORIZED=0014, antes de cualquier suite y de leer 0014', () => {
@@ -26,13 +46,21 @@ describe('M-1 parte B (0014) bloqueada', () => {
     expect(with0014).toEqual([PART_B]);
   });
 
-  it('[TC-M08-342] el lanzador C2 no puede transmitir M08_PART_B_AUTHORIZED (ni desde .env.c2 ni desde el proceso padre)', () => {
-    const launcher = read('test/support/c2-launcher.ts');
-    expect(launcher).not.toMatch(/M08_PART_B_AUTHORIZED/);
-    // Lista blanca del sistema: solo rutas y variables de Windows; nada que empiece por M08_.
-    const system = launcher.match(/const SYSTEM_KEYS = \[([^\]]*)\]/)?.[1] ?? '';
-    expect(system).not.toBe('');
-    expect(system).not.toMatch(/M08_/);
-    expect(read('scripts/c2-run.ts')).not.toMatch(/M08_PART_B_AUTHORIZED/);
+  it('[TC-M08-342][AP-26] el lanzador solo transmite M08_PART_B_AUTHORIZED con --authorize-part-b 0014, en el modo migration y para el spec de la parte B', () => {
+    const migration = (over: Partial<Parameters<typeof buildChildEnv>[0]> = {}) =>
+      buildChildEnv({ mode: 'migration', spec: PART_B, vars: ISOLATED_VARS, systemEnv: { PATH: '/usr/bin', M08_PART_B_AUTHORIZED: '0014' }, ...over });
+    // Sin el indicador no llega, aunque el proceso padre la tenga.
+    expect(migration().M08_PART_B_AUTHORIZED).toBeUndefined();
+    // Con el indicador correcto, solo para el spec de la parte B en el modo migration.
+    expect(migration({ authorizePartB: '0014' }).M08_PART_B_AUTHORIZED).toBe('0014');
+    // Cualquier otra combinación se rechaza antes de iniciar Jest.
+    expect(() => migration({ authorizePartB: '0015' })).toThrow(C2LaunchError);
+    expect(() => migration({ authorizePartB: '' })).toThrow(C2LaunchError);
+    expect(() => migration({ authorizePartB: '0014', spec: 'test/integration/m08-m1-migration.int-spec.ts' })).toThrow(C2LaunchError);
+    expect(() => buildChildEnv({ mode: 'postgres', spec: PART_B, vars: C2_VARS, systemEnv: { PATH: '/usr/bin' }, authorizePartB: '0014' })).toThrow(C2LaunchError);
+    // No es una clave admitida en .env.c2 ni una variable del sistema que se herede.
+    expect(ALLOWED_KEYS).not.toContain('M08_PART_B_AUTHORIZED');
+    expect(() => buildChildEnv({ mode: 'migration', spec: PART_B, vars: { ...ISOLATED_VARS, M08_PART_B_AUTHORIZED: '0014' }, systemEnv: {} })).toThrow(C2LaunchError);
+    expect(buildChildEnv({ mode: 'postgres', spec: 'test/integration/identity.int-spec.ts', vars: C2_VARS, systemEnv: { M08_PART_B_AUTHORIZED: '0014' } }).M08_PART_B_AUTHORIZED).toBeUndefined();
   });
 });

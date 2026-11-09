@@ -18,6 +18,24 @@ export const C2_TARGET = Object.freeze({
   endpoint: 'ep-withered-block-b5e8v9ov',
 });
 
+// Destino AISLADO (2026-11-09): rama Neon desechable hija del respaldo c2-pre-0013 (esquema 0000–0012), solo para
+// las pruebas de migración de M-1 (D y la parte B, TC-M08-300 a 307) en el modo `migration`. Ningún otro modo la admite y
+// el modo `migration` no admite ningún otro destino. Se retira al eliminar la rama, en una revisión explícita.
+export const C2_ISOLATED_TARGET = Object.freeze({
+  project: 'royal-paper-10258990',
+  branch: 'br-green-grass-b5yhyp89',
+  endpoint: 'ep-nameless-sun-b5njoeb3',
+  parent: 'br-silent-butterfly-b5z128fu',
+});
+
+// Ramas que nunca son destino del modo `migration`: C2, la base de desarrollo y los dos respaldos.
+export const C2_FORBIDDEN_FOR_ISOLATED = Object.freeze([
+  'br-shy-pond-b50a3m8f',
+  'br-royal-recipe-b54s5hnn',
+  'br-silent-butterfly-b5z128fu',
+  'br-rapid-water-b5za50z4',
+]);
+
 // Marca de datos confirmados: la rama C2 es PERSISTENTE (2026-11-03) y conserva los registros sintéticos de los specs
 // que no revierten (por ejemplo, concurrencia). No habilita ningún otro destino: la identidad exacta se exige antes.
 export const C2_PERSISTENT_FIXTURES = 'c2-persistent-accepted';
@@ -31,9 +49,17 @@ export const R2_ENV = Object.freeze(['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SE
 export const NEUTRALIZED_ENV = Object.freeze([...RESEND_ENV, ...R2_ENV]);
 
 // Modalidades de C2. `concurrency` exige conexión directa (los candados no se prueban a través del pooler);
-// `r2` es la única que admite credenciales R2, y solo del bucket de C2.
-export const C2_MODES = ['postgres', 'concurrency', 'r2', 'auth'] as const;
+// `r2` es la única que admite credenciales R2, y solo del bucket de C2. `migration` es la única que apunta a la rama
+// aislada (C2_ISOLATED_TARGET) y también exige conexión directa.
+export const C2_MODES = ['postgres', 'concurrency', 'r2', 'auth', 'migration'] as const;
 export type C2Mode = (typeof C2_MODES)[number];
+
+export interface C2BranchTarget { project: string; branch: string; endpoint: string }
+
+// Destino aprobado de cada modo: la rama aislada solo para `migration`; C2 para todos los demás.
+export function c2TargetFor(mode: C2Mode): C2BranchTarget {
+  return mode === 'migration' ? C2_ISOLATED_TARGET : C2_TARGET;
+}
 
 export class C2TargetError extends Error {
   constructor(reason: string) {
@@ -68,9 +94,13 @@ export function assertC2BranchTarget(env: NodeJS.ProcessEnv = process.env): { br
   if (branch === ORIGINAL_BRANCH.branch || endpoint === ORIGINAL_BRANCH.endpoint) {
     throw new C2TargetError('la identidad esperada es la de la rama original');
   }
-  if (project !== C2_TARGET.project) throw new C2TargetError('C2_EXPECTED_PROJECT no es el proyecto aprobado');
-  if (branch !== C2_TARGET.branch) throw new C2TargetError('C2_EXPECTED_BRANCH no es la rama aprobada');
-  if (endpoint !== C2_TARGET.endpoint) throw new C2TargetError('C2_EXPECTED_ENDPOINT no es el endpoint aprobado');
+  if (mode === 'migration' && C2_FORBIDDEN_FOR_ISOLATED.includes(branch)) {
+    throw new C2TargetError('el modo migration no admite C2, la base de desarrollo ni los respaldos');
+  }
+  const target = c2TargetFor(mode);
+  if (project !== target.project) throw new C2TargetError('C2_EXPECTED_PROJECT no es el proyecto aprobado');
+  if (branch !== target.branch) throw new C2TargetError('C2_EXPECTED_BRANCH no es la rama aprobada');
+  if (endpoint !== target.endpoint) throw new C2TargetError('C2_EXPECTED_ENDPOINT no es el endpoint aprobado');
 
   let host: string;
   try {
@@ -84,6 +114,7 @@ export function assertC2BranchTarget(env: NodeJS.ProcessEnv = process.env): { br
   const pooled = firstLabel === `${endpoint}-pooler`;
   if (firstLabel !== endpoint && !pooled) throw new C2TargetError('DATABASE_URL no corresponde al endpoint esperado');
   if (pooled && mode === 'concurrency') throw new C2TargetError('las pruebas de concurrencia exigen conexión directa (sin -pooler)');
+  if (pooled && mode === 'migration') throw new C2TargetError('las pruebas de migración exigen conexión directa (sin -pooler)');
 
   const resendSet = RESEND_ENV.filter((key) => env[key] !== '');
   if (resendSet.length > 0) throw new C2TargetError(`variables sin neutralizar: ${resendSet.join(', ')}`);
@@ -99,7 +130,11 @@ export function assertC2BranchTarget(env: NodeJS.ProcessEnv = process.env): { br
 // Identidad REAL de la conexión: los parámetros neon.* que expone el compute. Se contrasta con C2_TARGET antes de
 // iniciar Jest (lanzador) y la puede usar cualquier spec. `readSetting` ejecuta, en una sesión de solo lectura,
 // `SELECT current_setting($1, true)`. Comprueba identificadores, no el nombre de la rama (no está disponible por SQL).
-export async function verifyNeonRuntimeIdentity(readSetting: (name: string) => Promise<string | null>): Promise<typeof C2_TARGET> {
+// `expected` es el destino del modo (c2TargetFor); por omisión, C2.
+export async function verifyNeonRuntimeIdentity(
+  readSetting: (name: string) => Promise<string | null>,
+  expected: C2BranchTarget = C2_TARGET,
+): Promise<C2BranchTarget> {
   const actual = {
     project: await readSetting('neon.project_id'),
     branch: await readSetting('neon.branch_id'),
@@ -109,8 +144,11 @@ export async function verifyNeonRuntimeIdentity(readSetting: (name: string) => P
   if (actual.branch === ORIGINAL_BRANCH.branch || actual.endpoint === ORIGINAL_BRANCH.endpoint) {
     throw new C2TargetError('la conexión real es la rama original');
   }
-  if (actual.project !== C2_TARGET.project) throw new C2TargetError('el proyecto real no es el aprobado');
-  if (actual.branch !== C2_TARGET.branch) throw new C2TargetError('la rama real no es la aprobada');
-  if (actual.endpoint !== C2_TARGET.endpoint) throw new C2TargetError('el endpoint real no es el aprobado');
-  return C2_TARGET;
+  if (expected !== C2_TARGET && C2_FORBIDDEN_FOR_ISOLATED.includes(actual.branch)) {
+    throw new C2TargetError('la conexión real es C2, la base de desarrollo o un respaldo');
+  }
+  if (actual.project !== expected.project) throw new C2TargetError('el proyecto real no es el aprobado');
+  if (actual.branch !== expected.branch) throw new C2TargetError('la rama real no es la aprobada');
+  if (actual.endpoint !== expected.endpoint) throw new C2TargetError('el endpoint real no es el aprobado');
+  return expected;
 }

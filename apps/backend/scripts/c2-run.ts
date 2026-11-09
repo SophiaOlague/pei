@@ -3,9 +3,10 @@
 //   pnpm c2 check <modo> <spec>                  validaciones locales, sin conexiones
 //   pnpm c2 preflight <modo>                     además, identidad real de Neon (lectura: neon.*) y, en r2, HeadBucket
 //   pnpm c2 run <modo> <spec> [--committed-fixtures c2-persistent-accepted]
+//   pnpm c2 run migration test/integration/m08-m1-part-b.int-spec.ts --authorize-part-b 0014   (solo TC-M08-307)
 //   pnpm c2 rotate-auth-secret                   genera un BETTER_AUTH_SECRET exclusivo de C2 en .env.c2
 //
-// Modos: postgres | concurrency | r2 | auth. Archivo: C:\pei-c2\.env.c2 (o C2_ENV_FILE). Nunca lee apps/backend/.env,
+// Modos: postgres | concurrency | r2 | auth | migration (rama aislada, con C2_ENV_FILE apuntando a su propio .env.c2). Archivo: C:\pei-c2\.env.c2 (o C2_ENV_FILE). Nunca lee apps/backend/.env,
 // nunca imprime secretos ni cadenas de conexión y ejecuta Jest desde un directorio temporal sin .env.
 import { execSync, spawn } from 'child_process';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -36,7 +37,7 @@ import {
   writeEvidenceFile,
 } from '../test/support/c2-evidence';
 import { runUuid } from '../test/support/r2-run';
-import { assertC2R2Target, C2_MODES, verifyNeonRuntimeIdentity, type C2Mode } from '../test/support/c2-target-guard';
+import { assertC2R2Target, C2_MODES, c2ModeOf, c2TargetFor, verifyNeonRuntimeIdentity, type C2Mode } from '../test/support/c2-target-guard';
 
 // La ruta del archivo es lo único que se toma del entorno del proceso padre.
 const envFile = assertEnvFileLocation(process.env.C2_ENV_FILE ?? DEFAULT_ENV_FILE);
@@ -66,7 +67,10 @@ async function preflight(env: NodeJS.ProcessEnv): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN READ ONLY');
-    await verifyNeonRuntimeIdentity(async (name) => (await client.query('SELECT current_setting($1, true) AS v', [name])).rows[0]?.v ?? null);
+    await verifyNeonRuntimeIdentity(
+      async (name) => (await client.query('SELECT current_setting($1, true) AS v', [name])).rows[0]?.v ?? null,
+      c2TargetFor(c2ModeOf(env)),
+    );
     await client.query('ROLLBACK');
   } finally {
     client.release();
@@ -96,7 +100,9 @@ async function main(argv: string[]): Promise<number> {
   const mode = parseMode(modeArg);
   const committedIndex = rest.indexOf('--committed-fixtures');
   const committedFixtures = committedIndex >= 0 ? rest[committedIndex + 1] : undefined;
-  const env = buildChildEnv({ mode, spec: specArg ?? '', vars, committedFixtures });
+  const partBIndex = rest.indexOf('--authorize-part-b');
+  const authorizePartB = partBIndex >= 0 ? rest[partBIndex + 1] ?? '' : undefined;
+  const env = buildChildEnv({ mode, spec: specArg ?? '', vars, committedFixtures, authorizePartB });
 
   if (command === 'preflight') {
     await preflight(env);
