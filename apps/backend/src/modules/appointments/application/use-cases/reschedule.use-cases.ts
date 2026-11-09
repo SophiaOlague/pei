@@ -11,7 +11,7 @@ import {
 } from '../../domain/appointments.errors';
 import { assertTransition } from '../../domain/appointment-status';
 import { occupiesSchedule } from '../../domain/hold';
-import { occupancyOf, overlaps } from '../../domain/occupancy';
+import { blockOf, occupancyOf, overlaps } from '../../domain/occupancy';
 import { assertReschedulable, MAX_CHAIN_LENGTH } from '../../domain/reschedule-rules';
 import { AppointmentAuditEvents } from '../appointments-audit-events';
 import {
@@ -87,7 +87,7 @@ export class RescheduleByPatientUseCase {
       for (const a of await this.appointments.listPatientCandidates(original.patientId, new Date(block.startsAt.getTime() - DAY_MS), block.endsAt)) {
         if (!occupiesSchedule(a, now)) continue;
         const duration = a.doctorId === doctor.doctorProfileId ? doctor.durationMinutes : await this.appointments.doctorDuration(a.doctorId);
-        if (overlaps(occupancyOf(a.scheduledAt, duration), block)) throw new PatientScheduleConflictError();
+        if (overlaps(blockOf(a, duration), block)) throw new PatientScheduleConflictError();
       }
       // RB-1: exactamente un horario generado por M07 y libre.
       const slot = await this.slots.slotStatus(doctor.doctorProfileId, block.startsAt);
@@ -97,6 +97,7 @@ export class RescheduleByPatientUseCase {
       const id = randomUUID();
       await this.appointments.insertRescheduled({
         id, rescheduledFromAppointmentId: original.id, patientId: original.patientId, doctorId: original.doctorId, scheduledAt: block.startsAt,
+        agendaBlockEndsAt: block.endsAt,
         reason: original.reason, price: original.price, cancellationPolicyId: original.cancellationPolicyId,
         privacyLegalAcceptanceId: original.privacyLegalAcceptanceId, termsLegalAcceptanceId: original.termsLegalAcceptanceId,
         createdByUserProfileId: userProfileId,

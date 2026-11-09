@@ -13,7 +13,7 @@ import {
 import { assertTransition, type AppointmentStatus } from '../../domain/appointment-status';
 import { holdExpiresAt, isHoldActive, occupiesSchedule } from '../../domain/hold';
 import { addLocalDays, LISTING_HORIZON_DAYS, localDateString, PLATFORM_TIME_ZONE } from '../../domain/local-date';
-import { excludeBusy, occupancyOf, overlaps, type Interval } from '../../domain/occupancy';
+import { blockOf, excludeBusy, occupancyOf, overlaps, type Interval } from '../../domain/occupancy';
 import { AppointmentAuditEvents } from '../appointments-audit-events';
 import {
   APPOINTMENT_REPOSITORY, BOOKABLE_DOCTORS_READER, BOOKING_ELIGIBILITY, BOOKING_FEATURE, BOOKING_LEGAL_ACCEPTANCES, CANCELLATION_POLICY_REPOSITORY,
@@ -53,7 +53,8 @@ export function toAppointmentView(a: AppointmentRecord, now: Date): AppointmentV
   };
 }
 
-// Intervalos ocupados de un médico (citas confirmadas y retenciones vigentes), con la fórmula de ocupación de DA-3.
+// Intervalos ocupados de un médico (citas confirmadas y retenciones vigentes): el fin de bloque guardado (DA-3), o O1
+// con la duración actual solo para las citas históricas sin él.
 @Injectable()
 export class DoctorOccupancyService {
   constructor(@Inject(APPOINTMENT_REPOSITORY) private readonly appointments: AppointmentRepository) {}
@@ -62,7 +63,7 @@ export class DoctorOccupancyService {
     const duration = await this.appointments.doctorDuration(doctorProfileId);
     // Se amplía el rango hacia atrás para incluir citas que empiezan antes y terminan dentro.
     const candidates = await this.appointments.listDoctorCandidatesOverlapping(doctorProfileId, new Date(from.getTime() - DAY_MS), to);
-    return candidates.filter((a) => occupiesSchedule(a, now)).map((a) => occupancyOf(a.scheduledAt, duration));
+    return candidates.filter((a) => occupiesSchedule(a, now)).map((a) => blockOf(a, duration));
   }
 }
 
@@ -190,7 +191,7 @@ export class HoldSlotUseCase {
       for (const a of patientAppointments) {
         if (!occupiesSchedule(a, now)) continue;
         const duration = a.doctorId === doctor.doctorProfileId ? doctor.durationMinutes : await this.appointments.doctorDuration(a.doctorId);
-        if (overlaps(occupancyOf(a.scheduledAt, duration), block)) throw new PatientScheduleConflictError();
+        if (overlaps(blockOf(a, duration), block)) throw new PatientScheduleConflictError();
       }
 
       // RB-1: el horario debe ser exactamente uno de los generados por M07 y no estar ocupado.
@@ -210,7 +211,7 @@ export class HoldSlotUseCase {
       const expiresAt = holdExpiresAt(now);
       await this.appointments.insert({
         id, patientId: patient.patientProfileId, doctorId: doctor.doctorProfileId, scheduledAt: block.startsAt, reason,
-        price: price.price, cancellationPolicyId: policy.id, paymentHoldExpiresAt: expiresAt, createdByUserProfileId: userProfileId,
+        price: price.price, cancellationPolicyId: policy.id, paymentHoldExpiresAt: expiresAt, agendaBlockEndsAt: block.endsAt, createdByUserProfileId: userProfileId,
         privacyLegalAcceptanceId: legal.privacyLegalAcceptanceId, termsLegalAcceptanceId: legal.termsLegalAcceptanceId,
       });
       await this.audit.record(AppointmentAuditEvents.holdCreated(AuditActor.fromActor(actor), id, {

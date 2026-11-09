@@ -77,4 +77,13 @@ export class PublishPolicyDto {
 
   @IsInt()
   patientToleranceMinutes!: number;
+
+  // AP-22: opcionales; si se omiten, 60 y 5 (DEFAULT de 0013).
+  @IsOptional()
+  @IsInt()
+  maxProtectedWaitMinutes?: number;
+
+  @IsOptional()
+  @IsInt()
+  reconnectGraceMinutes?: number;
 }

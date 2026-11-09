@@ -1,6 +1,6 @@
 import { canTransition, assertTransition, isTerminal } from './appointment-status';
 import { holdExpiresAt, isHoldActive, occupiesSchedule, HOLD_MINUTES } from './hold';
-import { excludeBusy, occupancyOf, overlaps } from './occupancy';
+import { blockOf, excludeBusy, occupancyOf, overlaps } from './occupancy';
 import { patientCancellationOutcome, hoursUntil, DOCTOR_CANCELLATION_OUTCOME } from './cancellation-rules';
 import { normalizePrice, isEffective, INITIAL_CONSULTATION_PRICE, CONSULTATION_CURRENCY } from './consultation-price';
 import { validatePolicy, sameParameters, INITIAL_POLICY } from './cancellation-policy';
@@ -105,9 +105,26 @@ describe('M08 dominio de citas', () => {
   });
 
   describe('política de citas (RF-16, AP-22)', () => {
-    it('[TC-M08-015][AP-22] los valores iniciales son 24 h, 2 reagendamientos, 30 y 15 min', () => {
-      expect(INITIAL_POLICY).toEqual({ refundDeadlineHours: 24, maxReschedules: 2, doctorWaitMinutes: 30, patientToleranceMinutes: 15 });
+    it('[TC-M08-015][AP-22] los valores iniciales son 24 h, 2 reagendamientos, W 30, Tol 15, L 60 y G 5 min', () => {
+      expect(INITIAL_POLICY).toEqual({
+        refundDeadlineHours: 24, maxReschedules: 2, doctorWaitMinutes: 30, patientToleranceMinutes: 15, maxProtectedWaitMinutes: 60, reconnectGraceMinutes: 5,
+      });
       expect(validatePolicy({ ...INITIAL_POLICY })).toEqual(INITIAL_POLICY);
+    });
+    it('[TC-M08-017][AP-22] L y G: por omisión 60 y 5; se rechazan W > L, G >= Tol, G = 0 y no enteros', () => {
+      const { maxProtectedWaitMinutes: _l, reconnectGraceMinutes: _g, ...base } = INITIAL_POLICY;
+      expect(validatePolicy(base)).toEqual(INITIAL_POLICY);
+      expect(validatePolicy({ ...INITIAL_POLICY, maxProtectedWaitMinutes: 30, reconnectGraceMinutes: 14 })).toMatchObject({ maxProtectedWaitMinutes: 30, reconnectGraceMinutes: 14 });
+      for (const bad of [
+        { maxProtectedWaitMinutes: 29 }, { reconnectGraceMinutes: 15 }, { reconnectGraceMinutes: 0 }, { maxProtectedWaitMinutes: 60.5 }, { reconnectGraceMinutes: '5' },
+      ]) {
+        expect(() => validatePolicy({ ...INITIAL_POLICY, ...bad })).toThrow(InvalidCancellationPolicyError);
+      }
+    });
+    it('[TC-M08-018][DA-3] blockOf usa el fin guardado; O1 con la duración actual solo si es nulo', () => {
+      const at = new Date('2026-11-12T16:00:00Z');
+      expect(blockOf({ scheduledAt: at, agendaBlockEndsAt: new Date('2026-11-12T16:45:00Z') }, 30)).toEqual({ startsAt: at, endsAt: new Date('2026-11-12T16:45:00Z') });
+      expect(blockOf({ scheduledAt: at, agendaBlockEndsAt: null }, 30)).toEqual({ startsAt: at, endsAt: new Date('2026-11-12T16:30:00Z') });
     });
     it('[TC-M08-016][A.11.1] rechaza no enteros, fuera de rango y tolerancia mayor que la ventana del médico', () => {
       expect(() => validatePolicy({ ...INITIAL_POLICY, refundDeadlineHours: 1.5 })).toThrow(InvalidCancellationPolicyError);

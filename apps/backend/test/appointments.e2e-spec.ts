@@ -152,7 +152,7 @@ describe('Citas médicas por HTTP (E2E con dobles, M08)', () => {
     const patientProfileId = world.state.patients.at(-1)!.id;
     const policyId = world.state.policies.find((v) => v.effectiveUntil === null)?.id ?? randomUUID();
     if (!world.state.policies.some((v) => v.id === policyId)) {
-      world.state.policies.push({ id: policyId, refundDeadlineHours: 24, maxReschedules: 2, doctorWaitMinutes: 30, patientToleranceMinutes: 15, effectiveFrom: new Date(0), effectiveUntil: null, createdBy: 'seed' });
+      world.state.policies.push({ id: policyId, refundDeadlineHours: 24, maxReschedules: 2, doctorWaitMinutes: 30, patientToleranceMinutes: 15, maxProtectedWaitMinutes: 60, reconnectGraceMinutes: 5, effectiveFrom: new Date(0), effectiveUntil: null, createdBy: 'seed' });
     }
     const originalId = randomUUID();
     world.seedAppointment({

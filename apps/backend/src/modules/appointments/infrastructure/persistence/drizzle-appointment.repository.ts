@@ -5,8 +5,8 @@ import { appointment, appointmentStatusHistory, doctorProfile, patientProfile } 
 import type { AppointmentRecord, AppointmentRepository, NewAppointment, RescheduledAppointment, StatusChange } from '../../application/ports/appointments.ports';
 
 // M08 sobre las tablas existentes appointment y appointment_status_history (0000, trigger appointment_guard de 0001).
-// Usa el estado rescheduled y rescheduled_from_appointment_id (0013) y las referencias legales (0014). No escribe
-// agenda_block_ends_at: la ocupación sigue con la fórmula O1 (DA-3) hasta M-1c.
+// Usa el estado rescheduled, rescheduled_from_appointment_id y agenda_block_ends_at (0013) y las referencias legales
+// (0014). agenda_block_ends_at se escribe en cada cita nueva (DA-3); sigue admitiendo nulos hasta M-1c.
 const COLUMNS = {
   id: appointment.id,
   patientId: appointment.patientId,
@@ -21,6 +21,7 @@ const COLUMNS = {
   cancelledByType: appointment.cancelledByType,
   cancelledAt: appointment.cancelledAt,
   createdAt: appointment.createdAt,
+  agendaBlockEndsAt: appointment.agendaBlockEndsAt,
   rescheduledFromAppointmentId: appointment.rescheduledFromAppointmentId,
   privacyLegalAcceptanceId: appointment.privacyLegalAcceptanceId,
   termsLegalAcceptanceId: appointment.termsLegalAcceptanceId,
@@ -114,6 +115,7 @@ export class DrizzleAppointmentRepository implements AppointmentRepository {
     await db.insert(appointment).values({
       id: a.id, patientId: a.patientId, doctorId: a.doctorId, type: 'scheduled', status: 'pending_payment', scheduledAt: a.scheduledAt,
       reason: a.reason, price: a.price, cancellationPolicyId: a.cancellationPolicyId, paymentHoldExpiresAt: a.paymentHoldExpiresAt,
+      agendaBlockEndsAt: a.agendaBlockEndsAt,
       privacyLegalAcceptanceId: a.privacyLegalAcceptanceId, termsLegalAcceptanceId: a.termsLegalAcceptanceId,
     });
     await db.insert(appointmentStatusHistory).values({
@@ -128,7 +130,7 @@ export class DrizzleAppointmentRepository implements AppointmentRepository {
     await db.insert(appointment).values({
       id: a.id, patientId: a.patientId, doctorId: a.doctorId, type: 'scheduled', status: 'confirmed', scheduledAt: a.scheduledAt,
       reason: a.reason, price: a.price, cancellationPolicyId: a.cancellationPolicyId, paymentHoldExpiresAt: null,
-      rescheduledFromAppointmentId: a.rescheduledFromAppointmentId,
+      agendaBlockEndsAt: a.agendaBlockEndsAt, rescheduledFromAppointmentId: a.rescheduledFromAppointmentId,
       privacyLegalAcceptanceId: a.privacyLegalAcceptanceId, termsLegalAcceptanceId: a.termsLegalAcceptanceId,
     });
     await db.insert(appointmentStatusHistory).values({

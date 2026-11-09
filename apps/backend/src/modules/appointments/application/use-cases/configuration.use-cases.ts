@@ -39,12 +39,14 @@ const priceView = (v: PriceVersion): PriceView => ({
 });
 const policyView = (v: PolicyVersion): PolicyView => ({
   id: v.id, refundDeadlineHours: v.refundDeadlineHours, maxReschedules: v.maxReschedules, doctorWaitMinutes: v.doctorWaitMinutes,
-  patientToleranceMinutes: v.patientToleranceMinutes, effectiveFrom: v.effectiveFrom.toISOString(),
+  patientToleranceMinutes: v.patientToleranceMinutes, maxProtectedWaitMinutes: v.maxProtectedWaitMinutes,
+  reconnectGraceMinutes: v.reconnectGraceMinutes, effectiveFrom: v.effectiveFrom.toISOString(),
   effectiveUntil: v.effectiveUntil?.toISOString() ?? null, createdBy: v.createdBy,
 });
 const params = (v: PolicyParameters): Record<string, number> => ({
   refundDeadlineHours: v.refundDeadlineHours, maxReschedules: v.maxReschedules, doctorWaitMinutes: v.doctorWaitMinutes,
-  patientToleranceMinutes: v.patientToleranceMinutes,
+  patientToleranceMinutes: v.patientToleranceMinutes, maxProtectedWaitMinutes: v.maxProtectedWaitMinutes,
+  reconnectGraceMinutes: v.reconnectGraceMinutes,
 });
 
 

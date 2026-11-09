@@ -166,6 +166,17 @@ Implementado sin commit; validado **solo con dobles** (unitarias y E2E). Sin pru
 - Pendiente: prueba de integración en C2 (el trigger de `0014` con referencias copiadas, la guarda
   `confirmed → rescheduled` y la ocupación real), con autorización aparte.
 
+## Fin del bloque de agenda y parámetros de espera (DA-3, AP-22, AP-23, 2026-11-09)
+
+Implementado sin commit; validado **solo con dobles**. Sin prueba contra PostgreSQL. Detalle en M08-diseno A.19.
+
+- La reserva y el reagendamiento guardan `agenda_block_ends_at` con la duración vigente del médico; la ocupación usa el
+  valor guardado y O1 solo para las citas históricas con el valor nulo.
+- La política incluye L (`maxProtectedWaitMinutes`, por omisión 60) y G (`reconnectGraceMinutes`, por omisión 5), con
+  la misma validación que `cancellation_policy_windows_chk`; `getForSession` devuelve W, Tol, L y G.
+- Los rangos L de 1 a 480 y G de 1 a 239 son **límites técnicos propuestos, pendientes de confirmación de negocio**.
+- Pendiente: M-1c y la prueba de integración en C2.
+
 ## Residuo persistente aceptado en C2 (no se limpia)
 
 Solo lo genera la suite de concurrencia (las otras dos revierten todo y lo comprueban en `afterAll`). Diferencia frente
@@ -200,3 +211,6 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 | TC-M08-365 | `test/appointments.e2e-spec.ts` | E2E con dobles: sin aceptaciones vigentes, 403 y sin cita |
 | TC-M08-370 a 380 (15 pruebas) | `src/modules/appointments/application/use-cases/reschedule.use-cases.spec.ts` | Unitarias con dobles, aprobadas (2026-11-09): copia de precio, política, motivo y referencias; historial de ambas y auditoría; sin leer aceptaciones vigentes (371); referencias nulas (372); horario anterior liberado (373); plazo (374); límite desde la raíz, `rootId` y `n` (375); propiedad (376); estados no `confirmed` (377); segunda reprogramación 409 (378); horario ocupado, inválido, igual, cruce, médico no habilitado y reservas desactivadas (379); orden de candados y reversión total (380) |
 | TC-M08-381 | `test/appointments.e2e-spec.ts` | E2E con dobles, aprobada: 200 con la cita nueva, 404 ajena, 409 repetida, 400 DTO, 403 otro rol |
+| TC-M08-015, 017, 018 | `src/modules/appointments/domain/appointments-domain.spec.ts` | Unitarias, aprobadas (2026-11-09): valores iniciales con L 60 y G 5 (015, actualizada); L y G por omisión y rechazos `W > L`, `G >= Tol`, `G = 0`, no enteros (017); `blockOf` con fin guardado y O1 para nulos (018) |
+| TC-M08-382 | `reschedule.use-cases.spec.ts` | Unitaria, aprobada: la cita reagendada guarda el fin de bloque con la duración vigente al reagendar |
+| TC-M08-383 a 387 | `src/modules/appointments/application/use-cases/agenda-block.spec.ts` | Unitarias con dobles, aprobadas: fin de bloque al reservar (383); ocupación con el fin guardado tras cambiar la duración (384); O1 para históricas (385); publicación y lectura de L y G, valores por omisión y auditoría (386); `getForSession` con W, Tol, L y G de la política aplicada y sin el fin del bloque (387) |

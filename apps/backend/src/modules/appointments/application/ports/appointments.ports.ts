@@ -21,6 +21,8 @@ export interface AppointmentRecord {
   cancelledByType: ActorType | null;
   cancelledAt: Date | null;
   createdAt: Date;
+  // DA-3 (0013): fin del bloque de agenda; null solo en citas históricas (se ocupa con O1).
+  agendaBlockEndsAt: Date | null;
   // DA-6: cita de la que procede por reagendamiento (null en la raíz de la cadena).
   rescheduledFromAppointmentId: string | null;
   // AP-26 (0014): las dos o ninguna (null en las citas anteriores a 0014).
@@ -37,6 +39,8 @@ export interface NewAppointment {
   price: string;
   cancellationPolicyId: string;
   paymentHoldExpiresAt: Date;
+  // DA-3: scheduledAt + la duración del médico vigente al reservar.
+  agendaBlockEndsAt: Date;
   // Primera fila de appointment_status_history (pending_payment, actor patient).
   createdByUserProfileId: string;
   // AP-26 (0014): las dos aceptaciones legales vigentes del paciente al reservar (user_legal_acceptance.id).
@@ -53,6 +57,8 @@ export interface RescheduledAppointment {
   patientId: string;
   doctorId: string;
   scheduledAt: Date;
+  // DA-3: nuevo horario + la duración del médico vigente al reagendar.
+  agendaBlockEndsAt: Date;
   reason: string;
   price: string;
   cancellationPolicyId: string;

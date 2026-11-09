@@ -19,6 +19,7 @@ const PRICE = {
 const POLICY = {
   id: cancellationPolicy.id, refundDeadlineHours: cancellationPolicy.refundDeadlineHours, maxReschedules: cancellationPolicy.maxReschedules,
   doctorWaitMinutes: cancellationPolicy.doctorWaitMinutes, patientToleranceMinutes: cancellationPolicy.patientToleranceMinutes,
+  maxProtectedWaitMinutes: cancellationPolicy.maxProtectedWaitMinutes, reconnectGraceMinutes: cancellationPolicy.reconnectGraceMinutes,
   effectiveFrom: cancellationPolicy.effectiveFrom, effectiveUntil: cancellationPolicy.effectiveUntil, createdBy: cancellationPolicy.createdBy,
 };
 

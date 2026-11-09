@@ -79,9 +79,12 @@ export interface SessionView {
   patientProfileId: string;
   doctorProfileId: string;
   scheduledAt: string;
-  // Ventanas de la versión de la política aplicada a la cita (A.9.5). No incluye el fin del bloque de agenda.
+  // Ventanas de la versión de la política aplicada a la cita (A.9.5, AP-22). No incluye el fin del bloque de agenda
+  // (AP-23: nunca es un límite para la videoconsulta).
   doctorWaitMinutes: number;
   patientToleranceMinutes: number;
+  maxProtectedWaitMinutes: number;
+  reconnectGraceMinutes: number;
 }
 
 // CC-9 (AP-15): videoconsulta consulta la cita y registra el resultado final; M08 conserva el estado y su historial.
@@ -102,6 +105,7 @@ export class AppointmentSessionService {
     return {
       appointmentId: a.id, status: a.status, patientProfileId: a.patientId, doctorProfileId: a.doctorId, scheduledAt: a.scheduledAt.toISOString(),
       doctorWaitMinutes: policy.doctorWaitMinutes, patientToleranceMinutes: policy.patientToleranceMinutes,
+      maxProtectedWaitMinutes: policy.maxProtectedWaitMinutes, reconnectGraceMinutes: policy.reconnectGraceMinutes,
     };
   }
 

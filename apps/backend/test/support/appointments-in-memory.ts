@@ -94,7 +94,7 @@ export class InMemoryAppointmentsWorld
   seedAppointment(a: Partial<AppointmentRecord> & { id: string; patientId: string; doctorId: string; scheduledAt: Date; cancellationPolicyId: string }) {
     this.state.appointments.push({
       status: 'confirmed', reason: 'Consulta', price: '200.00', paymentHoldExpiresAt: null, cancellationReason: null, cancelledByType: null,
-      cancelledAt: null, createdAt: new Date(0), rescheduledFromAppointmentId: null, privacyLegalAcceptanceId: null, termsLegalAcceptanceId: null, ...a,
+      cancelledAt: null, createdAt: new Date(0), agendaBlockEndsAt: null, rescheduledFromAppointmentId: null, privacyLegalAcceptanceId: null, termsLegalAcceptanceId: null, ...a,
     } as AppointmentRecord);
   }
 

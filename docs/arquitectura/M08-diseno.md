@@ -355,7 +355,7 @@ migración.
 |---|---|---|---|---|---|
 | DA-1 | Confirmación solo con pago; bandera que desactiva la reserva en producción; sin ninguna ruta de confirmación sin pago | RF-13, RF-14, RN-008, RN-011, RN-012 | CC-4 | **Aprobada** | AP-16 |
 | DA-2 | Candados y orden único | RF-12, RF-14 | — | **Aprobada** | AP-17 |
-| DA-3 | Fin del bloque guardado en `agenda_block_ends_at`, solo para la ocupación (A.10.2) | RN-022, RN-023, RF-11 | — | **Aprobada**; implementarla requiere M-1 #2 (hasta entonces, O1 transitoria) | AP-20 |
+| DA-3 | Fin del bloque guardado en `agenda_block_ends_at`, solo para la ocupación (A.10.2) | RN-022, RN-023, RF-11 | — | **Implementada** (2026-11-09, sin commit; con dobles). O1 solo para citas históricas con el valor nulo, hasta M-1c. Ver A.19 | AP-20 |
 | DA-4 | Sin transiciones automáticas desde `confirmed` en M08 | RF-19, RF-20, RN-024, RN-025 | CC-2 | **Aprobada** (la parte de M08). Las ventanas: fuera de alcance (videoconsulta) | AP-20 |
 | DA-5 | Filtrar los ocupados sin tocar M07 | RF-11, RF-12 | — | **Aprobada** | AP-17 |
 | DA-6 | Reagendamiento con `rescheduled`; el pago queda en la cita raíz | RF-12, RN-015, RN-017, RN-018, RF-46 | CC-3 (C-25) | **Implementada** (2026-11-09, sin commit; validada con dobles, sin prueba en C2). Ver A.18 | AP-7 |
@@ -757,8 +757,8 @@ RN-021), las cambia el administrador creando versiones nuevas y cada cita usa la
 | Máximo de reagendamientos | `max_reschedules` | 2 | Sí |
 | Ventana del médico `W` | `doctor_wait_minutes` | 30 | Sí |
 | Tolerancia del paciente `Tol` | `patient_tolerance_minutes` | 15 | Sí |
-| Límite total de espera protegida `L` | `max_protected_wait_minutes` | 60 | **No** (M-1 #4) |
-| Gracia de reconexión `G` | `reconnect_grace_minutes` | 5 | **No** (M-1 #4) |
+| Límite total de espera protegida `L` | `max_protected_wait_minutes` | 60 | Sí (0013; código desde 2026-11-09, A.19) |
+| Gracia de reconexión `G` | `reconnect_grace_minutes` | 5 | Sí (0013; código desde 2026-11-09, A.19) |
 
 Notas:
 - **24 h y 2 reagendamientos** salen del Maestro (RN-016, RN-017, RN-019). W, Tol, L y G los fijó AP-22.
@@ -1435,9 +1435,27 @@ Decisiones confirmadas por el responsable del proyecto (2026-11-09):
 
 Transacción única: candados `FOR UPDATE` médico → paciente → cita (DA-2); `confirmed` exigido (otro estado, 409; un
 segundo reagendamiento simultáneo encuentra la original cerrada); validaciones; `confirmed → rescheduled`; comprobación
-del nuevo horario; inserción de la nueva; auditoría. Cualquier fallo revierte todo. `agenda_block_ends_at` no se
-escribe, igual que en la reserva (fórmula O1 hasta M-1c). Pendiente: prueba de integración en C2 y el contrato de pagos
-`rootOf` (sin módulo de pagos todavía).
+del nuevo horario; inserción de la nueva; auditoría. Cualquier fallo revierte todo. La nueva guarda
+`agenda_block_ends_at` con la duración vigente del médico al reagendar (A.19). Pendiente: prueba de integración en C2 y
+el contrato de pagos `rootOf` (sin módulo de pagos todavía).
+
+## A.19 Fin del bloque de agenda y parámetros de espera (DA-3, AP-22, AP-23; 2026-11-09)
+
+**Estado:** implementado sin commit; validado con dobles (TC-M08-015, 017, 018, 382 a 387). Sin prueba contra
+PostgreSQL. No cambia el esquema (todo existe desde 0013).
+
+- **Fin del bloque (DA-3, AP-23):** la reserva y el reagendamiento guardan `agenda_block_ends_at = inicio + duración
+  del médico vigente en ese momento`. La ocupación del médico y los cruces del paciente usan el valor guardado
+  (`blockOf`); la fórmula O1 (inicio + duración actual) queda solo para las citas históricas con el valor nulo. El fin
+  del bloque no se expone en las vistas ni en `getForSession` (nunca es un límite de la videoconsulta).
+- **Parámetros de espera (AP-22):** `PolicyParameters`, la vista, la auditoría de publicación, el repositorio y el DTO
+  de `POST /admin/appointment-policy/versions` incluyen `maxProtectedWaitMinutes` (L) y `reconnectGraceMinutes` (G).
+  En el DTO son opcionales: si se omiten, 60 y 5 (los DEFAULT de 0013). Validación igual que
+  `cancellation_policy_windows_chk`: `Tol <= W <= L` y `0 < G < Tol` (rangos: L de 1 a 480, G de 1 a 239; **límites técnicos propuestos, pendientes de confirmación de negocio**).
+  `INITIAL_POLICY` pasa a W 30, Tol 15, L 60, G 5 (AP-22).
+- **`getForSession`** devuelve W, Tol, L y G de la política aplicada a la cita.
+- **Pendiente real:** M-1c (`NOT NULL` en `agenda_block_ends_at` y retirar los DEFAULT de L y G), cuando no queden
+  citas con el fin nulo; prueba de integración en C2 de la escritura del fin del bloque y de L y G.
 
 ## 1. Alcance y límites
 

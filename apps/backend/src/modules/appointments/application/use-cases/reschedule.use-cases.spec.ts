@@ -188,4 +188,13 @@ describe('Reagendamiento por el paciente (DA-6, AP-7, AP-26)', () => {
     expect(env.world.locks.slice(0, 3)).toEqual(['doctor:for-update', 'patient:for-update', 'appointment:for-update']);
     expect(snapshot(env)).toEqual(before);
   });
+
+  it('[TC-M08-382][DA-3][AP-23] la cita nueva guarda el fin de bloque con la duración vigente del médico al reagendar', async () => {
+    const env = await setup();
+    const id = env.original({ agendaBlockEndsAt: new Date('2026-11-12T16:30:00.000Z') });
+    env.world.state.doctors.find((d) => d.id === env.doctorId)!.durationMinutes = 45;
+    const view = await env.run(id, S3);
+    expect(byId(env, view.id).agendaBlockEndsAt).toEqual(new Date('2026-11-12T17:45:00.000Z'));
+    expect(Object.keys(view)).not.toContain('agendaBlockEndsAt');
+  });
 });
