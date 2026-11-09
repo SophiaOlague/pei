@@ -47,8 +47,18 @@ con SHA-256 frente a la línea base del 2026-11-08 (`appointments.conc-spec.ts`,
 ejecutado**. Requiere una rama aislada con esquema 0000–0012 (sin `0013`): en C2 falla a propósito en `beforeAll`, y la
 salvaguarda y el lanzador todavía no admiten otro destino. No tiene evidencia de ejecución en su forma actual.
 
-**No versionados en esta entrega:** la parte B de M-1 (`0014`) con su bloqueo. Sus casos y evidencias se documentarán
-en su propia entrega.
+**Parte B de M-1 (`0014`): propuesta versionada y BLOQUEADA por dependencia de M02.** Se conservan
+`src/db/proposals/m08-m1/0014_m08_m1_legal_acceptance.up.sql` y `.down.sql`, `m08-m1-part-b.int-spec.ts`
+(TC-M08-307) y su bloqueo `test/support/m08-m1-part-b-gate.spec.ts` (TC-M08-340 a 342). Estado:
+
+- El lector de M02 `BOOKING_LEGAL_ACCEPTANCE_READER` (A.12.4 y A.14.7 de M08-diseno) **no está implementado** y su
+  autorización sigue pendiente (AP-19, AP-25).
+- M08 **todavía no guarda ni copia** `legalAcceptanceId`: ni el código ni el esquema de Drizzle declaran la columna.
+- `0014` **no está habilitada** para ejecución: solo existe en `proposals/`, no está en el journal de Drizzle, el
+  ejecutor `scripts/c2-migrate.ts` solo autoriza `0013` y su SQL exige `0013`. No se ha aplicado en ningún entorno.
+- `m08-m1-part-b.int-spec.ts` se detiene al cargarse sin `M08_PART_B_AUTHORIZED=0014`, que el lanzador C2 no
+  transmite; además exige una rama aislada con esquema 0000–0012.
+- **No existe evidencia de ejecución** de esta parte. TC-M08-307 no se ha ejecutado en su forma actual.
 
 ## Residuo persistente aceptado en C2 (no se limpia)
 
@@ -75,3 +85,5 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 | TC-M08-300 a 306 (7) | `m08-m1-migration.int-spec.ts` | Versionados, no ejecutados: requieren una rama aislada con esquema 0000–0012 |
 | TC-M08-310 a 316 (7) | `m08-m1-schema.int-spec.ts` | 0013 en C2 |
 | TC-M08-320 a 331 | `scripts/c2-migrate-core.spec.ts` | unitarias, sin conexiones |
+| TC-M08-307 (1) | `m08-m1-part-b.int-spec.ts` | autorización de 0014 (bloqueado) |
+| TC-M08-340 a 342 | `test/support/m08-m1-part-b-gate.spec.ts` | unitarias, sin conexiones |
