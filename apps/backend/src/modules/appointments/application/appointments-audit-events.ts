@@ -9,6 +9,7 @@ export const APPOINTMENT_AUDIT_ACTIONS = {
   confirmed: 'appointment.status.confirmed',
   paymentNotConfirmable: 'appointment.payment.not_confirmable',
   canceled: 'appointment.status.canceled',
+  rescheduled: 'appointment.status.rescheduled',
   outcomeRecorded: 'appointment.outcome.recorded',
   pricePublished: 'consultation_price.version.published',
   policyPublished: 'appointment_policy.version.published',
@@ -29,6 +30,9 @@ export const AppointmentAuditEvents = {
     AuditEvent.create({ actor, action: APPOINTMENT_AUDIT_ACTIONS.paymentNotConfirmable, entity: appt(id), metadata: { paymentId, reason } }),
   canceled: (actor: AuditActor, id: string, m: { actorType: 'patient' | 'doctor'; refundOutcome: string; hoursBefore: number; doctorCanOperate?: boolean }) =>
     AuditEvent.create({ actor, action: APPOINTMENT_AUDIT_ACTIONS.canceled, entity: appt(id), metadata: m }),
+  // DA-6: se registra sobre la cita nueva; n = número de reagendamientos de la cadena tras esta operación.
+  rescheduled: (actor: AuditActor, m: { fromId: string; toId: string; rootId: string; n: number }) =>
+    AuditEvent.create({ actor, action: APPOINTMENT_AUDIT_ACTIONS.rescheduled, entity: appt(m.toId), metadata: m }),
   outcomeRecorded: (actor: AuditActor, id: string, status: string) =>
     AuditEvent.create({ actor, action: APPOINTMENT_AUDIT_ACTIONS.outcomeRecorded, entity: appt(id), metadata: { status } }),
   pricePublished: (actor: AuditActor, id: string, m: { previousVersionId: string | null; previousPrice: string | null; newPrice: string; currency: string; effectiveFrom: string; source: 'admin_panel' | 'initial_setup' }) =>

@@ -9,8 +9,10 @@ import {
 } from '../application/use-cases/booking.use-cases';
 import { CancelByDoctorUseCase, CancelByPatientUseCase } from '../application/use-cases/cancellation.use-cases';
 import { CancellationPolicyService, ConsultationPriceService } from '../application/use-cases/configuration.use-cases';
+import { RescheduleByPatientUseCase } from '../application/use-cases/reschedule.use-cases';
 import {
-  BookableDoctorsQueryDto, DoctorAppointmentsQueryDto, DoctorCancelDto, HoldSlotDto, PatientCancelDto, PublishPolicyDto, PublishPriceDto, SlotsQueryDto,
+  BookableDoctorsQueryDto, DoctorAppointmentsQueryDto, DoctorCancelDto, HoldSlotDto, PatientCancelDto, PublishPolicyDto, PublishPriceDto, RescheduleDto,
+  SlotsQueryDto,
 } from './dto/appointments.dto';
 
 // M08 (RF-12, RF-14, RF-15, RF-16, RF-66 propuesto). El perfil del actor sale siempre de la sesión. Ninguna ruta
@@ -45,6 +47,7 @@ export class PatientAppointmentsController {
     private readonly release: ReleaseHoldUseCase,
     private readonly query: PatientAppointmentsQuery,
     private readonly cancel: CancelByPatientUseCase,
+    private readonly reschedule: RescheduleByPatientUseCase,
   ) {}
 
   @Post()
@@ -72,6 +75,13 @@ export class PatientAppointmentsController {
   @HttpCode(200)
   cancelAppointment(@CurrentActor() actor: Actor, @Param('id', ParseUUIDPipe) id: string, @Body() body: PatientCancelDto) {
     return this.cancel.execute(actor, id, body.reason ?? null);
+  }
+
+  // DA-6: responde la cita nueva (confirmed) con rescheduledFromAppointmentId.
+  @Post(':id/reschedule')
+  @HttpCode(200)
+  rescheduleAppointment(@CurrentActor() actor: Actor, @Param('id', ParseUUIDPipe) id: string, @Body() body: RescheduleDto) {
+    return this.reschedule.execute(actor, id, new Date(body.startsAt));
   }
 }
 

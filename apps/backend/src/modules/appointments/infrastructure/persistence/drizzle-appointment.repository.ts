@@ -2,10 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm';
 import { getDbContext } from '../../../../db/transaction-context';
 import { appointment, appointmentStatusHistory, doctorProfile, patientProfile } from '../../../../db/schema';
-import type { AppointmentRecord, AppointmentRepository, NewAppointment, StatusChange } from '../../application/ports/appointments.ports';
+import type { AppointmentRecord, AppointmentRepository, NewAppointment, RescheduledAppointment, StatusChange } from '../../application/ports/appointments.ports';
 
 // M08 sobre las tablas existentes appointment y appointment_status_history (0000, trigger appointment_guard de 0001).
-// Sin migraciones: no usa agenda_block_ends_at ni el estado rescheduled (M-1).
+// Usa el estado rescheduled y rescheduled_from_appointment_id (0013) y las referencias legales (0014). No escribe
+// agenda_block_ends_at: la ocupación sigue con la fórmula O1 (DA-3) hasta M-1c.
 const COLUMNS = {
   id: appointment.id,
   patientId: appointment.patientId,
@@ -20,6 +21,9 @@ const COLUMNS = {
   cancelledByType: appointment.cancelledByType,
   cancelledAt: appointment.cancelledAt,
   createdAt: appointment.createdAt,
+  rescheduledFromAppointmentId: appointment.rescheduledFromAppointmentId,
+  privacyLegalAcceptanceId: appointment.privacyLegalAcceptanceId,
+  termsLegalAcceptanceId: appointment.termsLegalAcceptanceId,
 };
 const ACTIVE = ['confirmed', 'pending_payment'] as const;
 const DOCTOR = { doctorProfileId: doctorProfile.id, durationMinutes: doctorProfile.appointmentDurationMinutes };
@@ -114,6 +118,21 @@ export class DrizzleAppointmentRepository implements AppointmentRepository {
     });
     await db.insert(appointmentStatusHistory).values({
       appointmentId: a.id, status: 'pending_payment', changedByType: 'patient', changedByUserProfileId: a.createdByUserProfileId, reason: null,
+    });
+  }
+
+  // DA-6: la cita nueva nace confirmed (la guarda de 0001/0013 solo valida UPDATE). El trigger de 0014 valida que las
+  // referencias copiadas sean del mismo paciente, del tipo y del régimen correctos.
+  async insertRescheduled(a: RescheduledAppointment): Promise<void> {
+    const db = getDbContext();
+    await db.insert(appointment).values({
+      id: a.id, patientId: a.patientId, doctorId: a.doctorId, type: 'scheduled', status: 'confirmed', scheduledAt: a.scheduledAt,
+      reason: a.reason, price: a.price, cancellationPolicyId: a.cancellationPolicyId, paymentHoldExpiresAt: null,
+      rescheduledFromAppointmentId: a.rescheduledFromAppointmentId,
+      privacyLegalAcceptanceId: a.privacyLegalAcceptanceId, termsLegalAcceptanceId: a.termsLegalAcceptanceId,
+    });
+    await db.insert(appointmentStatusHistory).values({
+      appointmentId: a.id, status: 'confirmed', changedByType: 'patient', changedByUserProfileId: a.createdByUserProfileId, reason: 'rescheduled',
     });
   }
 

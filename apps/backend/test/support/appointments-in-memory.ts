@@ -5,7 +5,7 @@ import type { AuditTrail } from '../../src/modules/audit/application/ports/audit
 import type { AuditEvent } from '../../src/modules/audit/domain/audit-event';
 import type {
   AppointmentRecord, AppointmentRepository, BookableDoctorsReader, BookingEligibility, BookingFeature, BookingLegalAcceptances, BookingLegalReferences,
-  CancellationPolicyRepository, ConsultationPriceRepository, DoctorSummary, NewAppointment, StatusChange,
+  CancellationPolicyRepository, ConsultationPriceRepository, DoctorSummary, NewAppointment, RescheduledAppointment, StatusChange,
 } from '../../src/modules/appointments/application/ports/appointments.ports';
 import type { PolicyVersion } from '../../src/modules/appointments/domain/cancellation-policy';
 import type { PriceVersion } from '../../src/modules/appointments/domain/consultation-price';
@@ -94,7 +94,7 @@ export class InMemoryAppointmentsWorld
   seedAppointment(a: Partial<AppointmentRecord> & { id: string; patientId: string; doctorId: string; scheduledAt: Date; cancellationPolicyId: string }) {
     this.state.appointments.push({
       status: 'confirmed', reason: 'Consulta', price: '200.00', paymentHoldExpiresAt: null, cancellationReason: null, cancelledByType: null,
-      cancelledAt: null, createdAt: new Date(0), ...a,
+      cancelledAt: null, createdAt: new Date(0), rescheduledFromAppointmentId: null, privacyLegalAcceptanceId: null, termsLegalAcceptanceId: null, ...a,
     } as AppointmentRecord);
   }
 
@@ -187,13 +187,27 @@ export class InMemoryAppointmentsWorld
   }
   async insert(a: NewAppointment) {
     const { createdByUserProfileId, privacyLegalAcceptanceId, termsLegalAcceptanceId, ...rest } = a;
-    this.state.appointments.push({ ...rest, status: 'pending_payment', cancellationReason: null, cancelledByType: null, cancelledAt: null, createdAt: new Date() });
+    this.state.appointments.push({
+      ...rest, status: 'pending_payment', cancellationReason: null, cancelledByType: null, cancelledAt: null, createdAt: new Date(),
+      rescheduledFromAppointmentId: null, privacyLegalAcceptanceId, termsLegalAcceptanceId,
+    });
     this.state.legalReferences.push({ appointmentId: a.id, privacyLegalAcceptanceId, termsLegalAcceptanceId });
     this.state.history.push({ appointmentId: a.id, status: 'pending_payment', changedByType: 'patient', changedByUserProfileId: createdByUserProfileId, reason: null });
   }
+  // DA-6: nace confirmed; refleja el CHECK de 0014 (las dos referencias o ninguna).
+  async insertRescheduled(a: RescheduledAppointment) {
+    if ((a.privacyLegalAcceptanceId === null) !== (a.termsLegalAcceptanceId === null)) throw new Error('check: appointment_legal_acceptances_chk');
+    const { createdByUserProfileId, ...rest } = a;
+    this.state.appointments.push({
+      ...rest, status: 'confirmed', paymentHoldExpiresAt: null, cancellationReason: null, cancelledByType: null, cancelledAt: null, createdAt: new Date(),
+    });
+    this.state.history.push({ appointmentId: a.id, status: 'confirmed', changedByType: 'patient', changedByUserProfileId: createdByUserProfileId, reason: 'rescheduled' });
+  }
   async changeStatus(id: string, c: StatusChange) {
     const a = this.state.appointments.find((x) => x.id === id)!;
-    // Refleja gst_appointment_guard de 0001.
+    // Refleja gst_appointment_guard (0001, 0013): rescheduled solo desde confirmed y es final.
+    if (c.status === 'rescheduled' && a.status !== 'confirmed') throw new Error(`trigger: ${a.status} → rescheduled`);
+    if (a.status === 'rescheduled') throw new Error('trigger: rescheduled es final');
     if (a.status === 'pending_payment' && !['confirmed', 'expired'].includes(c.status)) throw new Error(`trigger: pending_payment → ${c.status}`);
     if (c.status === 'expired' && a.status !== 'pending_payment') throw new Error('trigger: solo pending_payment pasa a expired');
     a.status = c.status;

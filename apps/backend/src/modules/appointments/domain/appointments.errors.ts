@@ -93,6 +93,29 @@ export class InvalidAppointmentStateError extends DomainError {
   }
 }
 
+// DA-8: el reagendamiento usa el mismo plazo que la cancelación con reembolso (refund_deadline_hours de la política
+// aplicada a la cita original).
+export class RescheduleDeadlinePassedError extends DomainError {
+  readonly kind = 'business_rule' as const;
+  constructor(readonly deadlineHours: number) {
+    super('La cita ya no puede reagendarse: está dentro del plazo mínimo de anticipación');
+  }
+  override get details() {
+    return { deadlineHours: this.deadlineHours };
+  }
+}
+
+// RN-017 y DA-7: el contador se hereda por la cadena; el tope es max_reschedules de la política aplicada.
+export class RescheduleLimitReachedError extends DomainError {
+  readonly kind = 'business_rule' as const;
+  constructor(readonly maxReschedules: number) {
+    super('La cita alcanzó el número máximo de reagendamientos');
+  }
+  override get details() {
+    return { maxReschedules: this.maxReschedules };
+  }
+}
+
 export class InvalidAppointmentInputError extends DomainError {
   readonly kind = 'validation' as const;
   constructor(reason: string) {

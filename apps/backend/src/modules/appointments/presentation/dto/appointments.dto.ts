@@ -16,6 +16,12 @@ export class HoldSlotDto {
   reason!: string;
 }
 
+// DA-6: solo el nuevo horario; médico, motivo, precio, política y referencias legales salen de la cita original.
+export class RescheduleDto {
+  @IsDateString({ strict: true })
+  startsAt!: string;
+}
+
 export class PatientCancelDto {
   @IsOptional()
   @IsString()

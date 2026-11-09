@@ -21,6 +21,11 @@ export interface AppointmentRecord {
   cancelledByType: ActorType | null;
   cancelledAt: Date | null;
   createdAt: Date;
+  // DA-6: cita de la que procede por reagendamiento (null en la raíz de la cadena).
+  rescheduledFromAppointmentId: string | null;
+  // AP-26 (0014): las dos o ninguna (null en las citas anteriores a 0014).
+  privacyLegalAcceptanceId: string | null;
+  termsLegalAcceptanceId: string | null;
 }
 
 export interface NewAppointment {
@@ -34,11 +39,27 @@ export interface NewAppointment {
   paymentHoldExpiresAt: Date;
   // Primera fila de appointment_status_history (pending_payment, actor patient).
   createdByUserProfileId: string;
-  // AP-26: las dos aceptaciones legales vigentes del paciente al reservar (user_legal_acceptance.id). TODAVÍA NO SE
-  // PERSISTEN EN POSTGRESQL: las columnas privacy_legal_acceptance_id y terms_legal_acceptance_id llegan con la
-  // propuesta 0014, que no está aplicada; el repositorio Drizzle las ignora hasta entonces.
+  // AP-26 (0014): las dos aceptaciones legales vigentes del paciente al reservar (user_legal_acceptance.id).
   privacyLegalAcceptanceId: string;
   termsLegalAcceptanceId: string;
+}
+
+// DA-6 (AP-7): cita nueva de un reagendamiento. Nace confirmed, sin retención ni pago propio (el pago queda en la raíz),
+// con el precio, la política, el motivo y las dos referencias legales de la cita original (RN-018, AP-26: se copian,
+// no se vuelven a leer; pueden ser las dos nulas si la original es anterior a 0014).
+export interface RescheduledAppointment {
+  id: string;
+  rescheduledFromAppointmentId: string;
+  patientId: string;
+  doctorId: string;
+  scheduledAt: Date;
+  reason: string;
+  price: string;
+  cancellationPolicyId: string;
+  privacyLegalAcceptanceId: string | null;
+  termsLegalAcceptanceId: string | null;
+  // Primera fila de appointment_status_history (confirmed, actor patient, motivo 'rescheduled').
+  createdByUserProfileId: string;
 }
 
 export interface StatusChange {
@@ -70,6 +91,7 @@ export interface AppointmentRepository {
   // pending_payment con retención vencida de un médico (vencimiento perezoso, DA-9).
   listExpiredHolds(doctorProfileId: string, now: Date): Promise<AppointmentRecord[]>;
   insert(a: NewAppointment): Promise<void>;
+  insertRescheduled(a: RescheduledAppointment): Promise<void>;
   changeStatus(id: string, change: StatusChange): Promise<void>;
 }
 export const APPOINTMENT_REPOSITORY = Symbol('APPOINTMENT_REPOSITORY');

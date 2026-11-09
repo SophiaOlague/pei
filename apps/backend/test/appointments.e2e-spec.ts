@@ -146,6 +146,32 @@ describe('Citas médicas por HTTP (E2E con dobles, M08)', () => {
     expect(world.state.appointments).toHaveLength(before);
   });
 
+  it('[TC-M08-381][DA-6][AP-26] POST /me/patient/appointments/:id/reschedule: 200 con la cita nueva; 404 ajena; 409 repetida; 400 DTO; 403 otro rol', async () => {
+    const p = await patient();
+    const d = doctor();
+    const patientProfileId = world.state.patients.at(-1)!.id;
+    const policyId = world.state.policies.find((v) => v.effectiveUntil === null)?.id ?? randomUUID();
+    if (!world.state.policies.some((v) => v.id === policyId)) {
+      world.state.policies.push({ id: policyId, refundDeadlineHours: 24, maxReschedules: 2, doctorWaitMinutes: 30, patientToleranceMinutes: 15, effectiveFrom: new Date(0), effectiveUntil: null, createdBy: 'seed' });
+    }
+    const originalId = randomUUID();
+    world.seedAppointment({
+      id: originalId, patientId: patientProfileId, doctorId: d.id, scheduledAt: new Date('2026-11-11T17:00:00.000Z'), cancellationPolicyId: policyId,
+      price: '180.00', reason: 'Control', privacyLegalAcceptanceId: 'acc-p', termsLegalAcceptanceId: 'acc-t',
+    });
+    const path = `/me/patient/appointments/${originalId}/reschedule`;
+    expect((await as(p).post(path).send({ startsAt: S1, extra: 1 })).status).toBe(400);
+    expect((await as(p).post(path).send({ startsAt: 'mañana' })).status).toBe(400);
+    expect((await as(d.userId).post(path).send({ startsAt: S1 })).status).toBe(403);
+    expect((await as(await patient()).post(path).send({ startsAt: S1 })).status).toBe(404);
+    const res = await as(p).post(path).send({ startsAt: S1 });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ status: 'confirmed', scheduledAt: S1, price: '180.00', reason: 'Control', rescheduledFromAppointmentId: originalId });
+    expect(world.state.appointments.find((a) => a.id === res.body.id)).toMatchObject({ privacyLegalAcceptanceId: 'acc-p', termsLegalAcceptanceId: 'acc-t' });
+    expect(world.state.appointments.find((a) => a.id === originalId)!.status).toBe('rescheduled');
+    expect((await as(p).post(path).send({ startsAt: S1 })).status).toBe(409);
+  });
+
   it('[TC-M08-104] validación de DTO: propiedades desconocidas, fechas y UUID', async () => {
     const p = await patient();
     expect((await as(p).post('/me/patient/appointments').send({ doctorProfileId: 'x', startsAt: S1, reason: 'a' })).status).toBe(400);

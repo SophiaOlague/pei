@@ -9,6 +9,7 @@ import {
 } from './application/use-cases/booking.use-cases';
 import { CancelByDoctorUseCase, CancelByPatientUseCase } from './application/use-cases/cancellation.use-cases';
 import { CancellationPolicyService, ConsultationPriceService } from './application/use-cases/configuration.use-cases';
+import { RescheduleByPatientUseCase } from './application/use-cases/reschedule.use-cases';
 import {
   APPOINTMENT_REPOSITORY, BOOKABLE_DOCTORS_READER, BOOKING_ELIGIBILITY, BOOKING_FEATURE, BOOKING_LEGAL_ACCEPTANCES, CANCELLATION_POLICY_REPOSITORY,
   CONSULTATION_PRICE_REPOSITORY,
@@ -38,6 +39,7 @@ import {
     DoctorAppointmentsQuery,
     CancelByPatientUseCase,
     CancelByDoctorUseCase,
+    RescheduleByPatientUseCase,
     ConsultationPriceService,
     CancellationPolicyService,
     AppointmentConfirmationService,

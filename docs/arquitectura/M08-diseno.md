@@ -358,7 +358,7 @@ migración.
 | DA-3 | Fin del bloque guardado en `agenda_block_ends_at`, solo para la ocupación (A.10.2) | RN-022, RN-023, RF-11 | — | **Aprobada**; implementarla requiere M-1 #2 (hasta entonces, O1 transitoria) | AP-20 |
 | DA-4 | Sin transiciones automáticas desde `confirmed` en M08 | RF-19, RF-20, RN-024, RN-025 | CC-2 | **Aprobada** (la parte de M08). Las ventanas: fuera de alcance (videoconsulta) | AP-20 |
 | DA-5 | Filtrar los ocupados sin tocar M07 | RF-11, RF-12 | — | **Aprobada** | AP-17 |
-| DA-6 | Reagendamiento con `rescheduled`; el pago queda en la cita raíz | RF-12, RN-015, RN-017, RN-018, RF-46 | CC-3 (C-25) | **Aprobada en diseño**; implementarla requiere C-25 y la migración M-1 (A.9.6) | AP-7 |
+| DA-6 | Reagendamiento con `rescheduled`; el pago queda en la cita raíz | RF-12, RN-015, RN-017, RN-018, RF-46 | CC-3 (C-25) | **Implementada** (2026-11-09, sin commit; validada con dobles, sin prueba en C2). Ver A.18 | AP-7 |
 | DA-7 | Contador por la cadena | RN-017 | — | **Aprobada** | AP-17 |
 | DA-8 | Un solo plazo (`refund_deadline_hours` de la versión aplicada) para reembolso y reagendamiento | RN-016, RN-019, RF-16 | CC-1 | **Aprobada** | AP-4, AP-20 |
 | DA-9 | Vencimiento perezoso; tres situaciones distintas | RF-14, RN-009, RN-010, RN-012 | CC-4 | **Aprobada** (el barrido programado, fuera de alcance) | AP-17 |
@@ -1413,9 +1413,31 @@ export interface BookingLegalAcceptanceReader {
 
 La cita nueva **copia** las dos referencias de la cita original, dentro de la misma transacción, en lugar de leer las
 vigentes; el trigger las valida igual y quedan inmutables. La cadena `rescheduled_from_appointment_id` conserva la
-trazabilidad hasta la aceptación de la reserva original. **Pendiente de decisión:** si entre la reserva y el
-reagendamiento se publica una versión legal nueva, si el reagendamiento debe exigir aceptarla. M08 todavía no tiene el
-caso de uso de reagendamiento.
+trazabilidad hasta la aceptación de la reserva original. **Decidido (2026-11-09):** reagendar no es una reserva nueva
+para RN-140; no exige aceptar una versión legal publicada después de la reserva. Implementado en A.18.
+
+## A.18 Reagendamiento por el paciente (DA-6, DA-7, DA-8, AP-7, AP-9, AP-26; 2026-11-09)
+
+**Estado:** implementado sin commit; validado con dobles (TC-M08-370 a 381). Sin prueba contra PostgreSQL.
+
+Decisiones confirmadas por el responsable del proyecto (2026-11-09):
+
+| Punto | Regla |
+|---|---|
+| Aceptaciones legales | No cuenta como reserva para RN-140: no lee las vigentes; copia `privacy_legal_acceptance_id` y `terms_legal_acceptance_id` de la original (nulas si la original es anterior a `0014`) |
+| Autorización | Solo el paciente propietario; otra cita responde 404 |
+| Requisitos | Médico habilitado (`canOperate`) y `APPOINTMENTS_BOOKING_ENABLED`; no se vuelve a comprobar la identidad del paciente |
+| Plazo y límite | Política aplicada a la original: al menos `refund_deadline_hours` antes de su inicio (DA-8) y reagendamientos previos de la cadena, contados desde la raíz, por debajo de `max_reschedules` (DA-7, RN-017) |
+| Horario | Mismo médico; un horario distinto, generado por M07 y libre (RB-1), sin cruces con otras citas del paciente. El anterior se libera al pasar la original a `rescheduled` |
+| Datos | La nueva conserva motivo, precio (AP-9), política y referencias (RN-018); nace `confirmed`, sin retención, sin cobro ni reembolso; el pago queda en la raíz |
+| Relación | `rescheduled_from_appointment_id` en la nueva; historial en ambas (`rescheduled` y `confirmed`, motivo `rescheduled`); auditoría `appointment.status.rescheduled {fromId, toId, rootId, n}` |
+| Endpoint | `POST /me/patient/appointments/:id/reschedule`, cuerpo `{ startsAt }`; 200 con la cita nueva y `rescheduledFromAppointmentId` |
+
+Transacción única: candados `FOR UPDATE` médico → paciente → cita (DA-2); `confirmed` exigido (otro estado, 409; un
+segundo reagendamiento simultáneo encuentra la original cerrada); validaciones; `confirmed → rescheduled`; comprobación
+del nuevo horario; inserción de la nueva; auditoría. Cualquier fallo revierte todo. `agenda_block_ends_at` no se
+escribe, igual que en la reserva (fórmula O1 hasta M-1c). Pendiente: prueba de integración en C2 y el contrato de pagos
+`rootOf` (sin módulo de pagos todavía).
 
 ## 1. Alcance y límites
 
@@ -1497,7 +1519,7 @@ está aprobada todavía. «Se mantiene» quiere decir que la propuesta original 
   transición automática** desde `confirmed`. Todas las salidas de `confirmed` son explícitas:
   - paciente → `canceled`;
   - médico → `canceled`;
-  - reagendamiento → `canceled` con la marca de reagendamiento (DA-6);
+  - reagendamiento → `rescheduled` (DA-6, AP-7; opción (b));
   - videoconsulta → `completed` o `no_show_*`.
   El retraso del médico no hace que la cita expire ni se cancele en M08.
 - **Contradicción con el Maestro (CC-2)**: RN-025 y RF-20 dicen que, si vence la ventana de espera del médico «sin
@@ -1645,7 +1667,7 @@ paciente libera la retención → `expired`.
 
 **Reagendamiento**: desde `confirmed`, con al menos el plazo de anticipación y un contador por debajo del máximo. Mismo
 médico y nuevo horario validado como en la reserva. La original se cierra (DA-6) y la nueva nace `confirmed` con el mismo
-precio y la misma condición. Se emite `AppointmentRescheduled`. No hay cobro ni reembolso.
+precio y la misma condición. Se audita `appointment.status.rescheduled`. No hay cobro ni reembolso. Implementación: A.18.
 
 ## 6. Precio global (resumen)
 

@@ -147,6 +147,25 @@ no quedó aplicada. Los recuentos de datos **no se midieron**: los specs compara
 - `0014` **sigue sin aplicarse de forma persistente** en ningún entorno. Esta validación aislada no autoriza aplicarla
   en C2, en desarrollo ni en producción.
 
+## Reagendamiento por el paciente (DA-6, AP-7, 2026-11-09)
+
+Implementado sin commit; validado **solo con dobles** (unitarias y E2E). Sin prueba contra PostgreSQL.
+
+- Caso de uso `RescheduleByPatientUseCase` (`application/use-cases/reschedule.use-cases.ts`), reglas en
+  `domain/reschedule-rules.ts`; ruta `POST /me/patient/appointments/:id/reschedule`, cuerpo `{ startsAt }`, solo
+  sesión de paciente. Responde 200 con la cita nueva y `rescheduledFromAppointmentId`.
+- Decisiones confirmadas (2026-11-09): no cuenta como reserva para RN-140 (no lee aceptaciones vigentes, copia las dos
+  referencias de la original); solo el paciente propietario; médico habilitado y `APPOINTMENTS_BOOKING_ENABLED`, sin
+  volver a comprobar la identidad; mismo médico y horario del generador existente; plazo sobre la original; conserva
+  motivo, precio, política y referencias; la nueva nace `confirmed`, sin cobro ni reembolso.
+- Errores: ajena o inexistente 404; estado distinto de `confirmed` (incluida una segunda reprogramación) 409; plazo
+  (`RescheduleDeadlinePassedError`) o límite (`RescheduleLimitReachedError`) 422; horario ocupado o cruce 409; horario
+  inválido o reservas desactivadas 422; mismo horario o DTO inválido 400.
+- Auditoría `appointment.status.rescheduled` sobre la cita nueva, con `{ fromId, toId, rootId, n }` (el nombre
+  `appointment.rescheduled` no cumple la convención de tres segmentos del módulo de auditoría; aceptado 2026-11-09).
+- Pendiente: prueba de integración en C2 (el trigger de `0014` con referencias copiadas, la guarda
+  `confirmed → rescheduled` y la ocupación real), con autorización aparte.
+
 ## Residuo persistente aceptado en C2 (no se limpia)
 
 Solo lo genera la suite de concurrencia (las otras dos revierten todo y lo comprueban en `afterAll`). Diferencia frente
@@ -179,3 +198,5 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 | TC-M08-340 a 342 | `test/support/m08-m1-part-b-gate.spec.ts` | unitarias, sin conexiones. TC-M08-341: TC-M08-307 sigue exclusiva del spec de parte B; los archivos de `0014` solo los nombran ese spec y la lectura perezosa `partB()` de `m08-m1-sql.ts` (lista exacta), y solo `m08-m1-schema.int-spec.ts` invoca `partB()` |
 | TC-M08-360 a 364 | `src/modules/appointments/application/use-cases/booking-legal-acceptances.spec.ts` | integración en memoria (adaptador de M08 sobre el doble del lector de M02): régimen actual y anterior, sin aceptaciones, sin privacidad, sin términos, versión nueva no aceptada, rollback completo y RB-2 |
 | TC-M08-365 | `test/appointments.e2e-spec.ts` | E2E con dobles: sin aceptaciones vigentes, 403 y sin cita |
+| TC-M08-370 a 380 (15 pruebas) | `src/modules/appointments/application/use-cases/reschedule.use-cases.spec.ts` | Unitarias con dobles, aprobadas (2026-11-09): copia de precio, política, motivo y referencias; historial de ambas y auditoría; sin leer aceptaciones vigentes (371); referencias nulas (372); horario anterior liberado (373); plazo (374); límite desde la raíz, `rootId` y `n` (375); propiedad (376); estados no `confirmed` (377); segunda reprogramación 409 (378); horario ocupado, inválido, igual, cruce, médico no habilitado y reservas desactivadas (379); orden de candados y reversión total (380) |
+| TC-M08-381 | `test/appointments.e2e-spec.ts` | E2E con dobles, aprobada: 200 con la cita nueva, 404 ajena, 409 repetida, 400 DTO, 403 otro rol |
