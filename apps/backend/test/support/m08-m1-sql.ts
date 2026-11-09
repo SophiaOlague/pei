@@ -8,23 +8,29 @@ import { db } from '../../src/db';
 import * as schema from '../../src/db/schema';
 import { transactionStorage } from '../../src/db/transaction-context';
 import { captureError, RollbackSignal, type Tx } from './with-rollback';
-import { createAdminActor, createPatient, identityUseCases } from './identity-integration';
+import { createAdminActor, createPatient, identityUseCases, publishLegalDocument } from './identity-integration';
+import type { LegalDocumentType } from '../../src/modules/identity/domain/legal-requirements';
 import { createDoctor, doctorUseCases } from './doctors-integration';
 
 // Utilidades SQL de M-1 (M08) compartidas por los dos specs:
 // - m08-m1-migration.int-spec.ts: aplica y revierte 0013 desde un esquema 0000–0012 (rama aislada o desechable);
-// - m08-m1-schema.int-spec.ts: comprueba las garantías de 0013 ya aplicada de forma persistente (C2).
+// - m08-m1-schema.int-spec.ts: comprueba las garantías de 0013 y 0014 ya aplicadas de forma persistente (C2).
 // Ninguna confirma datos: todo ocurre en transacciones revertidas sobre conexiones propias.
 
 const DIR = join(__dirname, '..', '..', 'src', 'db', 'proposals', 'm08-m1');
 export const file = (name: string) => readFileSync(join(DIR, name), 'utf8');
 export const UP_A = file('0013_m08_m1_core.up.sql');
 export const DOWN_A = file('0013_m08_m1_core.down.sql');
-// La parte B (0014, no autorizada) NO se lee aquí: solo la carga m08-m1-part-b.int-spec.ts.
 export const VALIDATE = file('validate.sql');
+// Parte B (0014, AP-26): lectura PEREZOSA, solo cuando una prueba la pide. Importar este módulo no lee 0014 (el spec
+// de parte B lo importa antes de su compuerta M08_PART_B_AUTHORIZED). Solo la usa m08-m1-schema.int-spec.ts, sobre
+// 0014 ya aplicada en C2; el spec de parte B lee sus propias copias tras la compuerta (TC-M08-340/341).
+export const partB = () => ({ up: file('0014_m08_m1_legal_acceptance.up.sql'), down: file('0014_m08_m1_legal_acceptance.down.sql') });
 
 // SHA-256 del SQL registrado como migración 0013 (src/db/migrations/0013_m08_m1_core.sql, commit 67f266d).
 export const M1_A_SHA256 = '2138d4064d8acd97e3189c38eace19e79fbf622b97ed53ecf772c205846b1472';
+// SHA-256 de la migración 0014 registrada en src/db/migrations (idéntica a la propuesta 0014 up validada).
+export const M1_B_SHA256 = '72af287cf7336d6f56942b35576b89c9cf0e1e3566b42f41ab62145ab440e24c';
 
 export const tx = () => transactionStorage.getStore()! as unknown as Tx;
 
@@ -99,7 +105,7 @@ export async function fingerprint(executor: { execute: typeof db.execute } = db)
       'triggers', (select json_agg(json_build_array(tgrelid::regclass::text, tgname) order by tgrelid::regclass::text, tgname) from pg_trigger
                     where not tgisinternal and tgrelid in ('appointment'::regclass, 'cancellation_policy'::regclass, 'consultation_price_configuration'::regclass, 'appointment_status_history'::regclass)),
       'functions', (select json_agg(json_build_array(proname, md5(pg_get_functiondef(oid))) order by proname) from pg_proc
-                     where proname in ('gst_appointment_guard', 'gst_appointment_lock_entries', 'gst_versioned_config_guard', 'gst_versioned_config_no_truncate')),
+                     where proname in ('gst_appointment_guard', 'gst_appointment_legal_acceptances_check', 'gst_appointment_lock_entries', 'gst_versioned_config_guard', 'gst_versioned_config_no_truncate')),
       'indexes', (select json_agg(indexname order by indexname) from pg_indexes where tablename = 'appointment')
     ) as f`);
   return rows[0].f;
@@ -111,6 +117,15 @@ export async function hasM1PartA(executor: { execute: typeof db.execute } = db):
     select count(*) as n from pg_enum e join pg_type t on t.oid = e.enumtypid
      where t.typname = 'appointment_status_enum' and e.enumlabel = 'rescheduled'`);
   return Number(rows[0].n) > 0;
+}
+
+// ¿El esquema conectado tiene M-1 parte B (0014)? Se decide por las dos columnas de AP-26.
+export async function hasM1PartB(executor: { execute: typeof db.execute } = db): Promise<boolean> {
+  const { rows } = await executor.execute<{ n: string }>(sql`
+    select count(*) as n from information_schema.columns
+     where table_schema = 'public' and table_name = 'appointment'
+       and column_name in ('privacy_legal_acceptance_id', 'terms_legal_acceptance_id')`);
+  return Number(rows[0].n) === 2;
 }
 
 // Tablas de M08 cuyos INSERT genera Drizzle con TODAS las columnas declaradas (buildInsertQuery usa `default` para las
@@ -127,12 +142,14 @@ export async function drizzleColumnsMissingInDb(executor: { execute: typeof db.e
   return declared.filter((c) => !actual.has(c)).sort();
 }
 
-// Precondición de los specs que usan el esquema persistente de C2: 0013 aplicada y sin columnas de Drizzle ausentes.
-// Falla con un mensaje claro en vez de producir errores «column does not exist» en mitad de las pruebas.
-export async function assertSchemaHasM1PartA(executor: { execute: typeof db.execute } = db): Promise<void> {
+// Precondición de los specs que usan el esquema persistente de C2: 0013 y 0014 aplicadas y sin columnas de Drizzle
+// ausentes (el esquema de Drizzle declara las columnas de 0014: sin ella, todo INSERT de citas falla). Falla con un
+// mensaje claro en vez de producir errores «column does not exist» en mitad de las pruebas.
+export async function assertSchemaHasM1(executor: { execute: typeof db.execute } = db): Promise<void> {
   const missing = await drizzleColumnsMissingInDb(executor);
-  if (!(await hasM1PartA(executor)) || missing.length > 0) {
-    throw new Error(`El esquema conectado no tiene M08 M-1 parte A (0013)${missing.length ? `; faltan: ${missing.join(', ')}` : ''}. Aplique 0013 en C2 antes de este spec.`);
+  const absent = [!(await hasM1PartA(executor)) && '0013', !(await hasM1PartB(executor)) && '0014'].filter(Boolean);
+  if (absent.length > 0 || missing.length > 0) {
+    throw new Error(`El esquema conectado no tiene M08 M-1 completa (falta ${absent.join(' y ') || 'ninguna'})${missing.length ? `; columnas ausentes: ${missing.join(', ')}` : ''}. Aplique 0013 y 0014 en C2 antes de este spec.`);
   }
 }
 
@@ -157,6 +174,30 @@ export async function insertAppointment(f: RawFixtures, status: Status) {
             'm08-m1-sintetico', 200.00, ${f.policyId}, now() + make_interval(days => 300, mins => ${offset * 30 + 30})) returning id`);
   return rows[0].id;
 }
+
+// AP-26: documento legal sintético publicado `secondsAgo` segundos antes de now() y su aceptación por el usuario.
+export async function legalAcceptance(userProfileId: string, type: LegalDocumentType, secondsAgo = 2): Promise<string> {
+  const documentId = await publishLegalDocument(type, sql`now() - make_interval(secs => ${secondsAgo})`);
+  const { rows } = await tx().execute<{ id: string }>(sql`
+    insert into user_legal_acceptance (user_profile_id, legal_document_id) values (${userProfileId}, ${documentId}) returning id`);
+  return rows[0].id;
+}
+
+export async function patientUserProfileId(f: RawFixtures): Promise<string> {
+  const { rows } = await tx().execute<{ id: string }>(sql`select user_profile_id as id from patient_profile where id = ${f.patientId}`);
+  return rows[0].id;
+}
+
+// Cita confirmada con las dos referencias legales (o nulas) por SQL directo, en un SAVEPOINT: devuelve el error o null.
+export const tryInsertWithAcceptances = (f: RawFixtures, privacyId: string | null, termsId: string | null) => {
+  offset++;
+  const ref = (v: string | null) => (v === null ? 'null' : `'${v}'`);
+  return attempt(`insert into appointment (patient_id, doctor_id, type, status, scheduled_at, reason, price, cancellation_policy_id, agenda_block_ends_at,
+                                           privacy_legal_acceptance_id, terms_legal_acceptance_id)
+                  values ('${f.patientId}', '${f.doctorId}', 'scheduled', 'confirmed', now() + make_interval(days => 300, mins => ${offset * 30}),
+                          'm08-m1-sintetico', 200.00, '${f.policyId}', now() + make_interval(days => 300, mins => ${offset * 30 + 30}),
+                          ${ref(privacyId)}, ${ref(termsId)})`);
+};
 
 // Copias de la reserva (RN-007, RN-018): ninguna cambia por SQL directo; la cancelación sí escribe sus columnas.
 export async function assertReservationCopiesImmutable(f: RawFixtures) {

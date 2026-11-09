@@ -11,8 +11,8 @@ import { ReaderBookingLegalAcceptances } from '../../infrastructure/booking-lega
 
 // AP-26: la reserva exige las dos aceptaciones legales vigentes del paciente (privacidad y términos) y transporta sus
 // identificadores en NewAppointment. Integración en memoria: el adaptador real de M08 sobre el doble del lector de M02
-// (misma regla de régimen vigente que el adaptador Drizzle). Sin BD. Las referencias todavía NO se persisten en
-// PostgreSQL (0014 sin aplicar): aquí solo las guarda el doble.
+// (misma regla de régimen vigente que el adaptador Drizzle). Sin BD: aquí las guarda el doble. Su persistencia en
+// PostgreSQL (0014) la prueban TC-M08-214 y TC-M08-317 a 319 en C2.
 
 const NOW = new Date('2026-11-10T15:00:00Z');
 const DAY = '2026-11-11';

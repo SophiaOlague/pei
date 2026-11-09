@@ -13,15 +13,16 @@ import { FixedClock } from '../support/appointments-in-memory';
 import {
   appointmentsUseCases, auditActions, bookablePatient, countM08Residue, firstSlot, historyOf, newAdmin, operatingDoctor,
 } from '../support/appointments-integration';
-import { assertSchemaHasM1PartA } from '../support/m08-m1-sql';
+import { assertSchemaHasM1 } from '../support/m08-m1-sql';
 
 // Salvaguarda de destino: solo contra la rama de pruebas mediante C2. Ejecutado de otra forma, src/db usaría el
 // DATABASE_URL del .env (base de desarrollo): falla al cargar el módulo, antes de cualquier consulta.
 assertC2BranchTarget();
 
 // M08 etapa 1 contra PostgreSQL real (trigger appointment_guard con la matriz de M-1, candados, auditoría append-only):
-// todo dentro de withRollback, nada se confirma. Exige el esquema 0000–0013 (M-1 parte A persistente en C2): Drizzle
-// genera cada INSERT con todas las columnas declaradas, así que beforeAll falla antes de las pruebas si falta alguna.
+// todo dentro de withRollback, nada se confirma. Exige el esquema 0000–0014 (M-1 partes A y B persistentes en C2):
+// Drizzle genera cada INSERT con todas las columnas declaradas, así que beforeAll falla antes de las pruebas si falta
+// alguna (en particular, las dos referencias legales de 0014).
 
 const tx = () => transactionStorage.getStore()!;
 
@@ -58,7 +59,7 @@ describe('Citas contra PostgreSQL (M08 etapa 1, rollback)', () => {
   let before: Record<string, number>;
 
   beforeAll(async () => {
-    await assertSchemaHasM1PartA();
+    await assertSchemaHasM1();
     before = await withRollback(() => countM08Residue());
   });
 
@@ -135,6 +136,27 @@ describe('Citas contra PostgreSQL (M08 etapa 1, rollback)', () => {
         expect(Number(rows[0].n)).toBe(1);
         expect(await historyOf(h.id)).toEqual([{ status: 'pending_payment', changed_by_type: 'patient', reason: null }]);
         expect((await auditActions(h.id)).map((a) => a.action)).toEqual(['appointment.hold.created']);
+      }));
+
+    it('[TC-M08-214][AP-26] la retención guarda las dos aceptaciones legales vigentes del paciente (privacidad y términos)', () =>
+      withRollback(async () => {
+        const { uc, day } = env();
+        const admin = await configured(uc);
+        const d = await operatingDoctor(uc, admin);
+        const p = await bookablePatient(admin);
+        const startsAt = await firstSlot(uc, d.doctorProfileId, day);
+        const h = await uc.hold.execute(p, { doctorProfileId: d.doctorProfileId, startsAt, reason: 'Revisión' });
+        const { rows } = await tx().execute<{ privacy_user: string; privacy_type: string; terms_user: string; terms_type: string }>(sql`
+          select pa.user_profile_id as privacy_user, pd.type::text as privacy_type, ta.user_profile_id as terms_user, td.type::text as terms_type
+            from appointment a
+            join user_legal_acceptance pa on pa.id = a.privacy_legal_acceptance_id join legal_document pd on pd.id = pa.legal_document_id
+            join user_legal_acceptance ta on ta.id = a.terms_legal_acceptance_id join legal_document td on td.id = ta.legal_document_id
+           where a.id = ${h.id}`);
+        expect(rows).toHaveLength(1);
+        expect(rows[0].privacy_user).toBe(p.userProfileId);
+        expect(rows[0].terms_user).toBe(p.userProfileId);
+        // Una pareja del mismo régimen: actual o anterior.
+        expect([['privacy_policy', 'patient_terms'], ['privacy_notice', 'terms_and_conditions']]).toContainEqual([rows[0].privacy_type, rows[0].terms_type]);
       }));
 
     it('[TC-M08-211][RB-1][RB-3] dos pacientes no reservan el mismo horario; un paciente no retiene dos horarios; horario inválido', () =>

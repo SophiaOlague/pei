@@ -9,7 +9,7 @@ import { captureError, deferred, type Tx } from '../support/with-rollback';
 import { assertReusableDoctorRegime, readCurrentDoctorRegime, type CurrentDoctorRegime } from '../support/doctors-integration';
 import { FixedClock } from '../support/appointments-in-memory';
 import { appointmentsUseCases, bookablePatient, firstSlot, newAdmin, operatingDoctor } from '../support/appointments-integration';
-import { assertSchemaHasM1PartA } from '../support/m08-m1-sql';
+import { assertSchemaHasM1 } from '../support/m08-m1-sql';
 
 // M08 etapa 1: concurrencia con DOS conexiones y datos CONFIRMADOS (la segunda conexión debe ver al médico y a los
 // pacientes). Solo en la rama C2 persistente aprobada (C2_TARGET, nunca `production`), con conexión directa
@@ -71,7 +71,7 @@ describe('Concurrencia de citas (M08, dos conexiones, datos confirmados)', () =>
   let admin: Awaited<ReturnType<typeof newAdmin>>;
 
   beforeAll(async () => {
-    await assertSchemaHasM1PartA();
+    await assertSchemaHasM1();
     regime = await committed(() => readCurrentDoctorRegime());
     assertReusableDoctorRegime(regime, new Date());
     admin = await committed(() => newAdmin());

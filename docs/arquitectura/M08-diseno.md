@@ -1341,11 +1341,13 @@ identificadores del Maestro. Los requisitos sí se citan con su número del Maes
 
 Precisa AP-19 y C-32. **Estado (2026-11-08):** el lector de M02 está implementado (contrato de A.17.1, pruebas unitarias
 TC-M02-249 a 256; ver `docs/testing/trazabilidad/M02-identity.md`) y M08 ya lo consume en `HoldSlotUseCase` (rechaza sin la pareja
-vigente y transporta los dos identificadores; todavía no se persisten en PostgreSQL). La propuesta `0014` y
+vigente y transporta los dos identificadores). La propuesta `0014` y
 TC-M08-307 están reescritos según A.17.3 y A.17.4 y validados en una rama aislada (TC-M08-307 5/5,
 `c2-20261109042944-1726`; ver `docs/testing/trazabilidad/M08-appointments.md`); `0014` no está aplicada de forma
-persistente en ningún entorno. Faltan las columnas en el esquema de Drizzle y
-su escritura en el repositorio (pendiente de aplicar `0014`). Para que `0013 down` siga
+persistente en ningún entorno. **Preparada** (sin aplicar): `0014` está en `src/db/migrations` (copia exacta de la
+propuesta, SHA-256 `72af287c…`), en el journal (idx 14) y en el ejecutor de C2; el esquema de Drizzle declara las
+columnas y el repositorio las escribe. **Aplicada**: no. **Persistencia validada**: no (TC-M08-214 y 317 a 319,
+pendientes de `0014` en C2). Para que `0013 down` siga
 negándose con `0014` aplicada, su comprobación de dependencia se amplió a las dos columnas nuevas (la migración
 aplicada `0013` y `0013 up` no cambian).
 
@@ -1393,8 +1395,9 @@ export interface BookingLegalAcceptanceReader {
   desde el INSERT.
 - **`0014` (down)**: elimina el trigger, el CHECK, los índices y las columnas, y restaura **exactamente** la definición
   de `gst_appointment_guard` de `0013`. `0013 down` sigue negándose mientras `0014` esté aplicada.
-- `0014` sigue fuera del journal de Drizzle y del ejecutor `scripts/c2-migrate.ts`. Aplicarla requiere una autorización
-  aparte.
+- `0014` está preparada en el journal de Drizzle (idx 14) y en el ejecutor `scripts/c2-migrate.ts`, pero sin aplicar.
+  Aplicarla requiere una autorización aparte. `0014 down` elimina las columnas: con citas que ya tengan referencias,
+  revertir perdería la evidencia legal.
 
 ### A.17.4 Pruebas previstas (sin implementar)
 

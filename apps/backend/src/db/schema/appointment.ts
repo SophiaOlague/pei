@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, varchar, text, timestamp, numeric, integer, index, check, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, numeric, integer, index, check, foreignKey, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import {
   appointmentTypeEnum,
   appointmentStatusEnum,
@@ -12,6 +12,7 @@ import { userProfile } from './identity';
 import { patientProfile } from './patient';
 import { doctorProfile } from './doctor';
 import { cancellationPolicy } from './configuration';
+import { userLegalAcceptance } from './consent';
 
 // pending_payment pasa a expired, nunca a canceled, cuando vence la retención sin pago.
 // cancellation_policy_id: [PROPUESTO] Estructura pendiente de aprobación del líder técnico.
@@ -41,6 +42,9 @@ export const appointment = pgTable(
     rescheduledFromAppointmentId: uuid('rescheduled_from_appointment_id').references(
       (): AnyPgColumn => appointment.id,
     ),
+    // AP-26 (0014): las dos aceptaciones legales vigentes al reservar; ambas o ninguna (citas históricas con nulos).
+    privacyLegalAcceptanceId: uuid('privacy_legal_acceptance_id'),
+    termsLegalAcceptanceId: uuid('terms_legal_acceptance_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -51,6 +55,11 @@ export const appointment = pgTable(
     index('appointment_doctor_schedule_idx').on(t.doctorId, t.scheduledAt),
     index('appointment_payment_hold_idx').on(t.paymentHoldExpiresAt),
     check('appointment_agenda_block_ends_at_chk', sql`${t.agendaBlockEndsAt} is null or ${t.agendaBlockEndsAt} > ${t.scheduledAt}`),
+    foreignKey({ name: 'appointment_privacy_legal_acceptance_fk', columns: [t.privacyLegalAcceptanceId], foreignColumns: [userLegalAcceptance.id] }),
+    foreignKey({ name: 'appointment_terms_legal_acceptance_fk', columns: [t.termsLegalAcceptanceId], foreignColumns: [userLegalAcceptance.id] }),
+    index('appointment_privacy_legal_acceptance_idx').on(t.privacyLegalAcceptanceId),
+    index('appointment_terms_legal_acceptance_idx').on(t.termsLegalAcceptanceId),
+    check('appointment_legal_acceptances_chk', sql`(${t.privacyLegalAcceptanceId} is null) = (${t.termsLegalAcceptanceId} is null)`),
   ],
 );
 

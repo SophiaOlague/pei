@@ -103,14 +103,14 @@ export class DrizzleAppointmentRepository implements AppointmentRepository {
     )).for('update')) as AppointmentRecord[];
   }
 
-  // AP-26: privacyLegalAcceptanceId y termsLegalAcceptanceId NO se guardan todavía. Sus columnas llegan con la propuesta
-  // 0014, que no está aplicada; declararlas en el esquema de Drizzle antes rompería todo INSERT de citas. Se añadirán
-  // aquí y en src/db/schema/appointment.ts cuando 0014 esté autorizada y aplicada.
+  // AP-26 (0014): guarda las dos aceptaciones legales vigentes del paciente. La BD exige ambas o ninguna
+  // (appointment_legal_acceptances_chk) y valida paciente, tipo y régimen (gst_appointment_legal_acceptances_check).
   async insert(a: NewAppointment): Promise<void> {
     const db = getDbContext();
     await db.insert(appointment).values({
       id: a.id, patientId: a.patientId, doctorId: a.doctorId, type: 'scheduled', status: 'pending_payment', scheduledAt: a.scheduledAt,
       reason: a.reason, price: a.price, cancellationPolicyId: a.cancellationPolicyId, paymentHoldExpiresAt: a.paymentHoldExpiresAt,
+      privacyLegalAcceptanceId: a.privacyLegalAcceptanceId, termsLegalAcceptanceId: a.termsLegalAcceptanceId,
     });
     await db.insert(appointmentStatusHistory).values({
       appointmentId: a.id, status: 'pending_payment', changedByType: 'patient', changedByUserProfileId: a.createdByUserProfileId, reason: null,
