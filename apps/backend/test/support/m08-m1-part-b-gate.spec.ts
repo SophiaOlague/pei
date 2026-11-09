@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { ALLOWED_KEYS, buildChildEnv, C2LaunchError, secretFingerprint } from './c2-launcher';
-import { C2_ISOLATED_TARGET, C2_TARGET } from './c2-target-guard';
+import { C2_TARGET } from './c2-target-guard';
 
 // La parte B de M-1 (0014) no está autorizada: ningún lanzador debe poder ejecutar TC-M08-307 por accidente.
 // Pruebas de código fuente y del lanzador con configuración sintética, sin conexiones.
@@ -9,7 +9,7 @@ const ROOT = join(__dirname, '..', '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
 const PART_B = 'test/integration/m08-m1-part-b.int-spec.ts';
 
-// Configuración sintética de .env.c2 (sin secretos reales): la de C2 y la de la rama aislada.
+// Configuración sintética de .env.c2 (sin secretos reales): la de C2 y la de la rama aislada ya retirada.
 const SECRET = 'S'.repeat(64);
 const varsFor = (target: { project: string; branch: string; endpoint: string }): Record<string, string> => ({
   DATABASE_URL: `postgresql://rol:clave@${target.endpoint}.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require`,
@@ -25,7 +25,7 @@ const varsFor = (target: { project: string; branch: string; endpoint: string }):
   EMAIL_FROM: '',
 });
 const C2_VARS = varsFor(C2_TARGET);
-const ISOLATED_VARS = varsFor(C2_ISOLATED_TARGET);
+const RETIRED_VARS = varsFor({ project: 'royal-paper-10258990', branch: 'br-green-grass-b5yhyp89', endpoint: 'ep-nameless-sun-b5njoeb3' });
 
 describe('M-1 parte B (0014) bloqueada', () => {
   it('[TC-M08-340] el spec de parte B se detiene al cargarse sin M08_PART_B_AUTHORIZED=0014, antes de cualquier suite y de leer 0014', () => {
@@ -46,21 +46,18 @@ describe('M-1 parte B (0014) bloqueada', () => {
     expect(with0014).toEqual([PART_B]);
   });
 
-  it('[TC-M08-342][AP-26] el lanzador solo transmite M08_PART_B_AUTHORIZED con --authorize-part-b 0014, en el modo migration y para el spec de la parte B', () => {
-    const migration = (over: Partial<Parameters<typeof buildChildEnv>[0]> = {}) =>
-      buildChildEnv({ mode: 'migration', spec: PART_B, vars: ISOLATED_VARS, systemEnv: { PATH: '/usr/bin', M08_PART_B_AUTHORIZED: '0014' }, ...over });
-    // Sin el indicador no llega, aunque el proceso padre la tenga.
-    expect(migration().M08_PART_B_AUTHORIZED).toBeUndefined();
-    // Con el indicador correcto, solo para el spec de la parte B en el modo migration.
-    expect(migration({ authorizePartB: '0014' }).M08_PART_B_AUTHORIZED).toBe('0014');
-    // Cualquier otra combinación se rechaza antes de iniciar Jest.
-    expect(() => migration({ authorizePartB: '0015' })).toThrow(C2LaunchError);
-    expect(() => migration({ authorizePartB: '' })).toThrow(C2LaunchError);
-    expect(() => migration({ authorizePartB: '0014', spec: 'test/integration/m08-m1-migration.int-spec.ts' })).toThrow(C2LaunchError);
-    expect(() => buildChildEnv({ mode: 'postgres', spec: PART_B, vars: C2_VARS, systemEnv: { PATH: '/usr/bin' }, authorizePartB: '0014' })).toThrow(C2LaunchError);
-    // No es una clave admitida en .env.c2 ni una variable del sistema que se herede.
+  it('[TC-M08-342][AP-26] M08_PART_B_AUTHORIZED no se hereda ni se acepta en .env.c2, y el indicador no habilita nada sin destino aprobado', () => {
+    // No es una clave admitida en .env.c2: la carga se detiene.
     expect(ALLOWED_KEYS).not.toContain('M08_PART_B_AUTHORIZED');
-    expect(() => buildChildEnv({ mode: 'migration', spec: PART_B, vars: { ...ISOLATED_VARS, M08_PART_B_AUTHORIZED: '0014' }, systemEnv: {} })).toThrow(C2LaunchError);
-    expect(buildChildEnv({ mode: 'postgres', spec: 'test/integration/identity.int-spec.ts', vars: C2_VARS, systemEnv: { M08_PART_B_AUTHORIZED: '0014' } }).M08_PART_B_AUTHORIZED).toBeUndefined();
+    expect(() => buildChildEnv({ mode: 'postgres', spec: 'test/integration/identity.int-spec.ts', vars: { ...C2_VARS, M08_PART_B_AUTHORIZED: '0014' }, systemEnv: {} })).toThrow(C2LaunchError);
+    // No se hereda del proceso padre.
+    expect(buildChildEnv({ mode: 'postgres', spec: 'test/integration/identity.int-spec.ts', vars: C2_VARS, systemEnv: { PATH: '/usr/bin', M08_PART_B_AUTHORIZED: '0014' } }).M08_PART_B_AUTHORIZED).toBeUndefined();
+    // El indicador se rechaza fuera del modo migration.
+    expect(() => buildChildEnv({ mode: 'postgres', spec: PART_B, vars: C2_VARS, systemEnv: {}, authorizePartB: '0014' })).toThrow(C2LaunchError);
+    // Sin destino aprobado, el modo migration no arranca con ninguna identidad, aunque se pase el indicador correcto.
+    for (const vars of [RETIRED_VARS, C2_VARS]) {
+      expect(() => buildChildEnv({ mode: 'migration', spec: PART_B, vars, systemEnv: {}, authorizePartB: '0014' })).toThrow(C2LaunchError);
+      expect(() => buildChildEnv({ mode: 'migration', spec: PART_B, vars, systemEnv: {} })).toThrow(C2LaunchError);
+    }
   });
 });

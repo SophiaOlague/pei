@@ -69,20 +69,29 @@ comprobaciones puras de `test/flujo/*.spec.ts` siguen en la suite unitaria.
 
 Las pruebas de migración de M08 M-1 parten de un esquema 0000–0012 y no pueden ejecutarse en C2, que ya tiene `0013`:
 `m08-m1-migration.int-spec.ts` (D, TC-M08-300 a 306) y `m08-m1-part-b.int-spec.ts` (parte B, TC-M08-307). Para ellas
-existe el modo `migration`, con su propio destino:
+existe el modo `migration`, con su propio destino.
+
+> **Modo deshabilitado (sin destino aprobado).** La rama aislada `br-green-grass-b5yhyp89` (endpoint
+> `ep-nameless-sun-b5njoeb3`, hija de `c2-pre-0013`) se usó el 2026-11-09 para D y TC-M08-307 (evidencia en
+> `trazabilidad/M08-appointments.md`) y después se eliminó. `C2_ISOLATED_TARGET` vale `null`: el modo `migration` falla
+> antes de conectarse con cualquier identidad, y la rama retirada queda en la lista de destinos prohibidos.
+> Reactivarlo exige crear una rama desechable nueva, fijar su identidad en `C2_ISOLATED_TARGET` en una revisión
+> explícita y obtener una autorización expresa para cada ejecución.
+
+Cuando hay un destino aprobado, el modo funciona así:
 
 | Elemento | Valor |
 |---|---|
-| Destino (`C2_ISOLATED_TARGET`) | proyecto `royal-paper-10258990`, rama `br-green-grass-b5yhyp89`, endpoint `ep-nameless-sun-b5njoeb3`: rama desechable hija del respaldo `c2-pre-0013` (`br-silent-butterfly-b5z128fu`) |
-| Destinos prohibidos | C2 (`br-shy-pond-b50a3m8f`), la base de desarrollo (`br-royal-recipe-b54s5hnn`) y los respaldos `br-silent-butterfly-b5z128fu` y `br-rapid-water-b5za50z4`, también como identidad real |
+| Destino (`C2_ISOLATED_TARGET`) | Una rama Neon desechable con esquema 0000–0012 (por ejemplo, hija del respaldo `c2-pre-0013`). Hoy: ninguno |
+| Destinos prohibidos | C2 (`br-shy-pond-b50a3m8f`), la base de desarrollo (`br-royal-recipe-b54s5hnn`), los respaldos `br-silent-butterfly-b5z128fu` y `br-rapid-water-b5za50z4` y la rama aislada retirada `br-green-grass-b5yhyp89`, también como identidad real |
 | Configuración | `C2_ENV_FILE` apunta a un `.env.c2` propio de la rama aislada (fuera del repositorio y separado del de C2) |
 | Jest | `test/jest-migration.json`: el tripwire y después `c2-mode-migration.ts`, que exige `C2_MODE=migration` |
 | Specs | Solo los dos de migración. El modo `postgres` ya no los admite y `migration` no admite ningún otro |
 | Conexión | Directa (sin `-pooler`). Sin datos confirmados: todo se revierte |
 | Parte B (`0014`) | `M08_PART_B_AUTHORIZED=0014` solo llega a Jest con `--authorize-part-b 0014`, en el modo `migration` y para `m08-m1-part-b.int-spec.ts`. Nunca desde `.env.c2` ni desde el proceso padre |
 
-Los demás modos no cambian: siguen exigiendo exactamente C2 y rechazan la rama aislada. La rama desechable se elimina
-al terminar y el destino se retira en una revisión explícita.
+Los demás modos no cambian: siguen exigiendo exactamente C2 y rechazan cualquier rama aislada. La rama desechable se
+elimina al terminar y el destino se retira en una revisión explícita, como se hizo con `br-green-grass-b5yhyp89`.
 
 ## Evidencias de las ejecuciones C2 (lanzador `pnpm c2`)
 

@@ -18,22 +18,21 @@ export const C2_TARGET = Object.freeze({
   endpoint: 'ep-withered-block-b5e8v9ov',
 });
 
-// Destino AISLADO (2026-11-09): rama Neon desechable hija del respaldo c2-pre-0013 (esquema 0000–0012), solo para
-// las pruebas de migración de M-1 (D y la parte B, TC-M08-300 a 307) en el modo `migration`. Ningún otro modo la admite y
-// el modo `migration` no admite ningún otro destino. Se retira al eliminar la rama, en una revisión explícita.
-export const C2_ISOLATED_TARGET = Object.freeze({
-  project: 'royal-paper-10258990',
-  branch: 'br-green-grass-b5yhyp89',
-  endpoint: 'ep-nameless-sun-b5njoeb3',
-  parent: 'br-silent-butterfly-b5z128fu',
-});
+// Destino AISLADO del modo `migration` (pruebas de migración de M-1: D y la parte B, TC-M08-300 a 307): una rama Neon
+// desechable con esquema 0000–0012. SIN DESTINO APROBADO: la rama br-green-grass-b5yhyp89 (endpoint
+// ep-nameless-sun-b5njoeb3, hija de c2-pre-0013) se usó el 2026-11-09 y se eliminó. Mientras sea null, el modo
+// `migration` falla antes de conectarse. Reactivarlo exige una rama nueva y fijar aquí su identidad en una revisión
+// explícita y autorizada.
+export const C2_ISOLATED_TARGET: Readonly<{ project: string; branch: string; endpoint: string; parent: string }> | null = null;
 
-// Ramas que nunca son destino del modo `migration`: C2, la base de desarrollo y los dos respaldos.
+// Ramas que nunca son destino del modo `migration`: C2, la base de desarrollo, los dos respaldos y las ramas aisladas
+// ya retiradas.
 export const C2_FORBIDDEN_FOR_ISOLATED = Object.freeze([
   'br-shy-pond-b50a3m8f',
   'br-royal-recipe-b54s5hnn',
   'br-silent-butterfly-b5z128fu',
   'br-rapid-water-b5za50z4',
+  'br-green-grass-b5yhyp89',
 ]);
 
 // Marca de datos confirmados: la rama C2 es PERSISTENTE (2026-11-03) y conserva los registros sintéticos de los specs
@@ -56,9 +55,11 @@ export type C2Mode = (typeof C2_MODES)[number];
 
 export interface C2BranchTarget { project: string; branch: string; endpoint: string }
 
-// Destino aprobado de cada modo: la rama aislada solo para `migration`; C2 para todos los demás.
+// Destino aprobado de cada modo: la rama aislada solo para `migration` (si hay una aprobada); C2 para todos los demás.
 export function c2TargetFor(mode: C2Mode): C2BranchTarget {
-  return mode === 'migration' ? C2_ISOLATED_TARGET : C2_TARGET;
+  if (mode !== 'migration') return C2_TARGET;
+  if (!C2_ISOLATED_TARGET) throw new C2TargetError('el modo migration no tiene destino aprobado (la rama aislada se retiró)');
+  return C2_ISOLATED_TARGET;
 }
 
 export class C2TargetError extends Error {
@@ -95,7 +96,7 @@ export function assertC2BranchTarget(env: NodeJS.ProcessEnv = process.env): { br
     throw new C2TargetError('la identidad esperada es la de la rama original');
   }
   if (mode === 'migration' && C2_FORBIDDEN_FOR_ISOLATED.includes(branch)) {
-    throw new C2TargetError('el modo migration no admite C2, la base de desarrollo ni los respaldos');
+    throw new C2TargetError('el modo migration no admite C2, la base de desarrollo, los respaldos ni las ramas aisladas retiradas');
   }
   const target = c2TargetFor(mode);
   if (project !== target.project) throw new C2TargetError('C2_EXPECTED_PROJECT no es el proyecto aprobado');
