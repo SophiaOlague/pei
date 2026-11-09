@@ -1,21 +1,54 @@
 # M08 Citas — evidencia de pruebas contra PostgreSQL (C2)
 
 Diseño y decisiones: [M08-diseno](../../arquitectura/M08-diseno.md) (A.13–A.16 para M-1).
-Estado: etapa 1 de M08 y M-1 parte A (`0013`) aplicadas en C2. Reservas reales DESACTIVADAS (`APPOINTMENTS_BOOKING_ENABLED`
-sin definir). `0014` (parte B) PREPARADA como migración pero NO aplicada; M-1c y el cambio 6 NO aplicados.
+Estado: etapa 1 de M08 y M-1 partes A (`0013`) y B (`0014`, AP-26) aplicadas en C2. Reservas reales DESACTIVADAS
+(`APPOINTMENTS_BOOKING_ENABLED` sin definir). `0014` NO aplicada en desarrollo; M-1c y el cambio 6 NO aplicados.
 
 **Estado de `0014` (AP-26), tres niveles distintos:**
 
 | Nivel | Estado | Qué significa |
 |---|---|---|
-| Migración **preparada** | SÍ (2026-11-08, sin commit) | `src/db/migrations/0014_m08_m1_legal_acceptance.sql` (idéntico byte a byte a la propuesta `0014 up`, SHA-256 `72af287cf7336d6f56942b35576b89c9cf0e1e3566b42f41ab62145ab440e24c`), entrada idx 14 del journal, `meta/0014_snapshot.json`, columnas/FK/índices/CHECK en `src/db/schema/appointment.ts`, `DrizzleAppointmentRepository.insert` escribe los dos ids y `scripts/c2-migrate-core.ts` autoriza `0014` (y exige `0013` aplicada con su hash) |
-| Migración **aplicada** | NO, en ningún entorno (ni C2 ni desarrollo) | Requiere autorización expresa, respaldo de C2 y `c2-migrate --apply` |
-| Persistencia **validada** | NO | TC-M08-214 (persistencia real de la reserva) y TC-M08-310, 315, 317 a 319 (esquema) están escritos pero solo pueden pasar con `0014` aplicada en C2 |
+| Migración **preparada** | SÍ (2026-11-08, commit `41e07a5`) | `src/db/migrations/0014_m08_m1_legal_acceptance.sql` (idéntico byte a byte a la propuesta `0014 up`, SHA-256 `72af287cf7336d6f56942b35576b89c9cf0e1e3566b42f41ab62145ab440e24c`), entrada idx 14 del journal, `meta/0014_snapshot.json`, columnas/FK/índices/CHECK en `src/db/schema/appointment.ts`, `DrizzleAppointmentRepository.insert` escribe los dos ids y `scripts/c2-migrate-core.ts` autoriza `0014` (y exige `0013` aplicada con su hash) |
+| Migración **aplicada** | SÍ en C2 (2026-11-09); NO en desarrollo | Ver «Aplicación de `0014` en C2» |
+| Persistencia **validada** | SÍ en C2 (2026-11-09) | `c2-20261109140840-9cd4`: TC-M08-366 (catálogo) y TC-M08-214 (persistencia real), 2/2, sin residuo |
 
-**Consecuencia mientras `0014` no esté aplicada:** el esquema de Drizzle ya declara las dos columnas, así que todo
-INSERT de citas por Drizzle falla contra una BD sin `0014`. Los specs de C2 que reservan (`appointments.int-spec.ts`,
-`appointments.conc-spec.ts`, `m08-m1-schema.int-spec.ts`) se detienen en `beforeAll` con `assertSchemaHasM1` («falta
-0014»). **No desplegar este cambio en ningún entorno sin aplicar antes `0014`.**
+**Fuera de C2:** el esquema de Drizzle declara las dos columnas, así que todo INSERT de citas por Drizzle falla contra
+una BD sin `0014` (p. ej., desarrollo). **No desplegar en ningún entorno sin aplicar antes `0014` en él.**
+
+### Aplicación de `0014` en C2 (2026-11-09)
+
+- Respaldo de C2 creado por el responsable del proyecto antes de aplicar (no se generó otro).
+- `scripts/c2-migrate.ts`, verificación sin escritura: identidad real `royal-paper-10258990` / `br-shy-pond-b50a3m8f` /
+  `ep-withered-block-b5e8v9ov`; 14 migraciones registradas con los hashes del journal (`0013` incluida); pendiente solo
+  `0014_m08_m1_legal_acceptance` (SHA-256 `72af287c…`).
+- `c2-migrate --apply`, ejecutado por el responsable del proyecto: identidad verificada de nuevo, «aplicada
+  0014_m08_m1_legal_acceptance; 15 migraciones registradas». Una nueva verificación sin escritura confirmó la identidad y
+  las 15 migraciones registradas.
+
+### Verificación de persistencia en C2 (2026-11-09)
+
+Spec dedicado `test/integration/m08-0014-verify.int-spec.ts` (modo `postgres` del lanzador, con preflight de identidad y
+paquete de evidencias), para no ejecutar B1 ni B2 completos.
+
+| Ejecución | Resultado | C2_RUN_ID | Commit | SHA-256 de `SHA256SUMS` |
+|---|---|---|---|---|
+| Persistencia AP-26 | **2/2** | `c2-20261109140840-9cd4` | `41e07a5` (más el spec, sin confirmar entonces) | `4f30a33d32ba9932662adce8b35860bfdb34a00c565dff850fc2f397695b34ef` |
+
+- **Catálogo (TC-M08-366, transacción READ ONLY):** columnas `privacy_legal_acceptance_id` y `terms_legal_acceptance_id`
+  (`uuid`, nulables); FK `appointment_privacy_legal_acceptance_fk` y `appointment_terms_legal_acceptance_fk` →
+  `user_legal_acceptance(id)`; CHECK `appointment_legal_acceptances_chk` =
+  `((privacy_legal_acceptance_id IS NULL) = (terms_legal_acceptance_id IS NULL))`; índices
+  `appointment_privacy_legal_acceptance_idx` y `appointment_terms_legal_acceptance_idx`; trigger
+  `appointment_legal_acceptances_check` → `gst_appointment_legal_acceptances_check`, habilitado.
+- **TC-M08-214: aprobado.** Una reserva real guarda las dos aceptaciones del paciente (mismo `user_profile`, pareja del
+  mismo régimen).
+- **Sin residuo:** `afterAll` comparó los conteos de `appointment`, `appointment_status_history`,
+  `consultation_price_configuration`, `cancellation_policy`, `user_profile`, `user_legal_acceptance`, `legal_document` y
+  `audit_log` antes y después: iguales. Todo ocurrió en transacciones revertidas.
+- En esa ejecución la prueba de catálogo se llamaba `[0014-catalogo]`; después se le asignó TC-M08-366 sin otro cambio
+  (no se volvió a ejecutar).
+- No se ejecutaron B1 ni B2 completos: TC-M08-310, 315 y 317 a 319 (`m08-m1-schema.int-spec.ts`) y el resto de
+  `appointments.int-spec.ts` y `appointments.conc-spec.ts` siguen **sin ejecutar** sobre `0014`.
 
 ## Alineación de C2 con `0013_m08_m1_core` (2026-11-08)
 
@@ -80,18 +113,16 @@ no quedó aplicada. Los recuentos de datos **no se midieron**: los specs compara
   de crear la cita y después de la idempotencia RB-2: sin la pareja vigente lanza `LegalAcceptancesRequiredError`
   (403) y la transacción se revierte entera; con ella, `NewAppointment` transporta `privacyLegalAcceptanceId` y
   `termsLegalAcceptanceId`.
-- **Persistencia preparada, no validada:** el esquema de Drizzle declara las dos columnas y
-  `DrizzleAppointmentRepository.insert` las escribe (ver «Estado de `0014`» arriba). Hasta aplicar `0014` en C2 solo
-  está probado con dobles (TC-M08-360 a 365).
-- **Propuesta `0014` reescrita según AP-26 (A.17.3), sin aplicar:** dos columnas con FK e índices, CHECK
+- **Persistencia implementada y validada en C2:** el esquema de Drizzle declara las dos columnas y
+  `DrizzleAppointmentRepository.insert` las escribe (ver «Verificación de persistencia en C2» arriba).
+- **Propuesta `0014` reescrita según AP-26 (A.17.3):** dos columnas con FK e índices, CHECK
   `appointment_legal_acceptances_chk` (las dos o ninguna), trigger `appointment_legal_acceptances_check` (paciente, tipo
   documental y régimen) y `gst_appointment_guard` redefinido con `CREATE OR REPLACE` para que ambas sean inmutables desde
   el INSERT. `0014 down` restaura literalmente el guard de `0013`. La migración aplicada `0013` y `0013 up` no cambian;
   solo se amplió la comprobación de `0013 down` para que detecte las dos columnas nuevas y se niegue mientras `0014`
   esté aplicada.
-- `0014` **está preparada pero no aplicada**: la migración de Drizzle es una copia exacta de la propuesta (TC-M08-320
-  comprueba el hash), el journal la registra como idx 14 y el ejecutor `scripts/c2-migrate.ts` la autoriza como única
-  migración aplicable (con `0013` ya registrada como requisito). No se ha aplicado en ningún entorno.
+- `0014` **está aplicada en C2** (no en desarrollo): la migración de Drizzle es una copia exacta de la propuesta
+  (TC-M08-320 comprueba el hash), el journal la registra como idx 14 y se aplicó con `scripts/c2-migrate.ts`.
 - `m08-m1-part-b.int-spec.ts` se detiene al cargarse sin `M08_PART_B_AUTHORIZED=0014`, que el lanzador C2 no
   transmite; además exige una rama aislada con esquema 0000–0012.
 - **Validación aislada de TC-M08-307** (5 pruebas: dependencia de `0013`, las dos o ninguna, otro paciente, tipo
@@ -137,11 +168,12 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 | Casos | Spec | Requiere |
 |---|---|---|
 | TC-M08-200 a 240 (14) | `appointments.int-spec.ts` | 0013 en C2 (TC-M08-221: la BD impide `expired → *` y `confirmed → pending_payment/expired`). Desde la preparación de `0014` el spec exige `0014` aplicada |
-| TC-M08-214 | `appointments.int-spec.ts` | NUEVA, sin ejecutar: la reserva real guarda las dos aceptaciones vigentes del paciente (mismo usuario, pareja del mismo régimen). Requiere `0014` en C2 |
+| TC-M08-214 | `appointments.int-spec.ts` y `m08-0014-verify.int-spec.ts` (misma prueba) | **APROBADA** en `c2-20261109140840-9cd4` (desde `m08-0014-verify.int-spec.ts`): la reserva real guarda las dos aceptaciones vigentes del paciente (mismo usuario, pareja del mismo régimen) |
+| TC-M08-366 | `m08-0014-verify.int-spec.ts` | **APROBADA** en `c2-20261109140840-9cd4`: catálogo de `0014` (columnas, FK, índices, CHECK y trigger), en transacción READ ONLY |
 | TC-M08-250 a 252 (3) | `appointments.conc-spec.ts` | 0013 en C2 |
 | TC-M08-300 a 306 (7) | `m08-m1-migration.int-spec.ts` | Rama aislada 0000–0012 (modo `migration`): 7/7 en `c2-20261109041826-79f9` |
 | TC-M08-310 a 316 (7) | `m08-m1-schema.int-spec.ts` | 0013 en C2. Adaptadas a `0014` y sin ejecutar: TC-M08-310 exige los hashes de `0014` (última) y `0013`; TC-M08-315 revierte `0014 down` → `0013 down` y reaplica `0013 up` → `0014 up` (exige que no haya citas con referencias, que `0014 down` perdería) |
-| TC-M08-317 a 319 | `m08-m1-schema.int-spec.ts` | NUEVAS, sin ejecutar (requieren `0014` en C2): las dos o ninguna e históricas nulas; otro paciente, tipo incorrecto, regímenes mezclados, id inexistente y régimen anterior válido; inmutabilidad |
+| TC-M08-317 a 319 | `m08-m1-schema.int-spec.ts` | NUEVAS, sin ejecutar (`0014` ya está en C2; pendiente de ejecutar el spec): las dos o ninguna e históricas nulas; otro paciente, tipo incorrecto, regímenes mezclados, id inexistente y régimen anterior válido; inmutabilidad |
 | TC-M08-320 a 331 | `scripts/c2-migrate-core.spec.ts` | unitarias, sin conexiones. Autorizan `0014` (idx 14); TC-M08-320 comprueba el SHA-256 de `0014` y que `0013` conserva el suyo |
 | TC-M08-307 (5 pruebas) | `m08-m1-part-b.int-spec.ts` | Rama aislada 0000–0012 con `--authorize-part-b 0014`: 4/5 en `c2-20261109042210-b3ee`; 5/5 en `c2-20261109042944-1726` tras ajustar el trigger |
 | TC-M08-340 a 342 | `test/support/m08-m1-part-b-gate.spec.ts` | unitarias, sin conexiones. TC-M08-341: TC-M08-307 sigue exclusiva del spec de parte B; los archivos de `0014` solo los nombran ese spec y la lectura perezosa `partB()` de `m08-m1-sql.ts` (lista exacta), y solo `m08-m1-schema.int-spec.ts` invoca `partB()` |
