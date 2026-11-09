@@ -1525,6 +1525,34 @@ falsa). **Integración con notificaciones: pendiente** de que exista el módulo 
   - `AppointmentCanceled.reason` es el texto libre de quien cancela (pedido explícitamente). Puede contener datos
     sensibles: el consumidor no debería reenviarlo sin filtrarlo.
 
+## A.22 M-1c: `agenda_block_ends_at` NOT NULL (DA-3, AP-23; 2026-11-09)
+
+**Estado:** implementada en el repositorio (sin commit); **migración 0015 preparada, no aplicada** en ningún entorno.
+
+- **0015** (`src/db/migrations/0015_m08_m1c_agenda_block_not_null.sql`, idx 15 del journal, `meta/0015_snapshot.json`)
+  es idéntica byte a byte a la propuesta `src/db/proposals/m08-m1c/0015_m08_m1c_agenda_block_not_null.up.sql`
+  (SHA-256 `7652c22e8ea4598ca290338ad030fec40170da46c985591bdc85874d7909ef8d`). Exige 0013 y 0014, no rellena nada y se
+  detiene si queda alguna cita con el valor nulo; si no, `SET NOT NULL` y el CHECK pasa a
+  `agenda_block_ends_at > scheduled_at`. La reversión (`.down.sql`) vuelve al CHECK de 0013 y quita el `NOT NULL`.
+  El snapshot difiere del de 0014 solo en `notNull` y en ese CHECK.
+- **Esquema y tipos:** `agendaBlockEndsAt` es `.notNull()` en `src/db/schema/appointment.ts`, con el CHECK nuevo;
+  `AppointmentRecord.agendaBlockEndsAt` es `Date`.
+- **Fallback O1 retirado:** `blockOf(a)` usa siempre el fin guardado; la ocupación del médico y los cruces del paciente
+  ya no leen la duración actual del médico. `AppointmentRepository.doctorDuration` desapareció (sin uso).
+  `occupancyOf` solo calcula el bloque de una cita nueva.
+- **C2:** las dos citas nulas (fixtures de B2 de `c2-20261108223410-be9f`) recibieron `scheduled_at + 30 min`, la
+  duración por omisión de `doctor_profile` (0000) para médicos creados por el spec, sin `agenda.duration.changed`
+  (comprobado); `precheck.sql` devolvió 0 filas. `scripts/c2-migrate-core.ts` autoriza 0015 (exige 0013 y 0014).
+- **Hasta aplicar 0015 en un entorno, el código declara una columna NOT NULL que allí admite nulos:** los INSERT
+  funcionan (siempre escriben el valor), pero una fila nula leída tendría `null` donde el tipo dice `Date`. En C2 no
+  queda ninguna; en un entorno nuevo, 0013 rellena todas las filas al aplicarse.
+- **Fuera de 0015 (sin cambios):** retirar los DEFAULT de `max_protected_wait_minutes` y `reconnect_grace_minutes`. El
+  código ya escribe ambos, pero los fixtures SQL directos (`test/support/m08-m1-sql.ts`, `rawFixtures`) insertan
+  políticas sin ellos y también se usan sobre el esquema 0000–0012; hay que adaptarlos antes.
+- **Desarrollo:** no tiene 0013 ni 0014. Para llevarlo al estado actual hay que aplicar 0013, 0014 y 0015 en orden,
+  cada una con su respaldo y autorización. `scripts/c2-migrate.ts` es exclusivo de C2 (rechaza la URL y la identidad
+  de desarrollo), así que desarrollo necesita su propio procedimiento. Antes de 0015, `precheck.sql` debe devolver 0
+  filas (0013 rellena todas las existentes; solo fallaría si se crean citas con código anterior a `3f4b612`).
 ## 1. Alcance y límites
 
 | Dentro de M08 | Fuera de M08 (a cargo de) |

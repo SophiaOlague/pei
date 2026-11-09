@@ -4,7 +4,7 @@ import { assertC2BranchTarget } from '../support/c2-target-guard';
 import { createAdminActor, createPatient, identityUseCases } from '../support/identity-integration';
 import {
   assertReservationCopiesImmutable, assertSchemaHasM1, attempt, DOWN_A, drizzleColumnsMissingInDb, expectVersionedConfigGuarded, fingerprint,
-  hasM1PartA, hasM1PartB, IMMUTABLE_COPY, insertAppointment, legalAcceptance, M1_A_SHA256, M1_B_SHA256, message, partB, patientUserProfileId,
+  hasM1c, hasM1PartA, hasM1PartB, IMMUTABLE_COPY, insertAppointment, legalAcceptance, M1_A_SHA256, M1_B_SHA256, M1C_SHA256, m1c, message, partB, patientUserProfileId,
   rawFixtures, run, transitionMismatches, tryInsertWithAcceptances, tx, UP_A, VALIDATE, versionedConfigOutcomes, withIsolatedRollback,
 } from '../support/m08-m1-sql';
 
@@ -35,8 +35,10 @@ describe('M-1 de M08 sobre el esquema persistente de C2 (0013 y 0014 aplicadas, 
 
   it('[TC-M08-310][M-1][AP-26] 0013 y 0014 registradas con su hash (0014 la última); la validación pasa y no se aplican dos veces', () =>
     withIsolatedRollback(async () => {
-      const { rows: last } = await tx().execute<{ hash: string }>(sql`select hash from drizzle.__drizzle_migrations order by created_at desc limit 2`);
-      expect(last.map((r) => r.hash)).toEqual([M1_B_SHA256, M1_A_SHA256]);
+      // Con 0015 aplicada (M-1c) es la última; sin ella, 0014. Después, en orden, 0014 y 0013.
+      const withM1c = await hasM1c(tx());
+      const { rows: last } = await tx().execute<{ hash: string }>(sql`select hash from drizzle.__drizzle_migrations order by created_at desc limit 3`);
+      expect(last.map((r) => r.hash).slice(0, withM1c ? 3 : 2)).toEqual(withM1c ? [M1C_SHA256, M1_B_SHA256, M1_A_SHA256] : [M1_B_SHA256, M1_A_SHA256]);
       const { rows } = await run(VALIDATE) as unknown as { rows: { check: string; ok: boolean }[] };
       expect(rows.filter((r) => !r.ok)).toEqual([]);
       const { rows: filled } = await tx().execute<{ n: string; filled: string }>(sql`select count(*) as n, count(agenda_block_ends_at) as filled from appointment`);
@@ -70,6 +72,8 @@ describe('M-1 de M08 sobre el esquema persistente de C2 (0013 y 0014 aplicadas, 
   it('[TC-M08-315][M-1][AP-26] reversión (0014 y 0013) y reaplicación sobre los datos reales de C2: esquema y datos idénticos', () =>
     withIsolatedRollback(async () => {
       const { up: UP_B, down: DOWN_B } = partB();
+      const { up: UP_C, down: DOWN_C } = m1c();
+      const withM1c = await hasM1c(tx());
       const original = await fingerprint(tx());
       // agenda_block_ends_at no entra en la comparación: DOWN_A elimina la columna y UP_A la vuelve a rellenar con la
       // duración ACTUAL del médico (no con la copia original). Se comprueba aparte que todas las citas quedan rellenas.
@@ -84,6 +88,8 @@ describe('M-1 de M08 sobre el esquema persistente de C2 (0013 y 0014 aplicadas, 
       const rowsBefore = await snapshot();
       const historyBefore = await history();
       expect(message(await attempt(DOWN_A))).toMatch(/Revierta primero 0014/);
+      // M-1c primero (orden inverso del journal).
+      if (withM1c) await run(DOWN_C);
       await run(DOWN_B);
       expect(await hasM1PartB(tx())).toBe(false);
       await run(DOWN_A);
@@ -91,6 +97,7 @@ describe('M-1 de M08 sobre el esquema persistente de C2 (0013 y 0014 aplicadas, 
       expect(await history()).toBe(historyBefore);
       await run(UP_A);
       await run(UP_B);
+      if (withM1c) await run(UP_C);
       expect(await fingerprint(tx())).toEqual(original);
       expect(await withRefs()).toBe(0);
       expect(await snapshot()).toEqual(rowsBefore);

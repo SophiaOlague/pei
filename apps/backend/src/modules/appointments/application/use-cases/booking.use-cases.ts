@@ -54,17 +54,15 @@ export function toAppointmentView(a: AppointmentRecord, now: Date): AppointmentV
   };
 }
 
-// Intervalos ocupados de un médico (citas confirmadas y retenciones vigentes): el fin de bloque guardado (DA-3), o O1
-// con la duración actual solo para las citas históricas sin él.
+// Intervalos ocupados de un médico (citas confirmadas y retenciones vigentes), con el fin de bloque guardado (DA-3).
 @Injectable()
 export class DoctorOccupancyService {
   constructor(@Inject(APPOINTMENT_REPOSITORY) private readonly appointments: AppointmentRepository) {}
 
   async busy(doctorProfileId: string, from: Date, to: Date, now: Date): Promise<Interval[]> {
-    const duration = await this.appointments.doctorDuration(doctorProfileId);
     // Se amplía el rango hacia atrás para incluir citas que empiezan antes y terminan dentro.
     const candidates = await this.appointments.listDoctorCandidatesOverlapping(doctorProfileId, new Date(from.getTime() - DAY_MS), to);
-    return candidates.filter((a) => occupiesSchedule(a, now)).map((a) => blockOf(a, duration));
+    return candidates.filter((a) => occupiesSchedule(a, now)).map((a) => blockOf(a));
   }
 }
 
@@ -191,9 +189,7 @@ export class HoldSlotUseCase {
       // RB-3: como máximo una retención vigente por paciente y sin cruces con sus otras citas.
       if ((await this.appointments.listPatientHolds(patient.patientProfileId)).some((a) => isHoldActive(a, now))) throw new ActiveHoldExistsError();
       for (const a of patientAppointments) {
-        if (!occupiesSchedule(a, now)) continue;
-        const duration = a.doctorId === doctor.doctorProfileId ? doctor.durationMinutes : await this.appointments.doctorDuration(a.doctorId);
-        if (overlaps(blockOf(a, duration), block)) throw new PatientScheduleConflictError();
+        if (occupiesSchedule(a, now) && overlaps(blockOf(a), block)) throw new PatientScheduleConflictError();
       }
 
       // RB-1: el horario debe ser exactamente uno de los generados por M07 y no estar ocupado.

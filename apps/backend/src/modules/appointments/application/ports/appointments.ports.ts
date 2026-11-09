@@ -21,8 +21,8 @@ export interface AppointmentRecord {
   cancelledByType: ActorType | null;
   cancelledAt: Date | null;
   createdAt: Date;
-  // DA-3 (0013): fin del bloque de agenda; null solo en citas históricas (se ocupa con O1).
-  agendaBlockEndsAt: Date | null;
+  // DA-3 (0013), NOT NULL desde 0015 (M-1c): fin del bloque de agenda.
+  agendaBlockEndsAt: Date;
   // DA-6: cita de la que procede por reagendamiento (null en la raíz de la cadena).
   rescheduledFromAppointmentId: string | null;
   // AP-26 (0014): las dos o ninguna (null en las citas anteriores a 0014).
@@ -85,7 +85,6 @@ export interface AppointmentRepository {
   lockPatientByUserProfileId(userProfileId: string): Promise<{ patientProfileId: string } | null>;
   findPatientByUserProfileId(userProfileId: string): Promise<{ patientProfileId: string } | null>;
   findDoctorByUserProfileId(userProfileId: string): Promise<{ doctorProfileId: string } | null>;
-  doctorDuration(doctorProfileId: string): Promise<number>;
   findById(id: string): Promise<AppointmentRecord | null>;
   lockById(id: string): Promise<AppointmentRecord | null>;
   // Citas del médico que pueden ocupar horario en el rango (confirmed o pending_payment), sin filtrar la retención.

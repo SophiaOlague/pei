@@ -106,6 +106,13 @@
       "when": 1794200480399,
       "tag": "0014_m08_m1_legal_acceptance",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1794253249192,
+      "tag": "0015_m08_m1c_agenda_block_not_null",
+      "breakpoints": true
     }
   ]
 }

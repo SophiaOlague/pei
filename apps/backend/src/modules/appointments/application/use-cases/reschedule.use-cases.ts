@@ -89,9 +89,7 @@ export class RescheduleByPatientUseCase {
 
       const block = occupancyOf(startsAt, doctor.durationMinutes);
       for (const a of await this.appointments.listPatientCandidates(original.patientId, new Date(block.startsAt.getTime() - DAY_MS), block.endsAt)) {
-        if (!occupiesSchedule(a, now)) continue;
-        const duration = a.doctorId === doctor.doctorProfileId ? doctor.durationMinutes : await this.appointments.doctorDuration(a.doctorId);
-        if (overlaps(blockOf(a, duration), block)) throw new PatientScheduleConflictError();
+        if (occupiesSchedule(a, now) && overlaps(blockOf(a), block)) throw new PatientScheduleConflictError();
       }
       // RB-1: exactamente un horario generado por M07 y libre.
       const slot = await this.slots.slotStatus(doctor.doctorProfileId, block.startsAt);

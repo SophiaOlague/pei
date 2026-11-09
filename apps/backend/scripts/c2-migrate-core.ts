@@ -18,12 +18,13 @@ export const C2_MIGRATION_TARGET = Object.freeze({
 // Base de desarrollo: nunca es un destino válido.
 export const DEVELOPMENT_TARGET = Object.freeze({ branch: 'br-royal-recipe-b54s5hnn', endpoint: 'ep-wandering-bonus-b5kxacor' });
 
-// Única migración que este ejecutor puede aplicar. 0013 ya está aplicada en C2 (2026-11-08) y su hash queda como
-// requisito previo. 0014 (AP-26): PREPARADA, sin aplicar; aplicarla en C2 exige autorización expresa y respaldo.
+// Única migración que este ejecutor puede aplicar. 0013 (2026-11-08) y 0014 (2026-11-09) ya están aplicadas en C2 y
+// sus hashes quedan como requisito previo. 0015 (M-1c): PREPARADA, sin aplicar; aplicarla en C2 exige autorización
+// expresa y respaldo.
 export const AUTHORIZED_MIGRATION = Object.freeze({
-  idx: 14,
-  tag: '0014_m08_m1_legal_acceptance',
-  sha256: '72af287cf7336d6f56942b35576b89c9cf0e1e3566b42f41ab62145ab440e24c',
+  idx: 15,
+  tag: '0015_m08_m1c_agenda_block_not_null',
+  sha256: '7652c22e8ea4598ca290338ad030fec40170da46c985591bdc85874d7909ef8d',
 });
 
 export class C2MigrateError extends Error {

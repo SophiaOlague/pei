@@ -27,6 +27,14 @@ export const VALIDATE = file('validate.sql');
 // 0014 ya aplicada en C2; el spec de parte B lee sus propias copias tras la compuerta (TC-M08-340/341).
 export const partB = () => ({ up: file('0014_m08_m1_legal_acceptance.up.sql'), down: file('0014_m08_m1_legal_acceptance.down.sql') });
 
+// M-1c (0015): lectura perezosa, como partB(). Solo la usa m08-m1-schema.int-spec.ts (reversión y reaplicación).
+const M1C_DIR = join(__dirname, '..', '..', 'src', 'db', 'proposals', 'm08-m1c');
+export const m1c = () => ({
+  up: readFileSync(join(M1C_DIR, '0015_m08_m1c_agenda_block_not_null.up.sql'), 'utf8'),
+  down: readFileSync(join(M1C_DIR, '0015_m08_m1c_agenda_block_not_null.down.sql'), 'utf8'),
+});
+export const M1C_SHA256 = '7652c22e8ea4598ca290338ad030fec40170da46c985591bdc85874d7909ef8d';
+
 // SHA-256 del SQL registrado como migración 0013 (src/db/migrations/0013_m08_m1_core.sql, commit 67f266d).
 export const M1_A_SHA256 = '2138d4064d8acd97e3189c38eace19e79fbf622b97ed53ecf772c205846b1472';
 // SHA-256 de la migración 0014 registrada en src/db/migrations (idéntica a la propuesta 0014 up validada).
@@ -117,6 +125,14 @@ export async function hasM1PartA(executor: { execute: typeof db.execute } = db):
     select count(*) as n from pg_enum e join pg_type t on t.oid = e.enumtypid
      where t.typname = 'appointment_status_enum' and e.enumlabel = 'rescheduled'`);
   return Number(rows[0].n) > 0;
+}
+
+// ¿El esquema conectado tiene M-1c (0015)? agenda_block_ends_at NOT NULL.
+export async function hasM1c(executor: { execute: typeof db.execute } = db): Promise<boolean> {
+  const { rows } = await executor.execute<{ n: string }>(sql`
+    select count(*) as n from information_schema.columns
+     where table_schema = 'public' and table_name = 'appointment' and column_name = 'agenda_block_ends_at' and is_nullable = 'NO'`);
+  return Number(rows[0].n) === 1;
 }
 
 // ¿El esquema conectado tiene M-1 parte B (0014)? Se decide por las dos columnas de AP-26.

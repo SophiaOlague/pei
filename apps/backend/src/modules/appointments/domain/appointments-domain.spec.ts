@@ -121,10 +121,10 @@ describe('M08 dominio de citas', () => {
         expect(() => validatePolicy({ ...INITIAL_POLICY, ...bad })).toThrow(InvalidCancellationPolicyError);
       }
     });
-    it('[TC-M08-018][DA-3] blockOf usa el fin guardado; O1 con la duración actual solo si es nulo', () => {
+    it('[TC-M08-018][DA-3][M-1c] blockOf usa siempre el fin guardado, sin fallback O1', () => {
       const at = new Date('2026-11-12T16:00:00Z');
-      expect(blockOf({ scheduledAt: at, agendaBlockEndsAt: new Date('2026-11-12T16:45:00Z') }, 30)).toEqual({ startsAt: at, endsAt: new Date('2026-11-12T16:45:00Z') });
-      expect(blockOf({ scheduledAt: at, agendaBlockEndsAt: null }, 30)).toEqual({ startsAt: at, endsAt: new Date('2026-11-12T16:30:00Z') });
+      expect(blockOf({ scheduledAt: at, agendaBlockEndsAt: new Date('2026-11-12T16:45:00Z') })).toEqual({ startsAt: at, endsAt: new Date('2026-11-12T16:45:00Z') });
+      expect(blockOf.length).toBe(1);
     });
     it('[TC-M08-016][A.11.1] rechaza no enteros, fuera de rango y tolerancia mayor que la ventana del médico', () => {
       expect(() => validatePolicy({ ...INITIAL_POLICY, refundDeadlineHours: 1.5 })).toThrow(InvalidCancellationPolicyError);

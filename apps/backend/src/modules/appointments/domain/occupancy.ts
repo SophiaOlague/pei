@@ -3,8 +3,8 @@
 // El bloque es una unidad de planeación de la agenda, no la duración de la consulta (RN-022, RN-023). Su fin solo
 // sirve para saber qué horarios están ocupados; nunca limita ni corta una videoconsulta (el fin oficial es
 // meeting.ended_at; AP-23). La reserva y el reagendamiento guardan `appointment.agenda_block_ends_at` (0013) con la
-// duración del médico vigente en ese momento; la ocupación usa el valor guardado. La fórmula transitoria O1
-// (scheduled_at + la duración actual del médico) queda SOLO para las citas históricas con el valor nulo, hasta M-1c.
+// duración del médico vigente en ese momento, y la ocupación usa siempre el valor guardado (NOT NULL desde 0015,
+// M-1c). occupancyOf solo calcula el bloque de una cita nueva.
 
 export interface Interval {
   startsAt: Date;
@@ -17,9 +17,9 @@ export function occupancyOf(scheduledAt: Date, durationMinutes: number): Interva
   return { startsAt: scheduledAt, endsAt: new Date(scheduledAt.getTime() + durationMinutes * MS_PER_MINUTE) };
 }
 
-// Bloque ocupado por una cita: el fin guardado o, si es nulo (cita histórica), O1 con la duración actual del médico.
-export function blockOf(a: { scheduledAt: Date; agendaBlockEndsAt: Date | null }, currentDurationMinutes: number): Interval {
-  return a.agendaBlockEndsAt ? { startsAt: a.scheduledAt, endsAt: a.agendaBlockEndsAt } : occupancyOf(a.scheduledAt, currentDurationMinutes);
+// Bloque ocupado por una cita existente: de su inicio al fin guardado.
+export function blockOf(a: { scheduledAt: Date; agendaBlockEndsAt: Date }): Interval {
+  return { startsAt: a.scheduledAt, endsAt: a.agendaBlockEndsAt };
 }
 
 // Intervalos semiabiertos [inicio, fin): dos bloques contiguos no se cruzan.

@@ -58,15 +58,16 @@ describe('Fin del bloque de agenda (DA-3, AP-23) y parámetros de espera (AP-22)
     expect(free).toContain(S2);
   });
 
-  it('[TC-M08-385][DA-3] las citas históricas sin fin guardado se ocupan con O1 y la duración actual', async () => {
+  it('[TC-M08-385][DA-3][M-1c] la ocupación de una cita existente es su fin guardado, no la duración actual del médico', async () => {
     const env = await setup(30);
     const policyId = (await env.policies.current(env.admin)).id;
-    env.world.seedAppointment({ id: randomUUID(), patientId: randomUUID(), doctorId: env.doctorId, scheduledAt: new Date(S1), cancellationPolicyId: policyId, agendaBlockEndsAt: null });
-    env.doctor.durationMinutes = 60;
+    // Reservada con 60 min (fin guardado 17:00); el médico tiene hoy 30.
+    env.world.seedAppointment({ id: randomUUID(), patientId: randomUUID(), doctorId: env.doctorId, scheduledAt: new Date(S1), cancellationPolicyId: policyId, agendaBlockEndsAt: new Date(S3) });
     const busy = await env.occupancy.busy(env.doctorId, new Date(S1), new Date(S3), NOW);
     expect(busy).toEqual([{ startsAt: new Date(S1), endsAt: new Date(S3) }]);
     const free = (await env.slots.freeSlots(env.doctorId, DAY, DAY)).slots.map((s) => s.startsAt);
     expect(free).not.toContain(S2);
+    expect(free).toContain(S3);
   });
 
   it('[TC-M08-386][AP-22] publicar y leer la política incluye L y G; si se omiten, 60 y 5; la auditoría los registra', async () => {

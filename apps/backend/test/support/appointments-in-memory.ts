@@ -96,10 +96,12 @@ export class InMemoryAppointmentsWorld
     if (this.legalSource) return this.legalSource.currentFor(userProfileId);
     return clone(this.legalByPatient.get(userProfileId) ?? null);
   }
+  // agendaBlockEndsAt es NOT NULL (0015): si la prueba no lo indica, inicio + la duración del médico sembrado (30 si no existe).
   seedAppointment(a: Partial<AppointmentRecord> & { id: string; patientId: string; doctorId: string; scheduledAt: Date; cancellationPolicyId: string }) {
+    const minutes = this.state.doctors.find((d) => d.id === a.doctorId)?.durationMinutes ?? 30;
     this.state.appointments.push({
       status: 'confirmed', reason: 'Consulta', price: '200.00', paymentHoldExpiresAt: null, cancellationReason: null, cancelledByType: null,
-      cancelledAt: null, createdAt: new Date(0), agendaBlockEndsAt: null, rescheduledFromAppointmentId: null, privacyLegalAcceptanceId: null, termsLegalAcceptanceId: null, ...a,
+      cancelledAt: null, createdAt: new Date(0), agendaBlockEndsAt: new Date(a.scheduledAt.getTime() + minutes * 60_000), rescheduledFromAppointmentId: null, privacyLegalAcceptanceId: null, termsLegalAcceptanceId: null, ...a,
     } as AppointmentRecord);
   }
 

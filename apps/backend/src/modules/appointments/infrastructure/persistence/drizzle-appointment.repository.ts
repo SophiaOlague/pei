@@ -6,7 +6,7 @@ import type { AppointmentRecord, AppointmentRepository, NewAppointment, Reschedu
 
 // M08 sobre las tablas existentes appointment y appointment_status_history (0000, trigger appointment_guard de 0001).
 // Usa el estado rescheduled, rescheduled_from_appointment_id y agenda_block_ends_at (0013) y las referencias legales
-// (0014). agenda_block_ends_at se escribe en cada cita nueva (DA-3); sigue admitiendo nulos hasta M-1c.
+// (0014). agenda_block_ends_at se escribe en cada cita nueva (DA-3) y es NOT NULL desde 0015 (M-1c).
 const COLUMNS = {
   id: appointment.id,
   patientId: appointment.patientId,
@@ -57,11 +57,6 @@ export class DrizzleAppointmentRepository implements AppointmentRepository {
     const [row] = await getDbContext().select({ doctorProfileId: doctorProfile.id }).from(doctorProfile)
       .where(eq(doctorProfile.userProfileId, userProfileId)).limit(1);
     return row ?? null;
-  }
-
-  async doctorDuration(doctorProfileId: string): Promise<number> {
-    const [row] = await getDbContext().select(DOCTOR).from(doctorProfile).where(eq(doctorProfile.id, doctorProfileId)).limit(1);
-    return row?.durationMinutes ?? 30;
   }
 
   async findById(id: string): Promise<AppointmentRecord | null> {
