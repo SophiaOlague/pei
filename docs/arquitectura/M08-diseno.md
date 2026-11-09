@@ -1348,7 +1348,8 @@ TC-M08-307 están reescritos según A.17.3 y A.17.4 y validados en una rama aisl
 de las dos aceptaciones implementada y validada en C2.** `0014` está en `src/db/migrations` (copia exacta de la
 propuesta, SHA-256 `72af287c…`, journal idx 14); el esquema de Drizzle declara las columnas y el repositorio las
 escribe; `0014` se aplicó en C2 con `scripts/c2-migrate.ts` y `c2-20261109140840-9cd4` validó el catálogo (TC-M08-366) y la
-persistencia real de la reserva (TC-M08-214), sin residuo. `0014` no está aplicada en desarrollo. Pendiente: copiar las
+persistencia real de la reserva (TC-M08-214), sin residuo. `0014` está aplicada en C2 y, desde el 2026-11-09, también
+en desarrollo (A.23). Pendiente: copiar las
 dos referencias al reagendar, y ejecutar TC-M08-310, 315 y 317 a 319 sobre `0014`. Para que `0013 down` siga
 negándose con `0014` aplicada, su comprobación de dependencia se amplió a las dos columnas nuevas (la migración
 aplicada `0013` y `0013 up` no cambian).
@@ -1397,8 +1398,8 @@ export interface BookingLegalAcceptanceReader {
   desde el INSERT.
 - **`0014` (down)**: elimina el trigger, el CHECK, los índices y las columnas, y restaura **exactamente** la definición
   de `gst_appointment_guard` de `0013`. `0013 down` sigue negándose mientras `0014` esté aplicada.
-- `0014` está en el journal de Drizzle (idx 14) y aplicada en C2 (2026-11-09) con `scripts/c2-migrate.ts`; no en
-  desarrollo, que requiere una autorización aparte. `0014 down` elimina las columnas: con citas que ya tengan referencias,
+- `0014` está en el journal de Drizzle (idx 14) y aplicada en C2 (2026-11-09, `scripts/c2-migrate.ts`) y en desarrollo
+  (2026-11-09, `scripts/dev-migrate.ts`; A.23). `0014 down` elimina las columnas: con citas que ya tengan referencias,
   revertir perdería la evidencia legal.
 
 ### A.17.4 Pruebas previstas (sin implementar)
@@ -1548,7 +1549,8 @@ falsa). **Integración con notificaciones: pendiente** de que exista el módulo 
 
 ## A.22 M-1c: `agenda_block_ends_at` NOT NULL (DA-3, AP-23; 2026-11-09)
 
-**Estado:** implementada en el repositorio (sin commit); **migración 0015 preparada, no aplicada** en ningún entorno.
+**Estado:** implementada en el repositorio (`9009a5e`; 0016 en `9fb470b`). **0015 y 0016 aplicadas en C2 y en desarrollo**
+(2026-11-09; evidencias separadas en A.23).
 
 - **0015** (`src/db/migrations/0015_m08_m1c_agenda_block_not_null.sql`, idx 15 del journal, `meta/0015_snapshot.json`)
   es idéntica byte a byte a la propuesta `src/db/proposals/m08-m1c/0015_m08_m1c_agenda_block_not_null.up.sql`
@@ -1568,7 +1570,7 @@ falsa). **Integración con notificaciones: pendiente** de que exista el módulo 
   funcionan (siempre escriben el valor), pero una fila nula leída tendría `null` donde el tipo dice `Date`. En C2 no
   queda ninguna; en un entorno nuevo, 0013 rellena todas las filas al aplicarse.
 - **0016 (`src/db/migrations/0016_m08_m1c_wait_defaults.sql`, idx 16, SHA-256
-  `fd9f6f77a778e010a064bd45644f5754faf6b6221387cdcef35e7060aa584936`; preparada, no aplicada):** retira los DEFAULT de
+  `fd9f6f77a778e010a064bd45644f5754faf6b6221387cdcef35e7060aa584936`; aplicada en C2 y en desarrollo, A.23):** retira los DEFAULT de
   `max_protected_wait_minutes` y `reconnect_grace_minutes`; exige 0013 y 0015 y no toca filas ni el CHECK. La
   reversión restaura `DEFAULT 60` y `DEFAULT 5`. Idéntica a la propuesta de `src/db/proposals/m08-m1c/`; el snapshot
   difiere del de 0015 solo en esos dos DEFAULT. El esquema de Drizzle ya no los declara.
@@ -1582,10 +1584,52 @@ falsa). **Integración con notificaciones: pendiente** de que exista el módulo 
     entrega una carpeta temporal fuera del repositorio con el journal hasta esa migración y copias exactas de su SQL.
     Después exige exactamente un registro nuevo con su hash y `when`; si hubiera dos, se detiene. Con C2 en 0014: la
     primera ejecución aplica 0015 y la segunda, 0016.
-- **Desarrollo:** no tiene 0013 ni 0014. Para llevarlo al estado actual hay que aplicar 0013, 0014 y 0015 en orden,
-  cada una con su respaldo y autorización. `scripts/c2-migrate.ts` es exclusivo de C2 (rechaza la URL y la identidad
-  de desarrollo), así que desarrollo necesita su propio procedimiento. Antes de 0015, `precheck.sql` debe devolver 0
-  filas (0013 rellena todas las existentes; solo fallaría si se crean citas con código anterior a `3f4b612`).
+- **Desarrollo (corregido el 2026-11-09):** una versión anterior de este apartado decía que desarrollo no tenía 0013 ni
+  0014; era un error. 0013 se aplicó y registró en desarrollo el 2026-11-07 (A.15 y A.16), y 0014, 0015 y 0016 se
+  aplicaron el 2026-11-09 con `scripts/dev-migrate.ts`, una por ejecución (A.23).
+## A.23 Aplicación de 0014, 0015 y 0016 en C2 y en desarrollo (2026-11-09)
+
+Dos entornos separados, cada uno con su migrador, su destino y sus respaldos. Ninguna evidencia de uno vale para el otro.
+
+| Migración | SHA-256 | `when` (journal) |
+|---|---|---|
+| 0013 `m08_m1_core` | `2138d4064d8acd97e3189c38eace19e79fbf622b97ed53ecf772c205846b1472` | 1794076271586 |
+| 0014 `m08_m1_legal_acceptance` | `72af287cf7336d6f56942b35576b89c9cf0e1e3566b42f41ab62145ab440e24c` | 1794200480399 |
+| 0015 `m08_m1c_agenda_block_not_null` | `7652c22e8ea4598ca290338ad030fec40170da46c985591bdc85874d7909ef8d` | 1794253249192 |
+| 0016 `m08_m1c_wait_defaults` | `fd9f6f77a778e010a064bd45644f5754faf6b6221387cdcef35e7060aa584936` | 1794259028118 |
+
+### A.23.1 C2 (`royal-paper-10258990` / `br-shy-pond-b50a3m8f` / `ep-withered-block-b5e8v9ov`)
+
+Migrador: `scripts/c2-migrate.ts` (una migración por ejecución desde `9fb470b`).
+
+| Paso | Respaldo previo (creado por la responsable) | Resultado |
+|---|---|---|
+| 0014 | El respaldo de C2 indicado entonces por la responsable (sin ID registrado en este documento) | 15 registradas (ver trazabilidad) |
+| 0015 | `br-hidden-fire-b5u27hik` | Ejecución previa sin escritura: 15 registradas, pendientes 0015 y 0016. `--apply`: «aplicada 0015…; 16 migraciones registradas» |
+| 0016 | `br-red-cell-b5bpd2dp` | Ejecución previa sin escritura: 16 registradas, pendiente solo 0016. `--apply`: «aplicada 0016…; 17 migraciones registradas»; después, «no hay migraciones pendientes» |
+
+- Antes de 0015, las dos citas nulas de C2 (fixtures de B2) recibieron `scheduled_at + 30 min` (A.22).
+- Tras 0015: `m08-m1-schema.int-spec.ts` en `c2-20261109214319-41d5` (8/10; TC-M08-316 y 318 fallaron por errores
+  de la prueba) y, corregido (`05f0aa5`), en `c2-20261109220007-beb8` (10/10, huella del esquema intacta).
+- Los catálogos tras 0016 (DEFAULT, NOT NULL y CHECK de L y G) los consulta la responsable en el SQL Editor; no hay
+  resultado registrado en este documento.
+
+### A.23.2 Desarrollo (`royal-paper-10258990` / `br-royal-recipe-b54s5hnn` / `ep-wandering-bonus-b5kxacor`)
+
+Migrador: `scripts/dev-migrate.ts`, exclusivo de desarrollo (rechaza C2 y sus respaldos; identidad exacta de
+desarrollo; lee la URL de `apps/backend/.env` sin imprimirla; autoriza 0014, 0015 y 0016 por índice, tag y SHA-256;
+aplica solo la siguiente pendiente). 0000–0013 ya estaban registradas (0013 desde el 2026-11-07, A.16).
+
+| Paso | Respaldo previo (creado por la responsable) | Comprobación previa sin escritura | `--apply` y comprobación posterior |
+|---|---|---|---|
+| 0014 | `br-curly-forest-b5efzo4c` | Identidad de desarrollo; 14 registradas, idénticas al journal; pendientes 0014, 0015 y 0016; siguiente, solo 0014 | «aplicada 0014…; 15 migraciones registradas»: un registro nuevo (hash `72af287c…`, `when` 1794200480399), los 14 anteriores intactos; siguiente, 0015 |
+| 0015 | Creado por la responsable; **ID no disponible** | 15 registradas; siguiente, solo 0015. La responsable confirmó en el SQL Editor 0 citas con `agenda_block_ends_at IS NULL` | «aplicada 0015…; 16 migraciones registradas»: un registro nuevo (hash `7652c22e…`, `when` 1794253249192), los 15 anteriores intactos; siguiente, 0016 |
+| 0016 | `br-noisy-river-b5842mpp` | 16 registradas; siguiente, solo 0016. La responsable confirmó en el SQL Editor: `agenda_block_ends_at` NOT NULL; L y G con DEFAULT 60 y 5, NOT NULL | «aplicada 0016…; 17 migraciones registradas»: un registro nuevo (hash `fd9f6f77…`, `when` 1794259028118), los 16 anteriores intactos; después, «no hay migraciones pendientes» |
+
+- La identidad se comprobó antes de planear y otra vez justo antes de escribir en cada `--apply`.
+- No se ejecutaron pruebas contra desarrollo. El catálogo posterior a 0016 (L y G sin DEFAULT) no está registrado: la
+  consulta de solo lectura corresponde a la responsable.
+
 ## 1. Alcance y límites
 
 | Dentro de M08 | Fuera de M08 (a cargo de) |

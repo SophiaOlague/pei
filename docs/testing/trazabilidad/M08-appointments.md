@@ -2,18 +2,20 @@
 
 Diseño y decisiones: [M08-diseno](../../arquitectura/M08-diseno.md) (A.13–A.16 para M-1).
 Estado: etapa 1 de M08 y M-1 partes A (`0013`) y B (`0014`, AP-26) aplicadas en C2. Reservas reales DESACTIVADAS
-(`APPOINTMENTS_BOOKING_ENABLED` sin definir). `0014` NO aplicada en desarrollo; M-1c y el cambio 6 NO aplicados.
+(`APPOINTMENTS_BOOKING_ENABLED` sin definir). 0014, 0015 y 0016 aplicadas en C2 y en desarrollo (2026-11-09,
+M08-diseno A.23); el cambio 6 NO aplicado.
 
 **Estado de `0014` (AP-26), tres niveles distintos:**
 
 | Nivel | Estado | Qué significa |
 |---|---|---|
 | Migración **preparada** | SÍ (2026-11-08, commit `41e07a5`) | `src/db/migrations/0014_m08_m1_legal_acceptance.sql` (idéntico byte a byte a la propuesta `0014 up`, SHA-256 `72af287cf7336d6f56942b35576b89c9cf0e1e3566b42f41ab62145ab440e24c`), entrada idx 14 del journal, `meta/0014_snapshot.json`, columnas/FK/índices/CHECK en `src/db/schema/appointment.ts`, `DrizzleAppointmentRepository.insert` escribe los dos ids y `scripts/c2-migrate-core.ts` autoriza `0014` (y exige `0013` aplicada con su hash) |
-| Migración **aplicada** | SÍ en C2 (2026-11-09); NO en desarrollo | Ver «Aplicación de `0014` en C2» |
+| Migración **aplicada** | SÍ en C2 y en desarrollo (2026-11-09) | Ver «Aplicación de `0014` en C2» y «Desarrollo: 0014 a 0016» |
 | Persistencia **validada** | SÍ en C2 (2026-11-09) | `c2-20261109140840-9cd4`: TC-M08-366 (catálogo) y TC-M08-214 (persistencia real), 2/2, sin residuo |
 
 **Fuera de C2:** el esquema de Drizzle declara las dos columnas, así que todo INSERT de citas por Drizzle falla contra
-una BD sin `0014` (p. ej., desarrollo). **No desplegar en ningún entorno sin aplicar antes `0014` en él.**
+una BD sin `0014`. **No desplegar en ningún entorno sin aplicar antes `0014` en él.** (Desarrollo la tiene desde el
+2026-11-09.)
 
 ### Aplicación de `0014` en C2 (2026-11-09)
 
@@ -121,7 +123,7 @@ no quedó aplicada. Los recuentos de datos **no se midieron**: los specs compara
   el INSERT. `0014 down` restaura literalmente el guard de `0013`. La migración aplicada `0013` y `0013 up` no cambian;
   solo se amplió la comprobación de `0013 down` para que detecte las dos columnas nuevas y se niegue mientras `0014`
   esté aplicada.
-- `0014` **está aplicada en C2** (no en desarrollo): la migración de Drizzle es una copia exacta de la propuesta
+- `0014` **está aplicada en C2** (y, desde el 2026-11-09, en desarrollo): la migración de Drizzle es una copia exacta de la propuesta
   (TC-M08-320 comprueba el hash), el journal la registra como idx 14 y se aplicó con `scripts/c2-migrate.ts`.
 - `m08-m1-part-b.int-spec.ts` se detiene al cargarse sin `M08_PART_B_AUTHORIZED=0014`, que el lanzador C2 no
   transmite; además exige una rama aislada con esquema 0000–0012.
@@ -206,17 +208,33 @@ Implementado sin commit; validado **solo con dobles**. Sin prueba contra Postgre
 
 ## M-1c: `agenda_block_ends_at` NOT NULL (2026-11-09)
 
-- **Implementada en el repositorio, sin commit; 0015 preparada y NO aplicada** en ningún entorno (SHA-256 `7652c22e…`,
+- **Implementada en el repositorio (`9009a5e`); 0015 aplicada en C2 y en desarrollo** (2026-11-09; SHA-256 `7652c22e…`,
   idx 15). Detalle en M08-diseno A.22.
 - **C2:** las dos citas nulas (fixtures de B2) se corrigieron con `scheduled_at + 30 min` tras un dry-run y la
   verificación de `agenda.duration.changed`; `precheck.sql` devolvió 0 filas. Historial y auditoría intactos.
 - Fallback O1 retirado del código; TC-M08-018 y 385 reescritas (fin guardado, sin O1).
-- Pendiente: aplicar 0015 en C2 (`c2-migrate --apply`, con respaldo y autorización); después ejecutar
-  TC-M08-310 y 315 (ya contemplan 0015). Desarrollo: 0013 a 0016 en orden.
-- **0016 (retira los DEFAULT de L y G): preparada, no aplicada** (idx 16, SHA-256 `fd9f6f77…`). `rawFixtures` indica L y
+- 0015 en C2: respaldo `br-hidden-fire-b5u27hik`; después, `m08-m1-schema.int-spec.ts` 10/10 en
+  `c2-20261109220007-beb8` (TC-M08-310 y 315 con 0015; antes, 8/10 en `c2-20261109214319-41d5` por dos errores de la
+  prueba, corregidos en `05f0aa5`).
+- **0016 (retira los DEFAULT de L y G): aplicada en C2** (respaldo `br-red-cell-b5bpd2dp`) **y en desarrollo**
+  (idx 16, SHA-256 `fd9f6f77…`). `rawFixtures` indica L y
   G cuando el esquema los tiene.
 - **`c2-migrate` con varias pendientes:** cada ejecución aplica solo la siguiente (0015 y, en otra ejecución, 0016);
   TC-M08-320 a 336 (unitarias, sin conexiones), 33/33. Ver M08-diseno A.22.
+## Desarrollo: 0014 a 0016 (2026-11-09)
+
+Entorno separado de C2: `royal-paper-10258990` / `br-royal-recipe-b54s5hnn` / `ep-wandering-bonus-b5kxacor`. Migrador
+`scripts/dev-migrate.ts`, una migración por ejecución. Detalle por paso en M08-diseno A.23.2.
+
+| Migración | Respaldo previo | Resultado | Registros |
+|---|---|---|---|
+| 0013 | `br-rapid-water-b5za50z4` (2026-11-07, A.15) | Aplicada y registrada el 2026-11-07 (A.16) | 14 |
+| 0014 | `br-curly-forest-b5efzo4c` | Un registro nuevo, hash `72af287c…`, `when` 1794200480399; anteriores intactos | 15 |
+| 0015 | Creado por la responsable; ID no disponible | Un registro nuevo, hash `7652c22e…`, `when` 1794253249192; anteriores intactos (0 citas nulas, confirmado por la responsable) | 16 |
+| 0016 | `br-noisy-river-b5842mpp` | Un registro nuevo, hash `fd9f6f77…`, `when` 1794259028118; anteriores intactos; sin pendientes | 17 |
+
+- Sin pruebas ejecutadas contra desarrollo. Las pruebas del migrador son unitarias con dobles (TC-DEV-001 a 014).
+
 ## Residuo persistente aceptado en C2 (no se limpia)
 
 Solo lo genera la suite de concurrencia (las otras dos revierten todo y lo comprueban en `afterAll`). Diferencia frente
@@ -244,6 +262,7 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 | TC-M08-300 a 306 (7) | `m08-m1-migration.int-spec.ts` | Rama aislada 0000–0012 (modo `migration`): 7/7 en `c2-20261109041826-79f9` |
 | TC-M08-310 a 316 (7) | `m08-m1-schema.int-spec.ts` | 0013 en C2. Adaptadas a `0014` y sin ejecutar: TC-M08-310 exige los hashes de `0014` (última) y `0013`; TC-M08-315 revierte `0014 down` → `0013 down` y reaplica `0013 up` → `0014 up` (exige que no haya citas con referencias, que `0014 down` perdería) |
 | TC-M08-317 a 319 | `m08-m1-schema.int-spec.ts` | NUEVAS, sin ejecutar (`0014` ya está en C2; pendiente de ejecutar el spec): las dos o ninguna e históricas nulas; otro paciente, tipo incorrecto, regímenes mezclados, id inexistente y régimen anterior válido; inmutabilidad |
+| TC-DEV-001 a 014 | `scripts/dev-migrate-core.spec.ts` | Unitarias con dobles, sin conexiones: hashes autorizados (0014–0016); identidad correcta, doble comprobación y pooler → directo; rechazo de C2, sus respaldos, el respaldo de desarrollo, otro proyecto o endpoint; sin `process.env` ni `.env.c2`; secuencia 0014 → 0015 → 0016, una por ejecución; SHA-256 incorrecto; journal desconocido o incoherente; BD sin 0013 o con registros distintos; verificación posterior; carpeta temporal propia |
 | TC-M08-320 a 336 | `scripts/c2-migrate-core.spec.ts` | unitarias, sin conexiones, 33/33 (2026-11-09). Autorizan 0015 y 0016 con su SHA-256 (320); con C2 en 0014 aplica solo 0015 y entrega el journal hasta 0015 (332); después, solo 0016 y luego nada pendiente (333); prefijo exacto (334); sin `--apply` no escribe (335); la CLI usa una carpeta temporal con el journal limitado (336); dos registros nuevos detienen el proceso (330) |
 | TC-M08-307 (5 pruebas) | `m08-m1-part-b.int-spec.ts` | Rama aislada 0000–0012 con `--authorize-part-b 0014`: 4/5 en `c2-20261109042210-b3ee`; 5/5 en `c2-20261109042944-1726` tras ajustar el trigger |
 | TC-M08-340 a 342 | `test/support/m08-m1-part-b-gate.spec.ts` | unitarias, sin conexiones. TC-M08-341: TC-M08-307 sigue exclusiva del spec de parte B; los archivos de `0014` solo los nombran ese spec y la lectura perezosa `partB()` de `m08-m1-sql.ts` (lista exacta), y solo `m08-m1-schema.int-spec.ts` invoca `partB()` |
