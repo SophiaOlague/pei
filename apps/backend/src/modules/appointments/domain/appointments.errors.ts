@@ -68,6 +68,14 @@ export class PatientScheduleConflictError extends DomainError {
   }
 }
 
+// AP-26: sin las dos aceptaciones legales vigentes (privacidad y términos) no se crea la reserva.
+export class LegalAcceptancesRequiredError extends DomainError {
+  readonly kind = 'forbidden' as const;
+  constructor() {
+    super('Para reservar debes tener aceptados el aviso de privacidad y los términos vigentes');
+  }
+}
+
 export class ActiveHoldExistsError extends DomainError {
   readonly kind = 'conflict' as const;
   constructor() {

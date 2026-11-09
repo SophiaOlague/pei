@@ -4,8 +4,8 @@ import type { UnitOfWork } from '../../src/common/application/ports/unit-of-work
 import type { AuditTrail } from '../../src/modules/audit/application/ports/audit-trail';
 import type { AuditEvent } from '../../src/modules/audit/domain/audit-event';
 import type {
-  AppointmentRecord, AppointmentRepository, BookableDoctorsReader, BookingEligibility, BookingFeature, CancellationPolicyRepository,
-  ConsultationPriceRepository, DoctorSummary, NewAppointment, StatusChange,
+  AppointmentRecord, AppointmentRepository, BookableDoctorsReader, BookingEligibility, BookingFeature, BookingLegalAcceptances, BookingLegalReferences,
+  CancellationPolicyRepository, ConsultationPriceRepository, DoctorSummary, NewAppointment, StatusChange,
 } from '../../src/modules/appointments/application/ports/appointments.ports';
 import type { PolicyVersion } from '../../src/modules/appointments/domain/cancellation-policy';
 import type { PriceVersion } from '../../src/modules/appointments/domain/consultation-price';
@@ -40,6 +40,8 @@ interface State {
   prices: PriceVersion[];
   policies: PolicyVersion[];
   audit: AuditEvent[];
+  // AP-26: referencias legales de cada cita, aparte de AppointmentRecord (el repositorio Drizzle aún no las guarda).
+  legalReferences: ({ appointmentId: string } & BookingLegalReferences)[];
 }
 
 export class DoctorNotOperationalTestError extends DomainError {
@@ -58,8 +60,12 @@ export class PatientCannotBookTestError extends DomainError {
 const clone = <T>(v: T): T => structuredClone(v);
 
 export class InMemoryAppointmentsWorld
-  implements AppointmentRepository, ConsultationPriceRepository, BookingEligibility, BookingFeature, BookableDoctorsReader, AuditTrail {
-  state: State = { doctors: [], patients: [], appointments: [], history: [], prices: [], policies: [], audit: [] };
+  implements AppointmentRepository, ConsultationPriceRepository, BookingEligibility, BookingFeature, BookableDoctorsReader, AuditTrail, BookingLegalAcceptances {
+  state: State = { doctors: [], patients: [], appointments: [], history: [], prices: [], policies: [], audit: [], legalReferences: [] };
+  // AP-26: aceptaciones vigentes por userProfileId (addPatient las da por aceptadas). `legalSource` permite delegar en el
+  // adaptador real sobre el doble de M02 (pruebas de integración en memoria).
+  legalByPatient = new Map<string, BookingLegalReferences | null>();
+  legalSource: BookingLegalAcceptances | null = null;
   locks: string[] = [];
   operating = new Set<string>();
   blockedPatients = new Set<string>();
@@ -76,6 +82,14 @@ export class InMemoryAppointmentsWorld
   }
   addPatient(p: { id: string; userProfileId: string }) {
     this.state.patients.push(p);
+    this.legalByPatient.set(p.userProfileId, { privacyLegalAcceptanceId: `acc-privacy-${p.userProfileId}`, termsLegalAcceptanceId: `acc-terms-${p.userProfileId}` });
+  }
+
+  // ---- BookingLegalAcceptances
+  async currentFor(userProfileId: string): Promise<BookingLegalReferences | null> {
+    this.locks.push('legal:read');
+    if (this.legalSource) return this.legalSource.currentFor(userProfileId);
+    return clone(this.legalByPatient.get(userProfileId) ?? null);
   }
   seedAppointment(a: Partial<AppointmentRecord> & { id: string; patientId: string; doctorId: string; scheduledAt: Date; cancellationPolicyId: string }) {
     this.state.appointments.push({
@@ -172,8 +186,9 @@ export class InMemoryAppointmentsWorld
     return clone(this.state.appointments.filter((a) => a.doctorId === id && a.status === 'pending_payment' && a.paymentHoldExpiresAt! <= now));
   }
   async insert(a: NewAppointment) {
-    const { createdByUserProfileId, ...rest } = a;
+    const { createdByUserProfileId, privacyLegalAcceptanceId, termsLegalAcceptanceId, ...rest } = a;
     this.state.appointments.push({ ...rest, status: 'pending_payment', cancellationReason: null, cancelledByType: null, cancelledAt: null, createdAt: new Date() });
+    this.state.legalReferences.push({ appointmentId: a.id, privacyLegalAcceptanceId, termsLegalAcceptanceId });
     this.state.history.push({ appointmentId: a.id, status: 'pending_payment', changedByType: 'patient', changedByUserProfileId: createdByUserProfileId, reason: null });
   }
   async changeStatus(id: string, c: StatusChange) {

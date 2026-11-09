@@ -18,6 +18,8 @@ import { AppointmentConfirmationService, AppointmentSessionService } from '../..
 import { DrizzleAppointmentRepository } from '../../src/modules/appointments/infrastructure/persistence/drizzle-appointment.repository';
 import { DrizzleCancellationPolicyRepository, DrizzleConsultationPriceRepository } from '../../src/modules/appointments/infrastructure/persistence/drizzle-configuration.repositories';
 import { DrizzleBookableDoctorsReader, PolicyBookingEligibility } from '../../src/modules/appointments/infrastructure/adapters';
+import { ReaderBookingLegalAcceptances } from '../../src/modules/appointments/infrastructure/booking-legal-acceptances.adapter';
+import { DrizzleBookingLegalAcceptanceReader } from '../../src/modules/identity/infrastructure/persistence/drizzle-booking-legal-acceptance.reader';
 import type { BookingFeature } from '../../src/modules/appointments/application/ports/appointments.ports';
 import { createAdminActor, createPatient, identityUseCases } from './identity-integration';
 import { acceptCurrentDoctorRegime, createDoctor, doctorUseCases, JPEG, PDF, specialtyId, type CurrentDoctorRegime } from './doctors-integration';
@@ -45,7 +47,7 @@ export function appointmentsUseCases(clock: FixedClock) {
     repo, eligibility, agenda, doctors,
     prices: new ConsultationPriceService(uow, audit, prices, clock),
     policies: new CancellationPolicyService(uow, audit, policies, clock),
-    hold: new HoldSlotUseCase(uow, audit, repo, prices, policies, eligibility, ENABLED, slots, clock),
+    hold: new HoldSlotUseCase(uow, audit, repo, prices, policies, eligibility, ENABLED, slots, clock, new ReaderBookingLegalAcceptances(new DrizzleBookingLegalAcceptanceReader())),
     release: new ReleaseHoldUseCase(uow, audit, repo),
     patientQuery: new PatientAppointmentsQuery(repo, clock),
     doctorQuery: new DoctorAppointmentsQuery(repo, clock),

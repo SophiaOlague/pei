@@ -34,6 +34,11 @@ export interface NewAppointment {
   paymentHoldExpiresAt: Date;
   // Primera fila de appointment_status_history (pending_payment, actor patient).
   createdByUserProfileId: string;
+  // AP-26: las dos aceptaciones legales vigentes del paciente al reservar (user_legal_acceptance.id). TODAVÍA NO SE
+  // PERSISTEN EN POSTGRESQL: las columnas privacy_legal_acceptance_id y terms_legal_acceptance_id llegan con la
+  // propuesta 0014, que no está aplicada; el repositorio Drizzle las ignora hasta entonces.
+  privacyLegalAcceptanceId: string;
+  termsLegalAcceptanceId: string;
 }
 
 export interface StatusChange {
@@ -97,6 +102,17 @@ export interface BookingEligibility {
   doctorCanOperate(doctorProfileId: string): Promise<boolean>;
 }
 export const BOOKING_ELIGIBILITY = Symbol('BOOKING_ELIGIBILITY');
+
+// AP-26: aceptaciones legales que habilitan la reserva (privacidad y términos vigentes del paciente). El adaptador
+// delega en BOOKING_LEGAL_ACCEPTANCE_READER de M02; null si no hay una pareja vigente y completa.
+export interface BookingLegalReferences {
+  privacyLegalAcceptanceId: string;
+  termsLegalAcceptanceId: string;
+}
+export interface BookingLegalAcceptances {
+  currentFor(userProfileId: string): Promise<BookingLegalReferences | null>;
+}
+export const BOOKING_LEGAL_ACCEPTANCES = Symbol('BOOKING_LEGAL_ACCEPTANCES');
 
 export interface DoctorSummary {
   doctorProfileId: string;

@@ -8,7 +8,7 @@ import { AuditActor } from '../../../audit/domain/audit-actor';
 import { AgendaService } from '../../../agenda/application/use-cases/agenda.use-cases';
 import {
   ActiveHoldExistsError, AppointmentNotFoundError, BookingConfigurationMissingError, BookingDisabledError, InvalidAppointmentInputError,
-  InvalidAppointmentStateError, InvalidSlotError, PatientScheduleConflictError, SlotUnavailableError,
+  InvalidAppointmentStateError, InvalidSlotError, LegalAcceptancesRequiredError, PatientScheduleConflictError, SlotUnavailableError,
 } from '../../domain/appointments.errors';
 import { assertTransition, type AppointmentStatus } from '../../domain/appointment-status';
 import { holdExpiresAt, isHoldActive, occupiesSchedule } from '../../domain/hold';
@@ -16,9 +16,9 @@ import { addLocalDays, LISTING_HORIZON_DAYS, localDateString, PLATFORM_TIME_ZONE
 import { excludeBusy, occupancyOf, overlaps, type Interval } from '../../domain/occupancy';
 import { AppointmentAuditEvents } from '../appointments-audit-events';
 import {
-  APPOINTMENT_REPOSITORY, BOOKABLE_DOCTORS_READER, BOOKING_ELIGIBILITY, BOOKING_FEATURE, CANCELLATION_POLICY_REPOSITORY,
+  APPOINTMENT_REPOSITORY, BOOKABLE_DOCTORS_READER, BOOKING_ELIGIBILITY, BOOKING_FEATURE, BOOKING_LEGAL_ACCEPTANCES, CANCELLATION_POLICY_REPOSITORY,
   CONSULTATION_PRICE_REPOSITORY, type AppointmentRecord, type AppointmentRepository, type BookableDoctorsReader, type BookingEligibility,
-  type BookingFeature, type CancellationPolicyRepository, type ConsultationPriceRepository, type DoctorSummary,
+  type BookingFeature, type BookingLegalAcceptances, type CancellationPolicyRepository, type ConsultationPriceRepository, type DoctorSummary,
 } from '../ports/appointments.ports';
 import { requireDoctor, requirePatient, SYSTEM_PROCESS, systemActor } from './actors';
 
@@ -158,6 +158,7 @@ export class HoldSlotUseCase {
     @Inject(BOOKING_FEATURE) private readonly feature: BookingFeature,
     private readonly slots: PatientSlotsService,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(BOOKING_LEGAL_ACCEPTANCES) private readonly legal: BookingLegalAcceptances,
   ) {}
 
   async execute(actor: Actor, input: HoldInput): Promise<AppointmentView> {
@@ -201,12 +202,16 @@ export class HoldSlotUseCase {
       if (!price) throw new BookingConfigurationMissingError('price');
       const policy = await this.policies.findEffective(now);
       if (!policy) throw new BookingConfigurationMissingError('policy');
+      // AP-26: las dos aceptaciones legales vigentes, leídas en la misma transacción justo antes de crear la cita.
+      const legal = await this.legal.currentFor(userProfileId);
+      if (!legal) throw new LegalAcceptancesRequiredError();
 
       const id = randomUUID();
       const expiresAt = holdExpiresAt(now);
       await this.appointments.insert({
         id, patientId: patient.patientProfileId, doctorId: doctor.doctorProfileId, scheduledAt: block.startsAt, reason,
         price: price.price, cancellationPolicyId: policy.id, paymentHoldExpiresAt: expiresAt, createdByUserProfileId: userProfileId,
+        privacyLegalAcceptanceId: legal.privacyLegalAcceptanceId, termsLegalAcceptanceId: legal.termsLegalAcceptanceId,
       });
       await this.audit.record(AppointmentAuditEvents.holdCreated(AuditActor.fromActor(actor), id, {
         doctorProfileId: doctor.doctorProfileId, holdExpiresAt: expiresAt.toISOString(), cancellationPolicyId: policy.id, price: price.price,

@@ -14,7 +14,7 @@ import { DOCTOR_PROFILE_REPOSITORY } from '../src/modules/doctors/application/po
 import { DOCTOR_REVIEW_REPOSITORY } from '../src/modules/doctors/application/ports/doctor-review.repository';
 import { DOCTOR_IDENTITY_GATEWAY } from '../src/modules/identity/application/ports/doctor-identity.gateway';
 import {
-  APPOINTMENT_REPOSITORY, BOOKABLE_DOCTORS_READER, BOOKING_ELIGIBILITY, BOOKING_FEATURE, CANCELLATION_POLICY_REPOSITORY, CONSULTATION_PRICE_REPOSITORY,
+  APPOINTMENT_REPOSITORY, BOOKABLE_DOCTORS_READER, BOOKING_ELIGIBILITY, BOOKING_FEATURE, BOOKING_LEGAL_ACCEPTANCES, CANCELLATION_POLICY_REPOSITORY, CONSULTATION_PRICE_REPOSITORY,
 } from '../src/modules/appointments/application/ports/appointments.ports';
 import { UNIT_OF_WORK } from '../src/common/application/ports/unit-of-work';
 import { CLOCK } from '../src/common/application/ports/clock';
@@ -53,7 +53,8 @@ describe('Citas médicas por HTTP (E2E con dobles, M08)', () => {
           .overrideProvider(CANCELLATION_POLICY_REPOSITORY).useValue(world.policies)
           .overrideProvider(BOOKABLE_DOCTORS_READER).useValue(world)
           .overrideProvider(BOOKING_ELIGIBILITY).useValue(world)
-          .overrideProvider(BOOKING_FEATURE).useValue(world),
+          .overrideProvider(BOOKING_FEATURE).useValue(world)
+          .overrideProvider(BOOKING_LEGAL_ACCEPTANCES).useValue(world),
     }));
   });
 
@@ -133,6 +134,16 @@ describe('Citas médicas por HTTP (E2E con dobles, M08)', () => {
     expect((await as(p).post(`/me/patient/appointments/${created.body.id}/cancel`).send({})).status).toBe(409);
     expect((await as(p).delete(`/me/patient/appointments/${created.body.id}/hold`)).status).toBe(204);
     expect((await as(p).get(`/me/patient/appointments/${created.body.id}`)).body.status).toBe('expired');
+  });
+
+  it('[TC-M08-365][AP-26] sin las dos aceptaciones legales vigentes, la reserva responde 403 y no crea la cita', async () => {
+    const p = await patient();
+    const d = doctor();
+    world.legalByPatient.set(world.state.patients.at(-1)!.userProfileId, null);
+    const before = world.state.appointments.length;
+    const res = await as(p).post('/me/patient/appointments').send({ doctorProfileId: d.id, startsAt: S1, reason: 'Consulta' });
+    expect(res.status).toBe(403);
+    expect(world.state.appointments).toHaveLength(before);
   });
 
   it('[TC-M08-104] validación de DTO: propiedades desconocidas, fechas y UUID', async () => {

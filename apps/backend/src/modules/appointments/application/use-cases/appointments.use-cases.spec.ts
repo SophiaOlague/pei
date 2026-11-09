@@ -39,7 +39,7 @@ function setup() {
   const policies = new CancellationPolicyService(uow, world, world.policies, clock);
   return {
     world, uow, clock, agenda, prices, policies,
-    hold: new HoldSlotUseCase(uow, world, world, world, world.policies, world, world, slots, clock),
+    hold: new HoldSlotUseCase(uow, world, world, world, world.policies, world, world, slots, clock, world),
     release: new ReleaseHoldUseCase(uow, world, world),
     patientQuery: new PatientAppointmentsQuery(world, clock),
     doctorQuery: new DoctorAppointmentsQuery(world, clock),

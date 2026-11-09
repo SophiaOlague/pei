@@ -103,6 +103,9 @@ export class DrizzleAppointmentRepository implements AppointmentRepository {
     )).for('update')) as AppointmentRecord[];
   }
 
+  // AP-26: privacyLegalAcceptanceId y termsLegalAcceptanceId NO se guardan todavía. Sus columnas llegan con la propuesta
+  // 0014, que no está aplicada; declararlas en el esquema de Drizzle antes rompería todo INSERT de citas. Se añadirán
+  // aquí y en src/db/schema/appointment.ts cuando 0014 esté autorizada y aplicada.
   async insert(a: NewAppointment): Promise<void> {
     const db = getDbContext();
     await db.insert(appointment).values({

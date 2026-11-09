@@ -10,8 +10,10 @@ import {
 import { CancelByDoctorUseCase, CancelByPatientUseCase } from './application/use-cases/cancellation.use-cases';
 import { CancellationPolicyService, ConsultationPriceService } from './application/use-cases/configuration.use-cases';
 import {
-  APPOINTMENT_REPOSITORY, BOOKABLE_DOCTORS_READER, BOOKING_ELIGIBILITY, BOOKING_FEATURE, CANCELLATION_POLICY_REPOSITORY, CONSULTATION_PRICE_REPOSITORY,
+  APPOINTMENT_REPOSITORY, BOOKABLE_DOCTORS_READER, BOOKING_ELIGIBILITY, BOOKING_FEATURE, BOOKING_LEGAL_ACCEPTANCES, CANCELLATION_POLICY_REPOSITORY,
+  CONSULTATION_PRICE_REPOSITORY,
 } from './application/ports/appointments.ports';
+import { ReaderBookingLegalAcceptances } from './infrastructure/booking-legal-acceptances.adapter';
 import { DrizzleBookableDoctorsReader, EnvBookingFeature, PolicyBookingEligibility } from './infrastructure/adapters';
 import { DrizzleAppointmentRepository } from './infrastructure/persistence/drizzle-appointment.repository';
 import { DrizzleCancellationPolicyRepository, DrizzleConsultationPriceRepository } from './infrastructure/persistence/drizzle-configuration.repositories';
@@ -20,7 +22,7 @@ import {
 } from './presentation/appointments.controllers';
 
 // M08 Citas médicas (RF-12, RF-14, RF-15, RF-16; RF-66 propuesto). De M07 usa solo AgendaService; de M03, solo
-// DoctorOperationalPolicy; de M02, solo CanBookAppointmentsPolicy. Ningún módulo anterior depende de este.
+// DoctorOperationalPolicy; de M02, solo CanBookAppointmentsPolicy y BOOKING_LEGAL_ACCEPTANCE_READER (AP-26). Ningún módulo anterior depende de este.
 // Exporta los contratos internos para pagos y videoconsulta (sin rutas HTTP).
 @Module({
   imports: [IdentityModule, DoctorsModule, AgendaModule],
@@ -46,6 +48,7 @@ import {
     { provide: BOOKABLE_DOCTORS_READER, useClass: DrizzleBookableDoctorsReader },
     { provide: BOOKING_ELIGIBILITY, useClass: PolicyBookingEligibility },
     { provide: BOOKING_FEATURE, useClass: EnvBookingFeature },
+    { provide: BOOKING_LEGAL_ACCEPTANCES, useClass: ReaderBookingLegalAcceptances },
   ],
   exports: [AppointmentConfirmationService, AppointmentSessionService, ConsultationPriceService, CancellationPolicyService],
 })

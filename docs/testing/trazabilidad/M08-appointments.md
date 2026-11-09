@@ -61,9 +61,16 @@ no quedó aplicada. Los recuentos de datos **no se midieron**: los specs compara
   paciente, privacidad y términos, en `appointment.privacy_legal_acceptance_id` y `appointment.terms_legal_acceptance_id`:
   las dos presentes o las dos nulas, validadas por un trigger (paciente, tipo documental y régimen) e inmutables desde el
   INSERT. `currentFor(userProfileId)` devuelve ambas o `null`. Al reagendar, la cita nueva copia las dos referencias.
-- El lector de M02 `BOOKING_LEGAL_ACCEPTANCE_READER` **está implementado en M02** (TC-M02-249 a 256, unitarias), pero M08
-  **no lo consume todavía** y no tiene prueba de integración contra PostgreSQL.
-- M08 **todavía no guarda ni copia** las referencias legales: ni el código ni el esquema de Drizzle declaran las columnas.
+- El lector de M02 `BOOKING_LEGAL_ACCEPTANCE_READER` está implementado (TC-M02-249 a 256; integración C2 TC-M02-257 a 261)
+  y **M08 ya lo consume** mediante su puerto `BOOKING_LEGAL_ACCEPTANCES` (adaptador
+  `infrastructure/booking-legal-acceptances.adapter.ts`). `HoldSlotUseCase` lo lee en la misma transacción, justo antes
+  de crear la cita y después de la idempotencia RB-2: sin la pareja vigente lanza `LegalAcceptancesRequiredError`
+  (403) y la transacción se revierte entera; con ella, `NewAppointment` transporta `privacyLegalAcceptanceId` y
+  `termsLegalAcceptanceId`.
+- **Las referencias todavía NO se persisten en PostgreSQL:** el esquema de Drizzle no declara las columnas (sin `0014`
+  aplicada, declararlas rompería todo INSERT de citas) y `DrizzleAppointmentRepository.insert` las ignora. Solo las
+  guarda el doble en memoria. **Pendiente:** añadir las dos columnas a `src/db/schema/appointment.ts` y al repositorio
+  cuando `0014` esté autorizada y aplicada, con su prueba de integración en C2.
 - **Propuesta `0014` reescrita según AP-26 (A.17.3), sin aplicar:** dos columnas con FK e índices, CHECK
   `appointment_legal_acceptances_chk` (las dos o ninguna), trigger `appointment_legal_acceptances_check` (paciente, tipo
   documental y régimen) y `gst_appointment_guard` redefinido con `CREATE OR REPLACE` para que ambas sean inmutables desde
@@ -123,3 +130,5 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 | TC-M08-320 a 331 | `scripts/c2-migrate-core.spec.ts` | unitarias, sin conexiones |
 | TC-M08-307 (5 pruebas) | `m08-m1-part-b.int-spec.ts` | Rama aislada 0000–0012 con `--authorize-part-b 0014`: 4/5 en `c2-20261109042210-b3ee`; 5/5 en `c2-20261109042944-1726` tras ajustar el trigger |
 | TC-M08-340 a 342 | `test/support/m08-m1-part-b-gate.spec.ts` | unitarias, sin conexiones |
+| TC-M08-360 a 364 | `src/modules/appointments/application/use-cases/booking-legal-acceptances.spec.ts` | integración en memoria (adaptador de M08 sobre el doble del lector de M02): régimen actual y anterior, sin aceptaciones, sin privacidad, sin términos, versión nueva no aceptada, rollback completo y RB-2 |
+| TC-M08-365 | `test/appointments.e2e-spec.ts` | E2E con dobles: sin aceptaciones vigentes, 403 y sin cita |
