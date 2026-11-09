@@ -2,7 +2,10 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": "..",
   "testEnvironment": "node",
-  "setupFiles": ["<rootDir>/test/support/db-tripwire.ts"],
+  "setupFiles": [
+    "<rootDir>/test/support/db-tripwire.ts",
+    "<rootDir>/test/support/c2-mode-concurrency.ts"
+  ],
   "testRegex": "test/concurrency/.*\\.conc-spec\\.ts$",
   "testTimeout": 60000,
   "transform": {
