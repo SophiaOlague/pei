@@ -1,55 +1,129 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { assertC2BranchTarget, C2TargetError, NEUTRALIZED_ENV, ORIGINAL_BRANCH } from './c2-target-guard';
+import {
+  assertC2BranchTarget,
+  assertC2R2Target,
+  C2_R2_BUCKET,
+  C2_TARGET,
+  C2TargetError,
+  NEUTRALIZED_ENV,
+  ORIGINAL_BRANCH,
+  verifyNeonRuntimeIdentity,
+} from './c2-target-guard';
+import { assertJestConfigMode } from './c2-mode-setup';
 
-// Salvaguarda de destino (sin conexiones): solo acepta el entorno que prepara C2 para la rama temporal.
+// Salvaguarda de destino (sin conexiones): solo acepta el entorno que prepara el lanzador C2 para la rama de pruebas
+// aprobada (C2_TARGET). Ninguna prueba abre conexiones.
 
-const BRANCH = 'br-autumn-sun-b52qoep4';
-const ENDPOINT = 'ep-noisy-pond-b5owxox3';
+const { project: PROJECT, branch: BRANCH, endpoint: ENDPOINT } = C2_TARGET;
 const NEUTRAL = Object.fromEntries(NEUTRALIZED_ENV.map((key) => [key, '']));
+const R2 = { R2_ACCOUNT_ID: 'cuenta-r2', R2_ACCESS_KEY_ID: 'id-r2', R2_SECRET_ACCESS_KEY: 'secreto-r2', R2_BUCKET_NAME: C2_R2_BUCKET, C2_EXPECTED_BUCKET: C2_R2_BUCKET };
 
 function env(overrides: Record<string, string | undefined> = {}): NodeJS.ProcessEnv {
   return {
+    C2_MODE: 'postgres',
     C2_EXPECTED_BRANCH: BRANCH,
     C2_EXPECTED_ENDPOINT: ENDPOINT,
-    C2_EXPECTED_PROJECT: 'royal-paper-10258990',
-    DATABASE_URL: `postgresql://rol:clave-secreta@${ENDPOINT}.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require`,
+    C2_EXPECTED_PROJECT: PROJECT,
+    DATABASE_URL: `postgresql://rol:clave-secreta@${ENDPOINT}.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require`,
     ...NEUTRAL,
     ...overrides,
   } as NodeJS.ProcessEnv;
 }
+const POOLER_URL = `postgresql://rol:clave-secreta@${ENDPOINT}-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require`;
+
+function errorOf(fn: () => unknown): Error | null {
+  try {
+    fn();
+    return null;
+  } catch (e) {
+    return e as Error;
+  }
+}
+const SECRET_PATTERN = /clave|rol:|postgresql|neon\.tech|valor|secreto-r2|id-r2|cuenta-r2/;
 
 describe('assertC2BranchTarget (salvaguarda de destino de C2)', () => {
-  it('[TC-M02-246] acepta el entorno de C2 para la rama temporal (también con el host -pooler)', () => {
+  it('[TC-M02-246] acepta el destino aprobado con conexión directa; en modo postgres también con -pooler', () => {
     expect(assertC2BranchTarget(env())).toEqual({ branch: BRANCH, endpoint: ENDPOINT });
-    expect(() =>
-      assertC2BranchTarget(env({ DATABASE_URL: `postgresql://rol:clave@${ENDPOINT}-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require` })),
-    ).not.toThrow();
+    expect(() => assertC2BranchTarget(env({ DATABASE_URL: POOLER_URL }))).not.toThrow();
   });
 
   it.each([
     ['sin identidad esperada (ejecución manual con el .env)', { C2_EXPECTED_BRANCH: undefined, C2_EXPECTED_ENDPOINT: undefined, C2_EXPECTED_PROJECT: undefined }],
     ['sin proyecto esperado', { C2_EXPECTED_PROJECT: undefined }],
+    ['sin modo (C2_MODE)', { C2_MODE: undefined }],
+    ['modo desconocido', { C2_MODE: 'produccion' }],
+    ['proyecto distinto', { C2_EXPECTED_PROJECT: 'otro-proyecto-12345' }],
+    ['branch distinta', { C2_EXPECTED_BRANCH: 'br-otra-rama-b5abcdef' }],
+    ['endpoint distinto', { C2_EXPECTED_ENDPOINT: 'ep-otro-endpoint-b5abcdef' }],
     ['identidad esperada = rama original (branch)', { C2_EXPECTED_BRANCH: ORIGINAL_BRANCH.branch }],
     ['identidad esperada = rama original (endpoint)', { C2_EXPECTED_ENDPOINT: ORIGINAL_BRANCH.endpoint }],
-    ['identidad con formato inválido', { C2_EXPECTED_ENDPOINT: 'ep-x; drop' }],
     ['DATABASE_URL ausente', { DATABASE_URL: undefined }],
     ['DATABASE_URL inválida', { DATABASE_URL: 'no-es-url' }],
-    ['DATABASE_URL de la rama original', { DATABASE_URL: `postgresql://rol:clave@${ORIGINAL_BRANCH.endpoint}.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require` }],
-    ['DATABASE_URL de otro endpoint', { DATABASE_URL: 'postgresql://rol:clave@ep-otro-endpoint-123.c-2.us-east-2.aws.neon.tech/neondb' }],
+    ['DATABASE_URL de la rama original', { DATABASE_URL: `postgresql://rol:clave@${ORIGINAL_BRANCH.endpoint}.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require` }],
+    ['DATABASE_URL de otro endpoint', { DATABASE_URL: 'postgresql://rol:clave@ep-otro-endpoint-123.c-7.us-east-2.aws.neon.tech/neondb' }],
+    ['pooler en modo concurrency', { C2_MODE: 'concurrency', DATABASE_URL: POOLER_URL }],
     ['RESEND_API_KEY sin neutralizar (ausente: dotenv la cargaría del .env)', { RESEND_API_KEY: undefined }],
-    ['R2_SECRET_ACCESS_KEY con valor', { R2_SECRET_ACCESS_KEY: 'valor' }],
+    ['R2_SECRET_ACCESS_KEY con valor fuera del modo r2', { R2_SECRET_ACCESS_KEY: 'valor' }],
+    ['credenciales R2 completas en modo postgres', { ...R2 }],
   ])('[TC-M02-246] rechaza: %s, sin mostrar valores', (_label, overrides) => {
-    const error = (() => {
-      try {
-        assertC2BranchTarget(env(overrides));
-        return null;
-      } catch (e) {
-        return e;
-      }
-    })();
+    const error = errorOf(() => assertC2BranchTarget(env(overrides)));
     expect(error).toBeInstanceOf(C2TargetError);
-    expect((error as Error).message).not.toMatch(/clave|rol:|postgresql|neon\.tech|valor/);
+    expect(error!.message).not.toMatch(SECRET_PATTERN);
+  });
+
+  it('[TC-M03-277] concurrency acepta la conexión directa al endpoint aprobado', () => {
+    expect(assertC2BranchTarget(env({ C2_MODE: 'concurrency' }))).toEqual({ branch: BRANCH, endpoint: ENDPOINT });
+  });
+});
+
+describe('assertC2R2Target (bucket exclusivo de C2)', () => {
+  it('[TC-M03-278] acepta solo R2_BUCKET_NAME === C2_EXPECTED_BUCKET === pei-docs-c2-test en modo r2', () => {
+    expect(assertC2R2Target(env({ C2_MODE: 'r2', ...R2 }))).toEqual({ bucket: 'pei-docs-c2-test' });
+    expect(() => assertC2BranchTarget(env({ C2_MODE: 'r2', ...R2 }))).not.toThrow();
+  });
+
+  it.each([
+    ['bucket distinto', { R2_BUCKET_NAME: 'pei-docs' }],
+    ['bucket esperado distinto (aunque coincidan entre sí)', { R2_BUCKET_NAME: 'pei-docs', C2_EXPECTED_BUCKET: 'pei-docs' }],
+    ['C2_EXPECTED_BUCKET ausente', { C2_EXPECTED_BUCKET: undefined }],
+    ['credenciales incompletas', { R2_SECRET_ACCESS_KEY: '' }],
+    ['modo distinto de r2', { C2_MODE: 'postgres' }],
+  ])('[TC-M03-279] rechaza: %s, sin mostrar valores', (_label, overrides) => {
+    const error = errorOf(() => assertC2R2Target(env({ C2_MODE: 'r2', ...R2, ...overrides })));
+    expect(error).toBeInstanceOf(C2TargetError);
+    expect(error!.message).not.toMatch(SECRET_PATTERN);
+  });
+});
+
+describe('Configuraciones de Jest de C2 (c2-mode-setup)', () => {
+  it('[TC-M03-280] jest-concurrency exige C2_MODE=concurrency y conexión directa; jest-r2 exige el modo y el bucket de C2', () => {
+    expect(() => assertJestConfigMode('concurrency', env({ C2_MODE: 'concurrency' }))).not.toThrow();
+    expect(() => assertJestConfigMode('concurrency', env({ C2_MODE: 'postgres' }))).toThrow(C2TargetError);
+    expect(() => assertJestConfigMode('concurrency', env({ C2_MODE: 'concurrency', DATABASE_URL: POOLER_URL }))).toThrow(C2TargetError);
+    expect(() => assertJestConfigMode('r2', env({ C2_MODE: 'r2', ...R2 }))).not.toThrow();
+    expect(() => assertJestConfigMode('r2', env({ C2_MODE: 'r2', ...R2, R2_BUCKET_NAME: 'otro' }))).toThrow(C2TargetError);
+  });
+});
+
+describe('verifyNeonRuntimeIdentity (identidad real por neon.*)', () => {
+  const settings = (overrides: Record<string, string | null> = {}) => {
+    const values: Record<string, string | null> = { 'neon.project_id': PROJECT, 'neon.branch_id': BRANCH, 'neon.endpoint_id': ENDPOINT, ...overrides };
+    return async (name: string) => values[name] ?? null;
+  };
+
+  it('[TC-M03-281] acepta la conexión cuyos neon.project_id, neon.branch_id y neon.endpoint_id son los aprobados', async () => {
+    await expect(verifyNeonRuntimeIdentity(settings())).resolves.toEqual(C2_TARGET);
+  });
+
+  it.each([
+    ['proyecto real distinto', { 'neon.project_id': 'otro-proyecto-12345' }],
+    ['rama real distinta', { 'neon.branch_id': 'br-otra-rama-b5abcdef' }],
+    ['rama real = production', { 'neon.branch_id': ORIGINAL_BRANCH.branch }],
+    ['endpoint real = production', { 'neon.endpoint_id': ORIGINAL_BRANCH.endpoint }],
+    ['sin parámetros neon.*', { 'neon.project_id': null }],
+  ])('[TC-M03-281] rechaza: %s', async (_label, overrides) => {
+    await expect(verifyNeonRuntimeIdentity(settings(overrides))).rejects.toBeInstanceOf(C2TargetError);
   });
 });
 

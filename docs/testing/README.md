@@ -47,6 +47,24 @@ Un caso con `it.each` tiene varias ejecuciones; su resultado es FAIL si alguna f
 
 Los resultados se toman solo de la salida de Jest. Un caso omitido o una suite que no pudo ejecutarse aparece como **NO EJECUTADA**.
 
+## Salvaguarda de destino C2 e incompatibilidades temporales
+
+`test/support/c2-target-guard.ts` (`assertC2BranchTarget`) exige `C2_MODE` (`postgres`, `concurrency`, `r2` o `auth`) y
+un único destino aprobado, `C2_TARGET`: proyecto `royal-paper-10258990`, rama `br-shy-pond-b50a3m8f`, endpoint
+`ep-withered-block-b5e8v9ov`. Cualquier otra rama, aunque tenga un formato válido, se rechaza al cargar el spec y sin
+conexiones. La única marca aprobada para datos confirmados es `C2_PERSISTENT_FIXTURES` (`c2-persistent-accepted`).
+
+Desde esta salvaguarda (2026-11-08), dos grupos de pruebas versionadas son **temporalmente incompatibles**. No están
+retiradas: se conservan sin cambios y quedan pendientes de una integración futura con un destino y un modo autorizados.
+
+| Pruebas | Qué esperan | Por qué no se ejecutan ahora |
+|---|---|---|
+| `test/flujo/**/*.flow-spec.ts` (`flow-guard.ts`) | Rama `br-floral-mode-b5hqaix0` / `ep-cool-base-b55xjarv` y `C2_COMMITTED_FIXTURES=flujo-medicos-accepted` | La salvaguarda solo admite `C2_TARGET` y no existe un modo de flujo |
+| `test/concurrency/legal-publication.conc-spec.ts` | Una rama desechable con `C2_COMMITTED_FIXTURES=disposable-branch` | La salvaguarda solo admite `C2_TARGET` y esa marca no está autorizada |
+
+Ninguno de los dos forma parte de `pnpm test`, así que la incompatibilidad solo impide ejecutarlos contra Neon. Las
+comprobaciones puras de `test/flujo/*.spec.ts` siguen en la suite unitaria.
+
 ## Matrices de trazabilidad por módulo
 
 - [M00 Fundaciones](trazabilidad/M00-fundaciones.md)
