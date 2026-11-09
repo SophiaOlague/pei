@@ -356,9 +356,31 @@ con la reserva, las columnas de `appointment` y la migración `0014` siguen sin 
 | TC-M02-255 | `test/support/booking-legal-acceptance-in-memory.spec.ts` | El doble devuelve las dos aceptaciones con el id que asignó `recordAcceptances` |
 | TC-M02-256 | ídem | El doble devuelve `null` sin aceptación completa, con una versión nueva no aceptada, para otro rol y para un perfil inexistente |
 
-**Sin ejecutar.** El adaptador Drizzle no tiene todavía una prueba de integración contra PostgreSQL (régimen actual y
-régimen anterior en C2, revertida); requiere una autorización aparte. En el doble, una aceptación insertada a mano sin
-`id` cuenta como inexistente (falla cerrado).
+En el doble, una aceptación insertada a mano sin `id` cuenta como inexistente (falla cerrado).
+
+**Integración contra PostgreSQL** (`test/integration/booking-legal-acceptance.int-spec.ts`, modo `postgres` de C2). Cada
+prueba va dentro de `withRollback` y publica sus propios documentos sintéticos (versión `testTag()`, `published_at`
+poco antes del inicio de la transacción): son los vigentes solo dentro de ella. No modifica documentos existentes y
+`afterAll` comprueba los recuentos de M00 y M02.
+
+**Ejecución (2026-11-09):** `pnpm c2 run postgres test/integration/booking-legal-acceptance.int-spec.ts`, `C2_RUN_ID` `c2-20261109030103-0bd7`, destino `royal-paper-10258990` / `br-shy-pond-b50a3m8f` / `ep-withered-block-b5e8v9ov` (identidad real verificada por el lanzador). Commit `2daebe7c` con cambios sin commit (el spec, la línea de inventario y esta documentación). Resultado: **4 aprobadas, 1 omitida**; `run.json` con estado `completed` y código 0. Rollback: todas las pruebas en `withRollback`; `afterAll` comprobó que los recuentos de `countM00Residue` y `countM02Residue` son idénticos antes y después (los valores absolutos no quedan en el paquete). Sin residuo. Paquete: `C:\pei-c2-evidencias\2026-11-09\c2-20261109030103-0bd7\`; SHA-256 de `SHA256SUMS`: `6cd6416b0d06fb716547eb09229c6fa8691c222407b1d2aa2efb95b564cd2432`.
+
+| Caso | Qué comprueba | Estado |
+|---|---|---|
+| TC-M02-257 | Régimen actual: `privacy_policy` y `patient_terms` con los ids de sus filas de `user_legal_acceptance` y sus versiones | Aprobado (`c2-20261109030103-0bd7`) |
+| TC-M02-258 | Régimen anterior: `privacy_notice` y `terms_and_conditions` | **PENDIENTE DE ENTORNO**: omitido (`skipped`) en `c2-20261109030103-0bd7`, no ejecutado (ver abajo) |
+| TC-M02-259 | Falta una de las dos aceptaciones: `null` | Aprobado (`c2-20261109030103-0bd7`) |
+| TC-M02-260 | Versión nueva de `patient_terms` publicada sin aceptar: `null` | Aprobado (`c2-20261109030103-0bd7`) |
+| TC-M02-261 | Perfil inexistente o de médico con los dos documentos aceptados: `null` | Aprobado (`c2-20261109030103-0bd7`) |
+
+**TC-M02-258, pendiente de entorno.** El régimen anterior solo rige si la rama no tiene vigente el régimen actual
+completo (`privacy_policy` y `patient_terms`). Los documentos legales son de solo inserción: no se pueden retirar ni
+despublicar, y la rama C2 persistente puede tener ya el régimen actual, así que la precondición no está garantizada en C2.
+Jest no permite omitir una prueba según una lectura de la BD hecha durante la ejecución, por lo que el caso está omitido
+de forma estática (`it.skip`): Jest lo informa como **skipped**, no como aprobado ni como fallido, y no hay resultado que
+registrar. Se conserva completo para validarlo en una base desechable o una rama aislada preparada con el régimen
+anterior, cambiando `it.skip` por `it` en una revisión explícita. Su primera aserción comprueba la precondición dentro de
+la transacción y falla con un mensaje claro si no se cumple.
 
 ## Infraestructura real
 

@@ -139,6 +139,7 @@ const GUARDED_DB_SPECS = [
   'test/integration/appointments.int-spec.ts',
   'test/integration/admin-bootstrap-better-auth.int-spec.ts',
   'test/integration/audit-trail.int-spec.ts',
+  'test/integration/booking-legal-acceptance.int-spec.ts',
   'test/integration/concurrency.int-spec.ts',
   'test/integration/curp-user-profile.int-spec.ts',
   'test/integration/doctors.int-spec.ts',
