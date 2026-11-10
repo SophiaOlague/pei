@@ -1,8 +1,13 @@
-# M08 Citas médicas: diseño técnico (v3; implementación parcial sin commit)
+# M08 Citas médicas: diseño técnico (v3; implementado y cerrado con dependencias externas)
 
-Estado: **borrador para revisión** (2026-11-07). No hay código, migraciones ni commits. Ninguna decisión de este documento
-está aprobada. La fuente normativa es el Documento Maestro V2.4 (versión 2026-10-28). Este documento no lo modifica: las
-discrepancias se proponen como control de cambios en la sección 13.
+Estado (2026-11-10): **CERRADO CON DEPENDENCIAS EXTERNAS** (dictamen y matriz en A.24). El alcance de M08 está
+implementado y versionado (rama `feat/m07-agenda`, hasta `a79a4b5`), con 0013–0016 aplicadas en C2 y en desarrollo y
+evidencia contra PostgreSQL en C2. Las decisiones aprobadas están en A.0.
+
+> Estado original (2026-11-07), conservado como historia: «**borrador para revisión** (2026-11-07). No hay código,
+> migraciones ni commits. Ninguna decisión de este documento está aprobada. La fuente normativa es el Documento Maestro
+> V2.4 (versión 2026-10-28). Este documento no lo modifica: las discrepancias se proponen como control de cambios en la
+> sección 13.»
 
 El documento tiene dos partes:
 - **Parte A (v3)**: la revisión vigente de CC-1 a CC-9 y de DA-1 a DA-12. Donde contradice a la parte B, prevalece la
@@ -356,10 +361,10 @@ migración.
 |---|---|---|---|---|---|
 | DA-1 | Confirmación solo con pago; bandera que desactiva la reserva en producción; sin ninguna ruta de confirmación sin pago | RF-13, RF-14, RN-008, RN-011, RN-012 | CC-4 | **Aprobada** | AP-16 |
 | DA-2 | Candados y orden único | RF-12, RF-14 | — | **Aprobada** | AP-17 |
-| DA-3 | Fin del bloque guardado en `agenda_block_ends_at`, solo para la ocupación (A.10.2) | RN-022, RN-023, RF-11 | — | **Implementada** (2026-11-09, sin commit; con dobles). O1 solo para citas históricas con el valor nulo, hasta M-1c. Ver A.19 | AP-20 |
+| DA-3 | Fin del bloque guardado en `agenda_block_ends_at`, solo para la ocupación (A.10.2) | RN-022, RN-023, RF-11 | — | **Implementada** (`3f4b612`; NOT NULL y sin O1 desde `9009a5e`, M-1c). Evidencia en C2: B1 (`c2-20261109235307-6c1b`) y reagendamiento (`c2-20261110000243-57bd`). Ver A.19 y A.22 | AP-20 |
 | DA-4 | Sin transiciones automáticas desde `confirmed` en M08 | RF-19, RF-20, RN-024, RN-025 | CC-2 | **Aprobada** (la parte de M08). Las ventanas: fuera de alcance (videoconsulta) | AP-20 |
 | DA-5 | Filtrar los ocupados sin tocar M07 | RF-11, RF-12 | — | **Aprobada** | AP-17 |
-| DA-6 | Reagendamiento con `rescheduled`; el pago queda en la cita raíz | RF-12, RN-015, RN-017, RN-018, RF-46 | CC-3 (C-25) | **Implementada** (2026-11-09, sin commit; validada con dobles, sin prueba en C2). Ver A.18 | AP-7 |
+| DA-6 | Reagendamiento con `rescheduled`; el pago queda en la cita raíz | RF-12, RN-015, RN-017, RN-018, RF-46 | CC-3 (C-25) | **Implementada** (`b8673c6`) y probada en C2 (`c2-20261110000243-57bd`, 5/5). Ver A.18 | AP-7 |
 | DA-7 | Contador por la cadena | RN-017 | — | **Aprobada** | AP-17 |
 | DA-8 | Un solo plazo (`refund_deadline_hours` de la versión aplicada) para reembolso y reagendamiento | RN-016, RN-019, RF-16 | CC-1 | **Aprobada** | AP-4, AP-20 |
 | DA-9 | Vencimiento perezoso; tres situaciones distintas | RF-14, RN-009, RN-010, RN-012 | CC-4 | **Aprobada** (el barrido programado, fuera de alcance) | AP-17 |
@@ -949,7 +954,7 @@ comprobación justo antes de ejecutar M-1 y en la rama C2.
 | Contratos existentes | **Ninguno cambia**: `CanBookAppointmentsPolicy`, `RegistrationStatusReader` y los endpoints de M02 quedan igual. Es un cambio aditivo (un puerto, un adaptador, un export y un método del doble de pruebas) |
 | Riesgo | Bajo: solo lectura. El caso límite es una aceptación revocada por una versión nueva publicada entre la política y la lectura; dentro de la misma transacción se ven datos coherentes, y si no hay aceptación válida, la reserva se rechaza |
 
-### A.12.5 Lo implementado en esta etapa (sin commit)
+### A.12.5 Lo implementado en esta etapa (sin commit en ese momento; después `7a730ba`)
 
 Se implementó todo lo que no depende de M-1:
 - el dominio;
@@ -1420,7 +1425,8 @@ para RN-140; no exige aceptar una versión legal publicada después de la reserv
 
 ## A.18 Reagendamiento por el paciente (DA-6, DA-7, DA-8, AP-7, AP-9, AP-26; 2026-11-09)
 
-**Estado:** implementado sin commit; validado con dobles (TC-M08-370 a 381). Sin prueba contra PostgreSQL.
+**Estado:** implementado (`b8673c6`); validado con dobles (TC-M08-370 a 381) y contra PostgreSQL en C2
+(TC-M08-420 a 424, `c2-20261110000243-57bd`, 5/5, `a79a4b5`).
 
 Decisiones confirmadas por el responsable del proyecto (2026-11-09):
 
@@ -1438,17 +1444,21 @@ Decisiones confirmadas por el responsable del proyecto (2026-11-09):
 Transacción única: candados `FOR UPDATE` médico → paciente → cita (DA-2); `confirmed` exigido (otro estado, 409; un
 segundo reagendamiento simultáneo encuentra la original cerrada); validaciones; `confirmed → rescheduled`; comprobación
 del nuevo horario; inserción de la nueva; auditoría. Cualquier fallo revierte todo. La nueva guarda
-`agenda_block_ends_at` con la duración vigente del médico al reagendar (A.19). Pendiente: prueba de integración en C2 y
-el contrato de pagos `rootOf` (sin módulo de pagos todavía).
+`agenda_block_ends_at` con la duración vigente del médico al reagendar (A.19). ~~Pendiente: prueba de integración en C2 y
+el contrato de pagos `rootOf` (sin módulo de pagos todavía).~~ **Actualización (2026-11-10):** prueba de integración en C2
+aprobada (TC-M08-420 a 424, `c2-20261110000243-57bd`); contrato `rootOf` implementado (`81123fe`, A.20); la
+integración real con pagos es una dependencia externa (A.24.3).
 
 ## A.19 Fin del bloque de agenda y parámetros de espera (DA-3, AP-22, AP-23; 2026-11-09)
 
-**Estado:** implementado sin commit; validado con dobles (TC-M08-015, 017, 018, 382 a 387). Sin prueba contra
-PostgreSQL. No cambia el esquema (todo existe desde 0013).
+**Estado:** implementado (`3f4b612`; fallback O1 retirado en `9009a5e`); validado con dobles (TC-M08-015, 017, 018, 382
+a 387) y contra PostgreSQL en C2: B1 (`c2-20261109235307-6c1b`, 15/15: la reserva escribe el fin del bloque y la política con L y
+G) y reagendamiento (`c2-20261110000243-57bd`, TC-M08-420). No cambia el esquema (todo existe desde 0013).
 
 - **Fin del bloque (DA-3, AP-23):** la reserva y el reagendamiento guardan `agenda_block_ends_at = inicio + duración
   del médico vigente en ese momento`. La ocupación del médico y los cruces del paciente usan el valor guardado
-  (`blockOf`); la fórmula O1 (inicio + duración actual) queda solo para las citas históricas con el valor nulo. El fin
+  (`blockOf`); la fórmula O1 (inicio + duración actual) quedaba solo para las citas históricas con el valor nulo
+  (retirada en M-1c, `9009a5e`: A.22). El fin
   del bloque no se expone en las vistas ni en `getForSession` (nunca es un límite de la videoconsulta).
 - **Parámetros de espera (AP-22):** `PolicyParameters`, la vista, la auditoría de publicación, el repositorio y el DTO
   de `POST /admin/appointment-policy/versions` incluyen `maxProtectedWaitMinutes` (L) y `reconnectGraceMinutes` (G).
@@ -1461,8 +1471,8 @@ PostgreSQL. No cambia el esquema (todo existe desde 0013).
 
 ## A.20 Contrato con pagos para citas reagendadas (DA-6, RN-018; 2026-11-09)
 
-**Contrato implementado** (sin commit; validado con dobles, TC-M08-390 a 395). **Integración real con pagos:
-pendiente** de que exista el módulo de pagos, que es el consumidor.
+**Contrato implementado** (`81123fe`; validado con dobles, TC-M08-390 a 395). **Integración real con pagos:
+dependencia externa** (el módulo de pagos, consumidor del contrato, no existe; regla AP-27).
 
 | Contrato | Firma | Dónde | Quién lo implementa |
 |---|---|---|---|
@@ -1516,8 +1526,8 @@ pendiente** de que exista el módulo de pagos, que es el consumidor.
 
 ## A.21 Eventos de dominio de la cita (RF-51; 2026-11-09)
 
-**Contrato y emisión implementados** (sin commit; validados con dobles y con `DrizzleUnitOfWork` sobre una transacción
-falsa). **Integración con notificaciones: pendiente** de que exista el módulo consumidor.
+**Contrato y emisión implementados** (`3b907eb`; validados con dobles y con `DrizzleUnitOfWork` sobre una transacción
+falsa). **Integración con notificaciones: dependencia externa** (no existe el módulo consumidor).
 
 | Evento | Se emite en | Datos además de `appointmentId`, `patientProfileId`, `doctorProfileId`, `occurredAt` |
 |---|---|---|
@@ -1565,7 +1575,8 @@ falsa). **Integración con notificaciones: pendiente** de que exista el módulo 
   `occupancyOf` solo calcula el bloque de una cita nueva.
 - **C2:** las dos citas nulas (fixtures de B2 de `c2-20261108223410-be9f`) recibieron `scheduled_at + 30 min`, la
   duración por omisión de `doctor_profile` (0000) para médicos creados por el spec, sin `agenda.duration.changed`
-  (comprobado); `precheck.sql` devolvió 0 filas. `scripts/c2-migrate-core.ts` autoriza 0015 (exige 0013 y 0014).
+  (comprobado); `precheck.sql` devolvió 0 filas. `scripts/c2-migrate-core.ts` autoriza 0015 y 0016 y aplica una por
+  ejecución (`9fb470b`); ambas están aplicadas en C2 (A.23.1).
 - **Hasta aplicar 0015 en un entorno, el código declara una columna NOT NULL que allí admite nulos:** los INSERT
   funcionan (siempre escriben el valor), pero una fila nula leída tendría `null` donde el tipo dice `Date`. En C2 no
   queda ninguna; en un entorno nuevo, 0013 rellena todas las filas al aplicarse.
@@ -1629,6 +1640,66 @@ aplica solo la siguiente pendiente). 0000–0013 ya estaban registradas (0013 de
 - La identidad se comprobó antes de planear y otra vez justo antes de escribir en cada `--apply`.
 - No se ejecutaron pruebas contra desarrollo. El catálogo posterior a 0016 (L y G sin DEFAULT) no está registrado: la
   consulta de solo lectura corresponde a la responsable.
+
+## A.24 Cierre de M08 (2026-11-10)
+
+**Dictamen: CERRADO CON DEPENDENCIAS EXTERNAS.** El alcance de M08 (sección 1) está implementado y versionado, las
+migraciones 0013–0016 están aplicadas en C2 y en desarrollo (A.23), y el flujo principal y el reagendamiento tienen
+evidencia contra PostgreSQL real en C2 con el código de `96f816f`. Lo que queda depende de módulos que no existen o está
+fuera del alcance por decisión.
+
+### A.24.1 Evidencia final contra PostgreSQL (C2)
+
+| Suite | Resultado | Evidencia | HEAD | Notas |
+|---|---|---|---|---|
+| B1 `appointments.int-spec.ts` (TC-M08-200 a 240 y 214) | **15/15** | `c2-20261109235307-6c1b` (SHA256SUMS `cec269a44b2c1da0997fb6b92d9c0daf663bd961dca215d7cde3400f21fcac76`) | `96f816f` | Todo en `withRollback`; `afterAll` sin diferencias en los conteos de M08 |
+| DA-6 `appointments-reschedule.int-spec.ts` (TC-M08-420 a 424) | **5/5** | `c2-20261110000243-57bd` (SHA256SUMS `39cfadaf0c0d1a9f40728d2965ff838739f79cd6edca4a59882591e254ef177a`) | `96f816f` (spec añadido después en `a79a4b5`) | Todo en `withRollback`; `afterAll` sin diferencias en los conteos de M08 |
+| `m08-m1-schema.int-spec.ts` (TC-M08-310 a 319) | 10/10 | `c2-20261109220007-beb8` | `9fb470b` + corrección luego en `05f0aa5` | Con 0015 aplicada; huella del esquema intacta |
+| `m08-0014-verify.int-spec.ts` (TC-M08-366, 214) | 2/2 | `c2-20261109140840-9cd4` | `41e07a5` | Catálogo de 0014 |
+
+En ambas ejecuciones de `96f816f` el árbol de trabajo tenía cambios ajenos sin commit; el único que forma parte del
+código ejecutado (`appointments/infrastructure/adapters.ts`) solo difiere en un comentario. Los specs de la segunda fila
+se ejecutaron desde el árbol de trabajo y se versionaron después, sin cambios, en `a79a4b5`.
+
+### A.24.2 Matriz de cumplimiento
+
+| Requisito / decisión | Implementación | Pruebas | Evidencia PostgreSQL | Estado |
+|---|---|---|---|---|
+| RF-12 reservar; RF-14 retención y vencimiento (DA-1, DA-2, DA-9) | `booking.use-cases.ts` | TC-M08-0xx, 1xx, 210–213 | B1 | Implementado y probado |
+| RF-12 / AP-26 / C-32 dos aceptaciones legales | `booking-legal-acceptances.adapter.ts`, 0014 | TC-M08-360–366, 214, 317–319 | B1, `c2-20261109140840-9cd4`, `beb8` | Implementado y probado |
+| RF-15 cancelación del paciente y del médico (DX-1) | `cancellation.use-cases.ts` | TC-M08-230–233 | B1 | Implementado y probado |
+| RF-16 / RF-66 precio y política versionados (DA-10a, DA-10b) | `configuration.use-cases.ts` | TC-M08-200–202, 314 | B1, `beb8` | Implementado y probado |
+| AP-22 parámetros de espera L y G | `cancellation-policy.ts`, 0016 | TC-M08-017, 386, 387, 240 | B1 | Implementado y probado |
+| DA-3 / AP-23 / M-1c fin del bloque persistido | `occupancy.ts`, repositorio, 0015 | TC-M08-018, 382–385, 420, 424 | B1, reagendamiento | Implementado y probado |
+| DA-6 / DA-7 / DA-8 / C-25 reagendamiento | `reschedule.use-cases.ts` | TC-M08-370–381, 420–424 | reagendamiento | Implementado y probado |
+| CC-9 contrato con videoconsulta (`getForSession`, `markCompleted`, `markNoShow`) | `appointment-integration.services.ts` | TC-M08-240, 387 | B1 | Contrato implementado; integración externa |
+| RF-51 eventos tras el COMMIT | `appointment-events.ts`, `AFTER_COMMIT` | TC-M08-400–408, TC-M00-024–026 | — (dobles y transacción falsa) | Contrato implementado; integración externa |
+| RF-46 / DA-6 / AP-27 pago de la raíz | `appointment-chain.services.ts` | TC-M08-390–395 | — | Contrato implementado; integración externa |
+| Integración con M03 (`canOperate`, D-38) | `PolicyBookingEligibility` | TC-M08-213, 232 | B1 | Implementado y probado |
+| Migraciones 0013–0016 | `src/db/migrations`, `c2-migrate`, `dev-migrate` | TC-M08-300–336, TC-DEV-001–014, RT-M08-07–10 | C2 y desarrollo (A.23) | Aplicadas en ambos entornos |
+
+### A.24.3 Dependencias externas (no bloquean el cierre de M08)
+
+| Dependencia | Qué aporta M08 | Qué falta, y dónde |
+|---|---|---|
+| Pagos (RF-13, RF-46) | `confirmPaid`, `markPaymentFailed`, `AppointmentChainService.rootOf`, `PaymentLedgerPort` / `RootResolvingPaymentLedger`, regla AP-27 | Módulo de pagos: `RootPaymentLookup`, PaymentIntent, webhooks y reembolsos |
+| Notificaciones (RF-51) | Eventos `AppointmentConfirmed/Canceled/Rescheduled/Expired` y `AppointmentEventSubscribers` | Módulo de notificaciones (suscriptor); outbox durable, con autorización |
+| Videoconsulta y sala de espera (RF-18 a RF-22, CC-2, CC-9) | `AppointmentSessionService` con W, Tol, L y G | Módulo de videoconsulta (sala, admisión, inasistencias, E14) |
+
+### A.24.4 Fuera de alcance por decisión
+
+DX-2 cancelación administrativa (AP-14); corrección administrativa de inasistencias, RN-027 (A.9.5); barrido programado
+de retenciones (DA-9, AP-17); RF-17 cita de emergencia.
+
+### A.24.5 Limitaciones de la evidencia (sin bloquear el cierre)
+
+- B2 (`appointments.conc-spec.ts`, TC-M08-250 a 252) se ejecutó por última vez en `67f266d`
+  (`c2-20261108223410-be9f`); no se repitió con el código actual porque confirma datos (`c2-persistent-accepted`).
+- Los eventos (RF-51) y el contrato de pagos solo tienen pruebas con dobles: no hay consumidor real.
+- No hay prueba de reagendamiento concurrente con dos conexiones reales.
+- Catálogo tras 0016 (L y G sin DEFAULT) en C2 y en desarrollo: deducido de que 0016 se aplicó, sin consulta registrada.
+- Los límites de L (480) y G (239) son técnicos, pendientes de confirmación de negocio.
+- No se ejecutaron pruebas contra desarrollo.
 
 ## 1. Alcance y límites
 

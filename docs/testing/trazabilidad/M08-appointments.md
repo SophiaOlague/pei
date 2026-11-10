@@ -1,9 +1,23 @@
 # M08 Citas — evidencia de pruebas contra PostgreSQL (C2)
 
 Diseño y decisiones: [M08-diseno](../../arquitectura/M08-diseno.md) (A.13–A.16 para M-1).
-Estado: etapa 1 de M08 y M-1 partes A (`0013`) y B (`0014`, AP-26) aplicadas en C2. Reservas reales DESACTIVADAS
-(`APPOINTMENTS_BOOKING_ENABLED` sin definir). 0014, 0015 y 0016 aplicadas en C2 y en desarrollo (2026-11-09,
-M08-diseno A.23); el cambio 6 NO aplicado.
+Estado (2026-11-10): **M08 CERRADO CON DEPENDENCIAS EXTERNAS** (M08-diseno A.24). 0013–0016 aplicadas en C2 y en
+desarrollo (A.23); el cambio 6 NO aplicado. Reservas reales DESACTIVADAS (`APPOINTMENTS_BOOKING_ENABLED` sin definir).
+
+## Evidencia final contra PostgreSQL (C2, 2026-11-09/10)
+
+| Suite | Resultado | C2_RUN_ID | SHA-256 de `SHA256SUMS` | HEAD |
+|---|---|---|---|---|
+| B1 `appointments.int-spec.ts` (TC-M08-200 a 240 y 214) | **15/15** | `c2-20261109235307-6c1b` | `cec269a44b2c1da0997fb6b92d9c0daf663bd961dca215d7cde3400f21fcac76` | `96f816f` |
+| DA-6 `appointments-reschedule.int-spec.ts` (TC-M08-420 a 424) | **5/5** | `c2-20261110000243-57bd` | `39cfadaf0c0d1a9f40728d2965ff838739f79cd6edca4a59882591e254ef177a` | `96f816f` (spec versionado en `a79a4b5`) |
+
+- Ejecutadas contra PostgreSQL real en C2 (`royal-paper-10258990` / `br-shy-pond-b50a3m8f` /
+  `ep-withered-block-b5e8v9ov`, preflight del lanzador). Cada prueba dentro de `withRollback` (transacción terminada en
+  ROLLBACK); `afterAll` comparó los conteos de `appointment`, `appointment_status_history`,
+  `consultation_price_configuration` y `cancellation_policy`, sin diferencias.
+- El árbol de trabajo tenía cambios ajenos sin commit; del código ejecutado, solo `adapters.ts` difiere de `96f816f`, y
+  solo en un comentario. `a79a4b5` versiona el spec de reagendamiento y la dependencia `reschedule` de
+  `appointments-integration.ts` tal como se ejecutaron.
 
 **Estado de `0014` (AP-26), tres niveles distintos:**
 
@@ -151,7 +165,8 @@ no quedó aplicada. Los recuentos de datos **no se midieron**: los specs compara
 
 ## Reagendamiento por el paciente (DA-6, AP-7, 2026-11-09)
 
-Implementado sin commit; validado **solo con dobles** (unitarias y E2E). Sin prueba contra PostgreSQL.
+Implementado (`b8673c6`); validado con dobles (unitarias y E2E) y contra PostgreSQL en C2 (TC-M08-420 a 424,
+`c2-20261110000243-57bd`, 5/5).
 
 - Caso de uso `RescheduleByPatientUseCase` (`application/use-cases/reschedule.use-cases.ts`), reglas en
   `domain/reschedule-rules.ts`; ruta `POST /me/patient/appointments/:id/reschedule`, cuerpo `{ startsAt }`, solo
@@ -165,26 +180,29 @@ Implementado sin commit; validado **solo con dobles** (unitarias y E2E). Sin pru
   inválido o reservas desactivadas 422; mismo horario o DTO inválido 400.
 - Auditoría `appointment.status.rescheduled` sobre la cita nueva, con `{ fromId, toId, rootId, n }` (el nombre
   `appointment.rescheduled` no cumple la convención de tres segmentos del módulo de auditoría; aceptado 2026-11-09).
-- Pendiente: prueba de integración en C2 (el trigger de `0014` con referencias copiadas, la guarda
-  `confirmed → rescheduled` y la ocupación real), con autorización aparte.
+- ~~Pendiente: prueba de integración en C2 (el trigger de `0014` con referencias copiadas, la guarda
+  `confirmed → rescheduled` y la ocupación real), con autorización aparte.~~ **Resuelto (2026-11-10):** TC-M08-420 a 424,
+  `c2-20261110000243-57bd`, 5/5.
 
 ## Fin del bloque de agenda y parámetros de espera (DA-3, AP-22, AP-23, 2026-11-09)
 
-Implementado sin commit; validado **solo con dobles**. Sin prueba contra PostgreSQL. Detalle en M08-diseno A.19.
+Implementado (`3f4b612`; sin O1 desde `9009a5e`). Validado con dobles y contra PostgreSQL en C2 por B1
+(`c2-20261109235307-6c1b`) y el reagendamiento (`c2-20261110000243-57bd`). Detalle en M08-diseno A.19.
 
 - La reserva y el reagendamiento guardan `agenda_block_ends_at` con la duración vigente del médico; la ocupación usa el
-  valor guardado y O1 solo para las citas históricas con el valor nulo.
+  valor guardado y O1 solo para las citas históricas con el valor nulo (O1 retirado en M-1c, `9009a5e`).
 - La política incluye L (`maxProtectedWaitMinutes`, por omisión 60) y G (`reconnectGraceMinutes`, por omisión 5), con
   la misma validación que `cancellation_policy_windows_chk`; `getForSession` devuelve W, Tol, L y G.
 - Los rangos L de 1 a 480 y G de 1 a 239 son **límites técnicos propuestos, pendientes de confirmación de negocio**.
-- Pendiente: M-1c y la prueba de integración en C2.
+- ~~Pendiente: M-1c y la prueba de integración en C2.~~ **Resuelto (2026-11-10):** M-1c (0015, 0016) aplicada en C2 y
+  en desarrollo; B1 15/15 en `c2-20261109235307-6c1b`.
 
 ## Contrato con pagos para citas reagendadas (DA-6, 2026-11-09)
 
-- **Contrato implementado** (sin commit; solo con dobles): `AppointmentChainService.rootOf(appointmentId)` y
+- **Contrato implementado** (`81123fe`; solo con dobles): `AppointmentChainService.rootOf(appointmentId)` y
   `PaymentLedgerPort.paymentForAppointment(appointmentId)` mediante `RootResolvingPaymentLedger` (raíz con `rootOf`,
   pago con `RootPaymentLookup`). Detalle en M08-diseno A.20.
-- **Integración real con pagos: pendiente**; el módulo de pagos no existe. `RootPaymentLookup` solo tiene un doble de
+- **Integración real con pagos: dependencia externa** (M08-diseno A.24.3); el módulo de pagos no existe. `RootPaymentLookup` solo tiene un doble de
   prueba. Sin tablas, migraciones ni cambios de esquema.
 - **Revisión RF-46 (2026-11-09):** confirmado que `src/modules/payments` está vacío y que ningún código usa la tabla
   `payment`. No se implementó el adaptador; la lista de lo que falta está en M08-diseno A.20.
@@ -200,10 +218,10 @@ Implementado sin commit; validado **solo con dobles**. Sin prueba contra Postgre
 
 ## Eventos de dominio de la cita (RF-51, 2026-11-09)
 
-- **Contrato y emisión implementados** (sin commit): `AppointmentConfirmed`, `AppointmentCanceled`,
+- **Contrato y emisión implementados** (`3b907eb`): `AppointmentConfirmed`, `AppointmentCanceled`,
   `AppointmentRescheduled` y `AppointmentExpired`, publicados solo después del COMMIT (`AFTER_COMMIT`, implementado por
   `DrizzleUnitOfWork`). Detalle en M08-diseno A.21.
-- **Integración con notificaciones: pendiente**; no hay suscriptores todavía. Sin tablas ni migraciones (sin outbox).
+- **Integración con notificaciones: dependencia externa** (no hay módulo suscriptor). Sin tablas ni migraciones (sin outbox).
 - Validación solo con dobles y con una transacción falsa; sin prueba contra PostgreSQL.
 
 ## M-1c: `agenda_block_ends_at` NOT NULL (2026-11-09)
@@ -255,13 +273,13 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 
 | Casos | Spec | Requiere |
 |---|---|---|
-| TC-M08-200 a 240 (14) | `appointments.int-spec.ts` | 0013 en C2 (TC-M08-221: la BD impide `expired → *` y `confirmed → pending_payment/expired`). Desde la preparación de `0014` el spec exige `0014` aplicada |
+| TC-M08-200 a 240 (14) | `appointments.int-spec.ts` | **15/15 con TC-M08-214** en `c2-20261109235307-6c1b` (`96f816f`, 0013–0016 en C2). Antes: en `67f266d` (0013). TC-M08-221: la BD impide `expired → *` y `confirmed → pending_payment/expired` |
 | TC-M08-214 | `appointments.int-spec.ts` y `m08-0014-verify.int-spec.ts` (misma prueba) | **APROBADA** en `c2-20261109140840-9cd4` (desde `m08-0014-verify.int-spec.ts`): la reserva real guarda las dos aceptaciones vigentes del paciente (mismo usuario, pareja del mismo régimen) |
 | TC-M08-366 | `m08-0014-verify.int-spec.ts` | **APROBADA** en `c2-20261109140840-9cd4`: catálogo de `0014` (columnas, FK, índices, CHECK y trigger), en transacción READ ONLY |
-| TC-M08-250 a 252 (3) | `appointments.conc-spec.ts` | 0013 en C2 |
+| TC-M08-250 a 252 (3) | `appointments.conc-spec.ts` | 3/3 en `c2-20261108223410-be9f` (`67f266d`, 0013 en C2). No repetida con el código actual: confirma datos (`c2-persistent-accepted`) |
 | TC-M08-300 a 306 (7) | `m08-m1-migration.int-spec.ts` | Rama aislada 0000–0012 (modo `migration`): 7/7 en `c2-20261109041826-79f9` |
-| TC-M08-310 a 316 (7) | `m08-m1-schema.int-spec.ts` | 0013 en C2. Adaptadas a `0014` y sin ejecutar: TC-M08-310 exige los hashes de `0014` (última) y `0013`; TC-M08-315 revierte `0014 down` → `0013 down` y reaplica `0013 up` → `0014 up` (exige que no haya citas con referencias, que `0014 down` perdería) |
-| TC-M08-317 a 319 | `m08-m1-schema.int-spec.ts` | NUEVAS, sin ejecutar (`0014` ya está en C2; pendiente de ejecutar el spec): las dos o ninguna e históricas nulas; otro paciente, tipo incorrecto, regímenes mezclados, id inexistente y régimen anterior válido; inmutabilidad |
+| TC-M08-310 a 316 (7) | `m08-m1-schema.int-spec.ts` | **Aprobadas** en `c2-20261109220007-beb8` (con 0015 en C2): TC-M08-310 exige los hashes 0015 → 0014 → 0013; TC-M08-315 revierte 0015 → 0014 → 0013 y reaplica; TC-M08-316 respeta ese orden (corregida en `05f0aa5`). Antes, 8/10 en `c2-20261109214319-41d5` (316 y 318, errores de la prueba) |
+| TC-M08-317 a 319 | `m08-m1-schema.int-spec.ts` | **Aprobadas** en `c2-20261109220007-beb8` (318 corregida en `05f0aa5`): las dos o ninguna e históricas nulas; otro paciente, tipo incorrecto, regímenes mezclados, id inexistente y régimen anterior válido; inmutabilidad |
 | TC-DEV-001 a 014 | `scripts/dev-migrate-core.spec.ts` | Unitarias con dobles, sin conexiones: hashes autorizados (0014–0016); identidad correcta, doble comprobación y pooler → directo; rechazo de C2, sus respaldos, el respaldo de desarrollo, otro proyecto o endpoint; sin `process.env` ni `.env.c2`; secuencia 0014 → 0015 → 0016, una por ejecución; SHA-256 incorrecto; journal desconocido o incoherente; BD sin 0013 o con registros distintos; verificación posterior; carpeta temporal propia |
 | TC-M08-320 a 336 | `scripts/c2-migrate-core.spec.ts` | unitarias, sin conexiones, 33/33 (2026-11-09). Autorizan 0015 y 0016 con su SHA-256 (320); con C2 en 0014 aplica solo 0015 y entrega el journal hasta 0015 (332); después, solo 0016 y luego nada pendiente (333); prefijo exacto (334); sin `--apply` no escribe (335); la CLI usa una carpeta temporal con el journal limitado (336); dos registros nuevos detienen el proceso (330) |
 | TC-M08-307 (5 pruebas) | `m08-m1-part-b.int-spec.ts` | Rama aislada 0000–0012 con `--authorize-part-b 0014`: 4/5 en `c2-20261109042210-b3ee`; 5/5 en `c2-20261109042944-1726` tras ajustar el trigger |
@@ -270,11 +288,12 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 | TC-M08-365 | `test/appointments.e2e-spec.ts` | E2E con dobles: sin aceptaciones vigentes, 403 y sin cita |
 | TC-M08-370 a 380 (15 pruebas) | `src/modules/appointments/application/use-cases/reschedule.use-cases.spec.ts` | Unitarias con dobles, aprobadas (2026-11-09): copia de precio, política, motivo y referencias; historial de ambas y auditoría; sin leer aceptaciones vigentes (371); referencias nulas (372); horario anterior liberado (373); plazo (374); límite desde la raíz, `rootId` y `n` (375); propiedad (376); estados no `confirmed` (377); segunda reprogramación 409 (378); horario ocupado, inválido, igual, cruce, médico no habilitado y reservas desactivadas (379); orden de candados y reversión total (380) |
 | TC-M08-381 | `test/appointments.e2e-spec.ts` | E2E con dobles, aprobada: 200 con la cita nueva, 404 ajena, 409 repetida, 400 DTO, 403 otro rol |
-| TC-M08-015, 017, 018 | `src/modules/appointments/domain/appointments-domain.spec.ts` | Unitarias, aprobadas (2026-11-09): valores iniciales con L 60 y G 5 (015, actualizada); L y G por omisión y rechazos `W > L`, `G >= Tol`, `G = 0`, no enteros (017); `blockOf` con fin guardado y O1 para nulos (018) |
+| TC-M08-420 a 424 | `test/integration/appointments-reschedule.int-spec.ts` | **5/5 contra PostgreSQL en C2** (`c2-20261110000243-57bd`, rollback): confirmed → rescheduled y cita nueva con precio, política, motivo, referencias legales y bloque (420); cadena desde la raíz y original no reprogramable (421); horario ocupado con reversión completa (422); horario original liberado (423); la BD protege el resultado: rescheduled final, referencias y bloque inmutables, NOT NULL (424) |
+| TC-M08-015, 017, 018 | `src/modules/appointments/domain/appointments-domain.spec.ts` | Unitarias, aprobadas (2026-11-09): valores iniciales con L 60 y G 5 (015, actualizada); L y G por omisión y rechazos `W > L`, `G >= Tol`, `G = 0`, no enteros (017); `blockOf` con fin guardado y O1 para nulos (018; desde M-1c, `9009a5e`, solo el fin guardado) |
 | TC-M08-382 | `reschedule.use-cases.spec.ts` | Unitaria, aprobada: la cita reagendada guarda el fin de bloque con la duración vigente al reagendar |
 | TC-M08-390 a 395 | `src/modules/appointments/application/integration/appointment-chain.services.spec.ts` | Unitarias con dobles, aprobadas (2026-11-09): raíz propia (390); un reagendamiento (391); varios niveles y largo máximo (392); cita inexistente 404 y antecesor inexistente (393); autorreferencia, ciclo de tres y cadena demasiado larga (394); `paymentForAppointment` al pago de la raíz, sin pago y sin consultar pagos ante una cadena rota (395) |
 | TC-M08-400 a 408 | `src/modules/appointments/application/appointment-events.spec.ts` | Unitarias con dobles, aprobadas (2026-11-09): confirmación una sola vez, sin evento al retener, duplicado o importe distinto (400); cancelación del paciente y del médico con origen, motivo y resultado (401); cancelaciones rechazadas sin eventos (402); un evento por reagendamiento con original, nueva, raíz y número; rechazado sin eventos (403); vencimiento por liberación, pago fallido y confirmación tardía, una sola vez cada uno (404); vencimiento perezoso sin repetirse (405); sin publicación tras rollback, incluido el vencimiento preparado antes del fallo (406); semántica AFTER_COMMIT con unidades anidadas (407); suscriptor que falla (408) |
 | TC-M00-024 a 026 | `src/common/infrastructure/drizzle-unit-of-work.spec.ts` | Unitarias sin BD (transacción falsa), aprobadas: acción después de terminar la transacción (024); descarte con rollback y con SAVEPOINT fallido (025); fallo de una acción y ejecución inmediata fuera de una unidad (026) |
 | RT-M08-09 y 10 | `test/appointments-architecture.spec.ts` | Análisis estático, aprobadas (2026-11-09): 0016 solo retira los DEFAULT, exige 0013 y 0015, reversión a 60/5, idéntica a la propuesta y última del journal; el esquema no declara DEFAULT; los INSERT de políticas en el repositorio y en `m08-m1-sql.ts` indican L y G (salvo la rama 0000–0012) |
-| RT-M08-01 a 08 | `test/appointments-architecture.spec.ts` | Análisis estático, 8/8 (2026-11-09); RT-M08-05 y 06 actualizadas a M-1 aplicada; RT-M08-07: todo INSERT de citas escribe el fin de bloque; RT-M08-08: 0015 sin relleno, exige 0013 y 0014, se detiene ante nulos y es idéntica a la propuesta registrada como idx 15 |
-| TC-M08-383 a 387 | `src/modules/appointments/application/use-cases/agenda-block.spec.ts` | Unitarias con dobles, aprobadas: fin de bloque al reservar (383); ocupación con el fin guardado tras cambiar la duración (384); O1 para históricas (385); publicación y lectura de L y G, valores por omisión y auditoría (386); `getForSession` con W, Tol, L y G de la política aplicada y sin el fin del bloque (387) |
+| RT-M08-01 a 08 | `test/appointments-architecture.spec.ts` | Análisis estático; con RT-M08-09 y 10, 10/10 (2026-11-09); RT-M08-05 y 06 actualizadas a M-1 aplicada; RT-M08-07: todo INSERT de citas escribe el fin de bloque; RT-M08-08: 0015 sin relleno, exige 0013 y 0014, se detiene ante nulos y es idéntica a la propuesta registrada como idx 15 |
+| TC-M08-383 a 387 | `src/modules/appointments/application/use-cases/agenda-block.spec.ts` | Unitarias con dobles, aprobadas: fin de bloque al reservar (383); ocupación con el fin guardado tras cambiar la duración (384); la ocupación es el fin guardado, no la duración actual del médico (385, reescrita en M-1c sin O1); publicación y lectura de L y G, valores por omisión y auditoría (386); `getForSession` con W, Tol, L y G de la política aplicada y sin el fin del bloque (387) |
