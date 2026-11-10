@@ -109,6 +109,11 @@ describe('Configuraciones de Jest de C2 (c2-mode-setup)', () => {
     const config = JSON.parse(readFileSync(join(__dirname, '..', 'jest-concurrency.json'), 'utf8')) as { setupFiles: string[] };
     expect(config.setupFiles).toEqual(['<rootDir>/test/support/db-tripwire.ts', '<rootDir>/test/support/c2-mode-concurrency.ts']);
   });
+
+  it('[TC-M03-280] la configuración de R2 carga su setupFile de modo después del tripwire', () => {
+    const config = JSON.parse(readFileSync(join(__dirname, '..', 'jest-r2.json'), 'utf8')) as { setupFiles: string[] };
+    expect(config.setupFiles).toEqual(['<rootDir>/test/support/db-tripwire.ts', '<rootDir>/test/support/c2-mode-r2.ts']);
+  });
 });
 
 describe('verifyNeonRuntimeIdentity (identidad real por neon.*)', () => {

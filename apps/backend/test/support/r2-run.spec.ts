@@ -232,4 +232,15 @@ describe('Persistencia del manifiesto', () => {
     expect(JSON.parse(readFileSync(join(dir, 'r2-final-check.json'), 'utf8'))).toMatchObject({ runId: RUN, empty: true });
     expect(() => manifest.recordFinalCheck({})).toThrow('ya está registrada');
   });
+
+  it('[TC-M03-320] los specs de R2 no leen, suben ni borran fuera del manifiesto (salvo el rechazo local de TC-M03-302)', () => {
+    for (const file of ['private-storage.r2-spec.ts', 'doctor-documents.r2-spec.ts']) {
+      const source = readFileSync(join(__dirname, '..', 'r2', file), 'utf8');
+      const bypass = source.split(/\r?\n/).filter((line) => /\br2\.(put|openForRead|delete)\(/.test(line) && !line.includes('fuera del manifiesto: sin red'));
+      expect(bypass).toEqual([]);
+      expect(source).toMatch(/manifest\.recordFinalCheck\(remaining\)/);
+      expect(source).toMatch(/expect\(manifest\.persistenceErrors\(\)\)\.toEqual\(\[\]\)/);
+    }
+    expect(readFileSync(join(__dirname, '..', 'r2', 'doctor-documents.r2-spec.ts'), 'utf8')).toMatch(/allowDoctor\(d\.doctorProfileId, \{ origin: 'createDoctor', userId: d\.userId \}\)/);
+  });
 });
