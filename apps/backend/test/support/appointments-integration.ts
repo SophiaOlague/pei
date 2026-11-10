@@ -14,6 +14,7 @@ import {
   PatientSlotsService, ReleaseHoldUseCase,
 } from '../../src/modules/appointments/application/use-cases/booking.use-cases';
 import { CancelByDoctorUseCase, CancelByPatientUseCase } from '../../src/modules/appointments/application/use-cases/cancellation.use-cases';
+import { RescheduleByPatientUseCase } from '../../src/modules/appointments/application/use-cases/reschedule.use-cases';
 import { CancellationPolicyService, ConsultationPriceService } from '../../src/modules/appointments/application/use-cases/configuration.use-cases';
 import { AppointmentConfirmationService, AppointmentSessionService } from '../../src/modules/appointments/application/integration/appointment-integration.services';
 import { DrizzleAppointmentRepository } from '../../src/modules/appointments/infrastructure/persistence/drizzle-appointment.repository';
@@ -56,6 +57,8 @@ export function appointmentsUseCases(clock: FixedClock) {
     doctorQuery: new DoctorAppointmentsQuery(repo, clock),
     cancelPatient: new CancelByPatientUseCase(uow, audit, repo, policies, clock, events),
     cancelDoctor: new CancelByDoctorUseCase(uow, audit, repo, eligibility, clock, events),
+    // DA-6: los mismos adaptadores reales; la reserva queda activada con ENABLED, como en hold.
+    reschedule: new RescheduleByPatientUseCase(uow, audit, repo, policies, eligibility, ENABLED, slots, clock, events),
     confirmation: new AppointmentConfirmationService(uow, audit, repo, clock, events),
     session: new AppointmentSessionService(uow, audit, repo, policies),
     listDoctors: new ListBookableDoctorsUseCase(new DrizzleBookableDoctorsReader(), eligibility, slots, clock),
