@@ -3,6 +3,7 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, 
 import { isAbsolute, join, relative, resolve } from 'path';
 import type { C2Mode } from './c2-target-guard';
 import { REPO_ROOT } from './c2-launcher';
+import { comparePgSnapshots, errorName, type PgComparison, type PgComparisonStatus } from './c2-pg-fingerprint';
 
 // Evidencias de las ejecuciones C2 (etapa 1, 2026-11-06). Cada ejecución del lanzador (`pnpm c2 run`) guarda su paquete
 // ORIGINAL en C:\pei-c2-evidencias\<AAAA-MM-DD>\<C2_RUN_ID>\, fuera del repositorio y separado de C:\pei-c2\ (secretos):
@@ -11,7 +12,8 @@ import { REPO_ROOT } from './c2-launcher';
 //   run.json           al terminar: identificador, modo, suite, commit, estado del árbol, fechas y código de salida
 //   jest-results.json  salida --json de Jest (la escribe Jest)
 //   jest-output.log    stdout y stderr de Jest, depurados
-//   pg-before.json / pg-after.json     huella de PostgreSQL (recuentos y hashes; NUNCA filas). Preparado, sin activar
+//   pg-before.json / pg-after.json     huella de PostgreSQL (recuentos y hashes; NUNCA filas). Activa en el modo r2
+//   pg-comparison.json                 comparación de las 13 tablas: equal | different | incomplete | error
 //   r2-manifest.json / r2-final-check.json   solo en el modo r2 (los escribe el spec)
 //   SHA256SUMS         hashes de todos los archivos anteriores
 //
@@ -28,6 +30,7 @@ export const EVIDENCE_FILES = [
   'jest-output.log',
   'pg-before.json',
   'pg-after.json',
+  'pg-comparison.json',
   'r2-manifest.json',
   'r2-final-check.json',
 ] as const;
@@ -107,6 +110,8 @@ export interface RunRecord {
   exitCode?: number | null;
   signal?: string | null;
   committedFixtures?: string;
+  // Resultado de pg-comparison.json, cuando la huella de PostgreSQL está activa.
+  pgComparison?: PgComparisonStatus;
 }
 
 // Construye el registro solo con campos que correspondan (los opcionales ausentes no se escriben).
@@ -147,7 +152,7 @@ export function gitState(exec: (command: string) => string): { commit: string | 
   return { commit, workingTreeDirty: dirty };
 }
 
-// --- Huella de PostgreSQL (preparada, sin activar) ------------------------------------------------------------------
+// --- Huella de PostgreSQL (cálculo y comparación: c2-pg-fingerprint.ts) ---------------------------------------------
 export interface PgTableFingerprint {
   total: number;
   preexisting: number;
@@ -176,6 +181,13 @@ export function assertPgSnapshotShape(snapshot: PgSnapshot): void {
 export function writePgSnapshot(dir: string, phase: 'before' | 'after', snapshot: PgSnapshot): string {
   assertPgSnapshotShape(snapshot);
   return writeEvidenceJson(dir, phase === 'before' ? 'pg-before.json' : 'pg-after.json', snapshot);
+}
+
+export function writePgComparison(dir: string, comparison: PgComparison): string {
+  for (const t of comparison.tables) {
+    for (const h of [t.hashBefore, t.hashAfter]) if (h !== null && !/^[0-9a-f]{32}$/.test(h)) throw new C2EvidenceError(`comparación de ${t.table} con hash no admitido`);
+  }
+  return writeEvidenceJson(dir, 'pg-comparison.json', comparison);
 }
 
 // --- Depuración de la salida -----------------------------------------------------------------------------------------
@@ -273,7 +285,7 @@ export function reviewForVersioning(dir: string): { ok: boolean; findings: Revie
     }
     if (text.includes(REDACTION_MARK) || text.includes('«oculto»') || text.includes('«conexión oculta»')) findings.push({ file, kind: 'contenido-depurado' });
     for (const { kind, pattern, keep } of SENSITIVE_PATTERNS) {
-      if (kind === 'hex-largo' && /^(pg-before|pg-after)\.json$/.test(file)) continue; // hashes md5 de la huella
+      if (kind === 'hex-largo' && /^(pg-before|pg-after|pg-comparison)\.json$/.test(file)) continue; // hashes md5 de la huella
       const matches = [...text.matchAll(new RegExp(pattern.source, pattern.flags))].map((m) => m[0]).filter((m) => !keep?.(m));
       // Los UUID sin guiones y otros hashes se tratan como dudosos en cualquier otro archivo.
       if (matches.length > 0) findings.push({ file, kind });
@@ -302,6 +314,10 @@ export interface ExecuteOptions {
   appendLog: (text: string) => void;
   onInterrupt?: (handler: () => void) => () => void;
   now?: () => Date;
+  // Huella de PostgreSQL: `before` antes de iniciar Jest (si falla, Jest NO se inicia); `after` cuando el proceso de
+  // Jest ya terminó (sus conexiones están cerradas). Resultado en pg-comparison.json y en run.json (pgComparison). Una
+  // comparación distinta de `equal` hace que la ejecución termine con código 1 aunque Jest pasara.
+  pg?: { before: () => Promise<PgSnapshot>; after: (before: PgSnapshot) => Promise<PgSnapshot> };
 }
 
 // Escribe run.started.json, transmite la salida depurada a la consola y al log, y al terminar (o al interrumpirse)
@@ -310,11 +326,51 @@ export async function executeWithEvidence(options: ExecuteOptions): Promise<numb
   const now = options.now ?? (() => new Date());
   writeEvidenceJson(options.dir, 'run.started.json', options.record);
   let finished = false;
+  let pgStatus: PgComparisonStatus | undefined;
   const finish = (exit: { code: number | null; signal?: string | null; interrupted?: boolean }) => {
     if (finished) return;
     finished = true;
-    writeEvidenceJson(options.dir, 'run.json', finishRunRecord(options.record, exit, now()));
+    const record = finishRunRecord(options.record, exit, now());
+    writeEvidenceJson(options.dir, 'run.json', pgStatus ? { ...record, pgComparison: pgStatus } : record);
     writeChecksums(options.dir);
+  };
+  const recordComparison = (comparison: PgComparison) => {
+    if (pgStatus) return;
+    pgStatus = comparison.status;
+    writePgComparison(options.dir, comparison);
+  };
+
+  // pg-before: sin huella anterior no hay comparación posible, así que Jest no se inicia.
+  let before: PgSnapshot | null = null;
+  if (options.pg) {
+    try {
+      before = await options.pg.before();
+      writePgSnapshot(options.dir, 'before', before);
+    } catch (error) {
+      options.appendLog(options.redact(`No se pudo tomar la huella pg-before: ${errorName(error)}. El spec no se ejecutó.\n`));
+      recordComparison(comparePgSnapshots(null, null, { failure: { phase: 'before', error: errorName(error) }, now: now() }));
+      finish({ code: null, signal: null });
+      return 1;
+    }
+  }
+  // pg-after cuando Jest ya terminó. Si falla, la comparación queda incompleta (nunca se corrige ni restaura nada).
+  const compareAfter = async (): Promise<boolean> => {
+    if (!options.pg || !before) return true;
+    if (finished) return false; // interrumpida: ya quedó registrada como incompleta
+    let after: PgSnapshot;
+    try {
+      after = await options.pg.after(before);
+      writePgSnapshot(options.dir, 'after', after);
+    } catch (error) {
+      options.appendLog(options.redact(`No se pudo tomar la huella pg-after: ${errorName(error)}. Comparación incompleta.\n`));
+      recordComparison(comparePgSnapshots(before, null, { failure: { phase: 'after', error: errorName(error) }, now: now() }));
+      return false;
+    }
+    const comparison = comparePgSnapshots(before, after, { now: now() });
+    recordComparison(comparison);
+    const differing = comparison.tables.filter((t) => t.equal !== true).map((t) => t.table);
+    options.write.stdout(`huella PostgreSQL: ${comparison.status}${differing.length ? ` (${differing.join(', ')})` : ''}\n`);
+    return comparison.status === 'equal';
   };
 
   let child: ChildLike;
@@ -337,18 +393,33 @@ export async function executeWithEvidence(options: ExecuteOptions): Promise<numb
 
   const release = options.onInterrupt?.(() => {
     child.kill('SIGINT');
+    if (options.pg && before) recordComparison(comparePgSnapshots(before, null, { failure: { phase: 'after', error: 'Interrupted' }, now: now() }));
     finish({ code: null, signal: 'SIGINT', interrupted: true });
   });
   try {
     return await new Promise<number>((done) => {
       child.on('error', (error) => {
         options.appendLog(options.redact(`Error del proceso de Jest: ${error.name}\n`));
-        finish({ code: null, signal: null });
-        done(1);
+        if (!options.pg) {
+          finish({ code: null, signal: null });
+          done(1);
+          return;
+        }
+        void compareAfter().then(
+          () => { finish({ code: null, signal: null }); done(1); },
+          () => { finish({ code: null, signal: null }); done(1); },
+        );
       });
       child.on('close', (code, signal) => {
-        finish({ code, signal });
-        done(code ?? 1);
+        if (!options.pg) {
+          finish({ code, signal });
+          done(code ?? 1);
+          return;
+        }
+        void compareAfter().then(
+          (equal) => { finish({ code, signal }); done(code === 0 && !equal ? 1 : code ?? 1); },
+          () => { finish({ code, signal }); done(1); },
+        );
       });
     });
   } finally {

@@ -111,7 +111,8 @@ integrado ni autorizado: `test/r2/`, `jest-r2.json` y `c2-mode-r2.ts` no están 
 | `run.json` | `C2_RUN_ID`, UUID derivado, modo, suite, commit, si había cambios sin commit, destino (proyecto, rama, endpoint y, en `r2`, bucket; sin secretos), fechas, estado (`completed`, `failed`, `interrupted`) y código de salida | Al terminar o al interrumpirse con Ctrl+C |
 | `jest-results.json` | Salida `--json` de Jest | La escribe Jest |
 | `jest-output.log` | stdout y stderr de Jest con depuración conservadora (secretos conocidos de `.env.c2`, cadenas de conexión, cookies, tokens, correos no sintéticos, CURP y RFC no sintéticos, cadenas largas de alta entropía) | Durante la ejecución |
-| `pg-before.json`, `pg-after.json` | Huella de PostgreSQL: recuentos y hashes por tabla, **nunca filas** | Preparado; todavía no se genera |
+| `pg-before.json`, `pg-after.json` | Huella de PostgreSQL de 13 tablas (`test/support/c2-pg-fingerprint.ts`): recuentos y hashes md5 de todas las filas, **nunca filas**; transacción READ ONLY que vuelve a confirmar la identidad de Neon | Solo en el modo `r2`: antes de iniciar Jest (si falla, Jest no se inicia) y después de que termine |
+| `pg-comparison.json` | Comparación por tabla (recuentos y hashes antes y después): `equal`, `different`, `incomplete` o `error`. También queda en `run.json` (`pgComparison`); si no es `equal`, la ejecución termina con código 1 | Solo en el modo `r2`, al terminar |
 | `r2-manifest.json`, `r2-final-check.json` | Operaciones sobre objetos de la ejecución y comprobación final por prefijos | Solo en el modo `r2` (los escribe el spec; ver más abajo) |
 | `SHA256SUMS` | SHA-256 de todos los archivos anteriores | Al terminar |
 

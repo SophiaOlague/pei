@@ -35,7 +35,10 @@ import {
   gitState,
   makeEvidenceRedactor,
   writeEvidenceFile,
+  type PgSnapshot,
+  type RunTarget,
 } from '../test/support/c2-evidence';
+import { takePgSnapshot } from '../test/support/c2-pg-fingerprint';
 import { runUuid } from '../test/support/r2-run';
 import { assertC2R2Target, C2_MODES, c2ModeOf, c2TargetFor, verifyNeonRuntimeIdentity, type C2Mode } from '../test/support/c2-target-guard';
 
@@ -88,6 +91,22 @@ async function preflight(env: NodeJS.ProcessEnv): Promise<void> {
   }
 }
 
+// Huella de solo lectura (c2-pg-fingerprint): conexión propia y de corta duración con el DATABASE_URL de C2; la propia
+// transacción READ ONLY vuelve a confirmar la identidad de Neon antes de leer ninguna tabla.
+async function pgSnapshot(env: NodeJS.ProcessEnv, identity: RunTarget, cutoff?: string): Promise<PgSnapshot> {
+  const { Pool, neonConfig } = backendRequire('@neondatabase/serverless');
+  neonConfig.webSocketConstructor = backendRequire('ws');
+  const pool = new Pool({ connectionString: env.DATABASE_URL, max: 1 });
+  const client = await pool.connect();
+  try {
+    const { bucket: _bucket, ...target } = identity;
+    return await takePgSnapshot(client, { identity: target, expected: c2TargetFor(c2ModeOf(env)), cutoff });
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
 async function main(argv: string[]): Promise<number> {
   const [command, modeArg, specArg, ...rest] = argv;
   if (command === 'rotate-auth-secret') {
@@ -121,8 +140,8 @@ async function main(argv: string[]): Promise<number> {
   const runId = env.C2_RUN_ID!;
   console.log(`run ${mode}: ${specArg} (C2_RUN_ID=${runId})`);
 
-  // Evidencias (etapa 1): directorio propio de la ejecución, fuera del repositorio y de C:\pei-c2. La huella de
-  // PostgreSQL (pg-before.json / pg-after.json, c2-evidence.writePgSnapshot) está preparada pero NO se activa todavía.
+  // Evidencias (etapa 1): directorio propio de la ejecución, fuera del repositorio y de C:\pei-c2. En el modo r2, huella
+  // de PostgreSQL de las 13 tablas antes y después de Jest (pg-before.json, pg-after.json, pg-comparison.json).
   const dir = createRunDirectory(DEFAULT_EVIDENCE_ROOT, runId);
   env.C2_EVIDENCE_DIR = dir;
   const logPath = writeEvidenceFile(dir, 'jest-output.log', '');
@@ -154,6 +173,14 @@ async function main(argv: string[]): Promise<number> {
       process.once('SIGINT', handler);
       return () => process.off('SIGINT', handler);
     },
+    ...(mode === 'r2'
+      ? {
+          pg: {
+            before: () => pgSnapshot(env, record.target),
+            after: (before: PgSnapshot) => pgSnapshot(env, record.target, before.cutoff),
+          },
+        }
+      : {}),
   });
   console.log(`evidencias: ${dir}`);
   return code;

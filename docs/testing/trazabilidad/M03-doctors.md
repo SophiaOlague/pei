@@ -99,6 +99,9 @@ evidencia versionada (ninguna todavía).
 | B5–B7 con adaptadores Drizzle y triggers de 0012 (rama C2 persistente) | C2 | `test/integration/doctors.int-spec.ts` | TC-M03-172 a 182 | Lanzador C2, modo `postgres` (`C2_RUN_ID` no conservado): 10/10; 13 tablas con recuentos y hashes iguales | Interna |
 | DT-12 (Better Auth con el adaptador Drizzle; rama C2 persistente) | C2 | `test/integration/admin-bootstrap-better-auth.int-spec.ts` | TC-M02-118 a 120, TC-M03-293 (ejecutados); TC-M02-121 ×2 (pendientes) | Lanzador C2, modo `auth`, `c2-20261103214452-f673`: 5 aprobadas, 2 pendientes; 13 tablas con recuentos y hashes iguales | Interna (pendientes: no ejecutados) |
 | Salvaguardas y lanzador C2, identificadores por ejecución y régimen legal reutilizable | C2 | `test/support/c2-*.ts`, `scripts/c2-run.ts`, `test/support/test-tag.ts`, `test/support/doctor-regime.ts`, `test/support/r2-run.ts` | TC-M03-277 a 292, 294 a 297; RT-M03-17 y 18 | Unitarias locales, sin BD (dobles) | Interna (sin BD) |
+| Evidencias C2, manifiesto de R2 (etapa 2) y huella de PostgreSQL de 13 tablas | C2 | `test/support/c2-evidence.ts`, `test/support/r2-run.ts`, `test/support/c2-pg-fingerprint.ts`, `scripts/c2-run.ts` | TC-M03-307 a 334 | Unitarias locales, sin BD (dobles) | Interna (sin BD) |
+| DT-18, R-11, D-16, D-19, DT-6 (almacenamiento privado con R2 real) | C2 | `test/r2/private-storage.r2-spec.ts`, `test/support/r2-run.ts`, `test/support/r2-verify.ts`, `test/jest-r2.json` | TC-M03-298 a 303 | Lanzador C2, modo `r2`, `c2-20261110235152-506c` (2026-11-10): 6/6; 13 tablas `equal`; bucket vacío al terminar (antes: `c2-20261104162631-70e6`, 6/6) | Interna (paquete de evidencias fuera del repositorio) |
+| D-16, D-19, DT-6, D-17, D-22 (documentos del médico con PostgreSQL y R2 reales) | C2 | `test/r2/doctor-documents.r2-spec.ts` | TC-M03-304 a 306 | Lanzador C2, modo `r2`, `c2-20261110235308-76ca` (2026-11-10): 3/3; 13 tablas `equal`; bucket vacío al terminar (antes: `c2-20261104162955-f9c7`, 3/3) | Interna (paquete de evidencias fuera del repositorio) |
 | Evidencia formal | B9 | `scripts/record-test-run.mjs` | Todas las suites (786 casos) | `docs/testing/ejecuciones/2026-10-20T09-32-22_35e205c_M03/` | **Formal** |
 
 ## Casos de prueba
@@ -428,6 +431,43 @@ Rutas relativas a `apps/backend`; la línea es la del primer uso del identificad
 | TC-M03-295 | C2 | Unitaria | ídem | [C2] | el manifiesto registra cada operación; la limpieza borra solo las claves vivas |
 | TC-M03-296 | C2 | Unitaria | ídem | [C2] | no admite claves ajenas (otro espacio, otro médico o no subidas en la ejecución) |
 | TC-M03-297 | C2 | Unitaria | ídem | [C2] | un fallo de limpieza queda pendiente y se conserva la evidencia; `cleanups` acumula todas las limpiezas |
+| TC-M03-298 | C2 | R2 real | `test/r2/private-storage.r2-spec.ts` | [DT-18] | subida y lectura de PNG, JPEG y PDF: bytes idénticos (SHA-256) y `ContentLength` real |
+| TC-M03-299 | C2 | R2 real | ídem | [DT-18] | streaming de un documento de unos 5 MB: se recibe en varias partes y completo |
+| TC-M03-300 | C2 | R2 real | ídem | [DT-18] | un objeto inexistente responde `StoredFileNotFoundError` |
+| TC-M03-301 | C2 | R2 real | ídem | [DT-18] | borrado idempotente: borrar dos veces no falla y después el objeto no existe |
+| TC-M03-302 | C2 | R2 real | ídem | [DT-3] | una clave fuera de la gramática del bucket privado se rechaza sin llamar a R2 |
+| TC-M03-303 | C2 | R2 real | ídem | [DT-18] | credenciales inválidas (solo en ese caso): `DocumentStorageError` sin clave, bucket ni credenciales en el mensaje |
+| TC-M03-304 | C2 | PostgreSQL y R2 reales | `test/r2/doctor-documents.r2-spec.ts` | [D-16][D-22] | las claves guardadas en PostgreSQL existen en R2 con los mismos bytes (SHA-256); la lectura del admin queda auditada |
+| TC-M03-305 | C2 | PostgreSQL y R2 reales | ídem | [D-19][D-16] | aprobar la INE purga en R2 el frente y el reverso; la cédula se conserva con los mismos bytes |
+| TC-M03-306 | C2 | PostgreSQL y R2 reales | ídem | [DT-6][D-17] | cédula duplicada: la transacción falla y la compensación elimina el objeto subido; no queda en R2 |
+| TC-M03-307 | C2 | Unitaria | `test/support/c2-evidence.spec.ts` | [C2] | las evidencias se organizan por fecha y `C2_RUN_ID`, fuera del repositorio y de `C:\pei-c2` |
+| TC-M03-308 | C2 | Unitaria | ídem | [C2] | `C2_RUN_ID` único por ejecución; nunca se reutiliza un directorio ni se sobrescribe un archivo |
+| TC-M03-309 | C2 | Unitaria | ídem | [C2] | `run.json` omite los campos que no corresponden y registra el código de salida; `gitState` registra el commit y si el árbol tiene cambios, sin listar archivos |
+| TC-M03-310 | C2 | Unitaria | ídem | [C2] | la huella de PostgreSQL solo admite recuentos y hashes, nunca filas |
+| TC-M03-311 | C2 | Unitaria | ídem | [C2] | `SHA256SUMS` cubre todos los archivos y detecta cambios, faltantes y archivos añadidos |
+| TC-M03-312 | C2 | Unitaria | ídem | [C2] | la depuración del log oculta secretos, conexiones, cookies, tokens, correos reales, CURP, RFC y cadenas largas |
+| TC-M03-313 | C2 | Unitaria | ídem | [C2] | revisión para versionar: un paquete limpio (incluidos el manifiesto de R2 y su comprobación final) pasa; uno depurado, sospechoso, binario o desconocido se rechaza |
+| TC-M03-314 | C2 | Unitaria | ídem | [C2] | Jest correcto o con fallos: código de salida, log depurado, estado y `SHA256SUMS` |
+| TC-M03-315 | C2 | Unitaria | ídem | [C2] | interrupción (o proceso que muere): queda como `interrupted` y se conserva lo parcial |
+| TC-M03-316 | C2 | Unitaria | ídem | [C2] | las cuatro modalidades C2 generan su `run.json`; solo `r2` incluye el bucket |
+| TC-M03-317 | C2 | Unitaria | `test/support/r2-run.spec.ts` | [C2] | el manifiesto se crea en exclusiva (con y sin `C2_EVIDENCE_DIR`): nunca sobrescribe uno existente |
+| TC-M03-318 | C2 | Unitaria | ídem | [C2] | escritura incremental y atómica tras cada operación; operaciones concurrentes sin pérdidas |
+| TC-M03-319 | C2 | Unitaria | ídem | [C2] | un fallo al escribir el manifiesto no pierde operaciones: queda en `persistenceErrors` y la siguiente escritura lo recupera |
+| TC-M03-320 | C2 | Unitaria | ídem | [C2] | `finalCheck` se registra una vez (manifiesto y `r2-final-check.json`); los specs de R2 no acceden a R2 fuera del manifiesto (salvo el rechazo local de TC-M03-302) |
+| TC-M03-321 | C2 | Unitaria | `test/support/c2-pg-fingerprint.spec.ts` | [C2] | huella: dos estados idénticos producen el mismo hash (md5) |
+| TC-M03-322 | C2 | Unitaria | ídem | [C2] | cambiar un valor de una fila cambia el hash |
+| TC-M03-323 | C2 | Unitaria | ídem | [C2] | cambiar el número de filas (o duplicar una) cambia el hash |
+| TC-M03-324 | C2 | Unitaria | ídem | [C2] | NULL es determinista y distinto de cadena vacía o de una columna ausente |
+| TC-M03-325 | C2 | Unitaria | ídem | [C2] | ni el orden de lectura ni el tamaño de los bloques alteran el hash |
+| TC-M03-326 | C2 | Unitaria | ídem | [C2] | las 13 tablas se leen en una transacción READ ONLY, tras confirmar la identidad de Neon, y terminan con `ROLLBACK`, sin consultas de escritura |
+| TC-M03-327 | C2 | Unitaria | ídem | [C2] | otra rama de Neon o una sesión que no es de solo lectura: falla sin leer ninguna tabla |
+| TC-M03-328 | C2 | Unitaria | ídem | [C2] | sin cambios, `equal`; una fila nueva o modificada señala exactamente las tablas afectadas |
+| TC-M03-329 | C2 | Unitaria | ídem | [C2] | estados de la comparación: `equal`, `different`, `incomplete` y `error` |
+| TC-M03-330 | C2 | Unitaria | ídem | [C2] | si `pg-before` falla, Jest no se inicia y se registra `error` |
+| TC-M03-331 | C2 | Unitaria | ídem | [C2] | si `pg-after` falla, la comparación queda `incomplete` y se conserva la evidencia anterior |
+| TC-M03-332 | C2 | Unitaria | ídem | [C2] | Jest correcto y huellas iguales: código 0, `pg-comparison.json` `equal` y paquete revisable |
+| TC-M03-333 | C2 | Unitaria | ídem | [C2] | Jest correcto pero huellas distintas: código 1 y las tablas afectadas en la evidencia, sin corregir nada |
+| TC-M03-334 | C2 | Unitaria | ídem | [C2] | Jest con fallos: se toma igualmente `pg-after` y se conserva el código de Jest |
 | RT-M03-14 | B8 | Unitaria | `test/architecture.spec.ts` | [P.7] | doctors solo usa de identity dominio, puertos, registro y módulo |
 | RT-M03-15 | B8 | Unitaria | ídem | [R-11] | doctors sin SDK de AWS ni infraestructura de private-storage |
 | RT-M03-16 | B8 | Unitaria | ídem | [B8] | el spec de concurrencia exige C2, rechaza `rama` y la marca de rama desechable |
@@ -1199,6 +1239,109 @@ entornos simulados): pasaron en `pnpm test` (766/766 en la última corrida local
 real; el lanzador y las salvaguardas sí se usaron en las ejecuciones reales de esta sección. TC-M03-293 es la única de ese
 rango ejecutada contra PostgreSQL C2.
 
+#### R2 (2026-11-04 y 2026-11-10)
+
+Pruebas de M03 contra Cloudflare R2 real con el lanzador C2 (`pnpm c2`, `scripts/c2-run.ts`). El lanzador carga solo
+`C:\pei-c2\.env.c2`, ejecuta Jest desde un directorio sin `.env` (dotenv: «injected env (0)») y deja Resend vacío. En el
+modo `r2` exige `R2_BUCKET_NAME === C2_EXPECTED_BUCKET === pei-docs-c2-test`. Antes de cada ejecución, el preflight
+confirma la identidad real de Neon (`neon.project_id`, `neon.branch_id` y `neon.endpoint_id`) y el acceso al bucket
+(`HeadBucket`).
+
+| Destino | Valor |
+|---|---|
+| Proyecto Neon | `royal-paper-10258990` |
+| Rama | `br-shy-pond-b50a3m8f` (C2 persistente; nunca `production`) |
+| Endpoint | `ep-withered-block-b5e8v9ov` (conexión directa) |
+| Bucket R2 | `pei-docs-c2-test` (exclusivo de C2) |
+
+**Identificación de los objetos (opción A).** Las claves conservan la gramática de producción (`doctor-identity/…`,
+`doctor-licenses/…`, `doctor-photos/…`). La ejecución se identifica por el `doctorProfileId`:
+- en las pruebas del adaptador, el UUID v5 derivado de `C2_RUN_ID`;
+- en las de integración, el de los médicos sintéticos que crea la ejecución, registrados con su origen (`createDoctor`)
+  y la cuenta sintética de la ejecución que los creó.
+
+Un manifiesto por ejecución registra cada operación, sin bytes, credenciales ni datos personales. La limpieza solo
+borra las claves que el manifiesto registró como subidas por la ejecución. `ListObjects` solo se usa en la comprobación
+final, por prefijos de la ejecución.
+
+**Ejecuciones válidas (2026-11-10, commit `91de98f`).** Ambas registran `workingTreeDirty: true`. Incluían la
+activación de la huella de PostgreSQL (`c2-pg-fingerprint.ts`, `c2-evidence.ts` y `scripts/c2-run.ts`), todavía sin
+commit en ese momento, y otros cambios locales ajenos a R2.
+
+| Ejecución | Casos | `C2_RUN_ID` | Resultado | Huella PostgreSQL | R2 al terminar | Evidencia |
+|---|---|---|---|---|---|---|
+| Adaptador R2 (`private-storage.r2-spec.ts`) | TC-M03-298 a 303 | `c2-20261110235152-506c` | **6/6** | `equal` (13/13) | 0 objetos en 3 prefijos; `livingKeys` vacío; 1 limpieza sin pendientes | `C:\pei-c2-evidencias\2026-11-10\c2-20261110235152-506c\` |
+| Documentos con PostgreSQL y R2 (`doctor-documents.r2-spec.ts`) | TC-M03-304 a 306 | `c2-20261110235308-76ca` | **3/3** | `equal` (13/13) | 0 objetos en 15 prefijos; `livingKeys` vacío; 3 limpiezas sin pendientes | `C:\pei-c2-evidencias\2026-11-10\c2-20261110235308-76ca\` |
+
+Cada paquete contiene `run.started.json`, `run.json` (estado `completed`, código de salida 0, `pgComparison: equal`),
+`jest-results.json`, `jest-output.log`, `pg-before.json`, `pg-after.json`, `pg-comparison.json`, `r2-manifest.json`,
+`r2-final-check.json` y `SHA256SUMS`, verificado sin diferencias, faltantes ni archivos de más. En los dos manifiestos,
+`persistenceErrors` está vacío y `revision` es 20 y 32, respectivamente.
+
+**Huella de PostgreSQL.** Las 13 tablas conservaron recuento y hash en las dos ejecuciones, con los mismos valores en
+ambas. El hash cubre **todas** las filas: cada fila se serializa con `to_jsonb(fila)::text` en una transacción
+`REPEATABLE READ READ ONLY` que vuelve a confirmar la identidad de Neon, y se hace md5 de los hashes de fila ordenados
+y del recuento.
+
+| Tabla | Filas | md5 |
+|---|---|---|
+| `user` | 52 | `e86dcbb912bed3a4b388bf5b3328edb2` |
+| `session` | 8 | `4fda1b31aa8212d42fca47a66e0f6909` |
+| `account` | 7 | `0076880e692ab2a3742558519a77d190` |
+| `verification` | 0 | `897316929176464ebc9ad085f31e7284` |
+| `user_profile` | 51 | `21b6c116149dfce6abd11d20a2dfdcd7` |
+| `patient_profile` | 23 | `86f46781d15d1b2cf168eb6b604849a9` |
+| `doctor_profile` | 17 | `efd12eebd94d18b78a0c6b8e9afc97de` |
+| `doctor_identity_verification` | 19 | `00de1523e89dba92cbe538871aeaca8e` |
+| `doctor_license_verification` | 20 | `bd85b9b2633b68b1afa6e8af0b3d535f` |
+| `legal_document` | 8 | `fb4edcdef01cfe0226f258f825d9512b` |
+| `user_legal_acceptance` | 98 | `89292e61ee51659df85154826f13835f` |
+| `audit_log` | 222 | `8737bbfcc964f91e123c8e10c51c6f22` |
+| `specialty` | 3 | `3f90f6637130685c59b8a8b310bba741` |
+
+**Operaciones registradas en R2:**
+- **Adaptador:**
+  - Subidas: 5 correctas y 1 fallida a propósito (TC-M03-303, credenciales inválidas en una instancia propia).
+  - Lecturas: 4 correctas y 2 de objetos inexistentes, esperadas.
+  - Borrados: 2 de la prueba de idempotencia y 4 en la limpieza.
+- **Documentos:**
+  - Subidas: 8.
+  - Borrados de la propia lógica: 3 (2 en la purga de la INE y 1 en la compensación).
+  - Borrados en la limpieza: 5.
+  - Lecturas de objetos inexistentes, esperadas: 3 (después de la purga y de la compensación).
+
+**Hallazgos de la integración:**
+- **TC-M03-304:** las claves guardadas en PostgreSQL corresponden a objetos de R2 con los mismos bytes (SHA-256), y la
+  lectura del administrador queda auditada.
+- **TC-M03-305:** la purga de la INE elimina el frente y el reverso, y la cédula se conserva.
+- **TC-M03-306:** con un número de cédula duplicado, la transacción falla y la compensación elimina el objeto subido.
+
+No se ejecutó la CLI de conciliación global, porque recorre las INE de toda la rama y modificaría registros
+preexistentes.
+
+**Ejecuciones anteriores (2026-11-04, código previo a la etapa 2 del manifiesto).**
+
+| Ejecución | `C2_RUN_ID` | Resultado | Evidencia |
+|---|---|---|---|
+| Adaptador R2 | `c2-20261104162631-70e6` | 6/6 | Manifiesto en `%TEMP%\pei-c2-evidence\` |
+| Documentos con PostgreSQL y R2 | `c2-20261104162955-f9c7` | 3/3 | Manifiesto en `%TEMP%\pei-c2-evidence\` |
+
+Sus manifiestos no tienen `revision`, `doctorOwners`, `cleanups` ni `finalCheck`, y en el de integración `cleanup`
+conserva solo la última limpieza. La huella de las 13 tablas de esa fecha se comprobó fuera del lanzador y no quedó en
+un paquete de evidencias. Se conservan como antecedente; las ejecuciones válidas son las del 2026-11-10.
+
+**Verificaciones de seguridad posibles desde el repositorio:**
+- El adaptador usa solo `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` y `R2_BUCKET_NAME`. No usa
+  `R2_PUBLIC_URL` (TC-M02-087) y no genera URLs públicas ni firmadas: el contenido sale siempre a través del backend.
+- Los errores no incluyen la clave, el bucket ni las credenciales (TC-M03-303, con R2 real).
+- `.env` está ignorado; los archivos `.env.example` solo tienen nombres de variables, y el historial de Git no contiene
+  un valor de `R2_SECRET_ACCESS_KEY`.
+- El lanzador oculta los valores sensibles de `.env.c2` en la salida.
+
+**Pendiente de verificación manual en Cloudflare:** desde el repositorio no se puede comprobar:
+- que el bucket `pei-docs-c2-test` no tenga acceso público (`r2.dev` desactivado y sin dominio propio);
+- que el token de C2 esté limitado a ese bucket (pendiente 28).
+
 ### Ramas temporales de Neon (revisión de solo lectura, 2026-10-20)
 
 | Rama | Origen | Estado | Evidencia que contiene | Datos persistentes conocidos | Conservar | Eliminar |
@@ -1234,6 +1377,9 @@ rango ejecutada contra PostgreSQL C2.
 | 21 | `privacy_policy` es común a pacientes y médicos. Si se publica un `privacy_policy` de prueba o de un solo rol, una publicación posterior de solo `patient_terms` (admitida por N1, TC-M03-023) lo dejaría en el régimen del paciente; nada en el código, la BD ni C2 lo impide. Por eso el régimen TEST-1 se publicó solo en la rama `m03-flujo-medicos` y no en `production` | Pendiente: guard en la publicación o en la BD antes de cualquier régimen no definitivo en `production` |
 | 22 | C-16: la corrección de una CURP o un nombre legal incorrectos no tiene ninguna vía hoy (DP-CORR: flujo definido documentalmente en `M03-decisiones.md`, sección 8, pendiente de implementación). El enum `doctor_license_review_reason_enum` conserva `legal_name_changed` sin uso (no se migra). `docs/academico/M03-doctors.md` todavía describe el cambio de CURP y de nombre (D-28) y la ruta retirada | DP-CORR pendiente de implementación (fase final de M03) |
 | 23 | D-37 y RN-140 sin implementar: la conexión de las políticas depende de cada módulo con operaciones protegidas: agenda (M07), citas (M08), videoconsulta (`video`), expediente clínico (`clinical-record`) y prescripciones (`prescriptions`). Ninguno está implementado. Los módulos en carpetas no usan la numeración M07 y M08 | Pendiente de implementación |
+| 24 | Conservación de las evidencias de R2. Las ejecuciones válidas (2026-11-10) están en paquetes del lanzador en `C:pei-c2-evidencias<fecha><C2_RUN_ID>`, con `SHA256SUMS`, fuera del repositorio y separados de los secretos (`C:pei-c2`). Los manifiestos del 2026-11-04 siguen en `%TEMP%pei-c2-evidence`, que se puede limpiar. **Propuesta:** (1) `C:pei-c2-evidencias` es la ubicación original y permanente; (2) en el repositorio solo se versiona el resumen de esta sección (`C2_RUN_ID`, resultados, recuentos y hashes); los paquetes no se versionan, porque contienen claves de objetos y logs; (3) se hace una copia de seguridad del directorio fuera del equipo, que decide la persona usuaria; (4) los manifiestos del 2026-11-04 se pueden copiar a mano a `C:pei-c2-evidencias` como antecedente o descartar: las ejecuciones válidas no dependen de ellos. Sin cambios de código | Propuesta, pendiente de aprobación |
+| 25 | Objetos huérfanos en R2. La compensación (TC-M03-306) y la purga (TC-M03-305) funcionan con R2 real. Quedan dos huecos sin prueba: (a) si el borrado de compensación falla, el objeto queda huérfano y solo se registra un log sin clave (lo mismo con la foto anterior del médico); (b) si un `COMMIT` se confirma y su respuesta se pierde, la compensación borraría objetos de una fila confirmada. Si una purga falla, la fila conserva sus claves y la purga se puede repetir, así que no hay huérfano. El bucket es privado y las claves no tienen datos personales, pero un huérfano de INE contradice la retención de D-19. **Propuesta:** aceptarlo como riesgo documentado para el alcance actual, sin barrido automático. Después de R2, y antes de producción, añadir una conciliación **de solo lectura y ejecución manual**: listar las claves de los espacios de M03, cruzarlas con las de `doctor_*_verification` y `doctor_profile.photo_object_key`, y reportar las claves sin fila con una antigüedad mayor que un margen (24 h, para no tocar subidas en curso). El borrado solo se haría con aprobación explícita y con la lista revisada. Para (b): antes de compensar, comprobar si la fila existe. Ambos son cambios de código futuros, no implementados | Propuesta, pendiente de aprobación (riesgo aceptado en el alcance actual; conciliación manual después de R2) |
 | 6 | Las etiquetas de decisión de las pruebas (D-, R-, N-, M01-D2) no están en las convenciones de `docs/testing/README.md` | Pendiente de decidir |
 | 26 | Bootstrap inicial del primer administrador (TC-M02-121 ×2: caso correcto y H1) sin validar con PostgreSQL real en C2: la rama persistente tiene un administrador copiado de la base de desarrollo. Requiere una rama sin administradores | Pendiente |
 | 27 | Evidencia incompleta de las ejecuciones de PostgreSQL del 2026-11-03: no se conservó en archivo la salida de concurrencia ni de integración, ni el `C2_RUN_ID` de integración; las huellas están fuera del repositorio. El cierre del pool de `doctors.int-spec` no se ha ejecutado aún contra C2 | Pendiente: conservar la salida completa en futuras ejecuciones |
+| 28 | Configuración de Cloudflare no verificable desde el repositorio: que el bucket `pei-docs-c2-test` no tenga acceso público (`r2.dev` desactivado y sin dominio propio) y que el token de C2 tenga solo permisos de objetos sobre ese bucket. Indicios indirectos: el preflight (`HeadBucket`) funciona con el token de C2, y el adaptador nunca construye URLs públicas ni firmadas. Se cierra con una verificación manual en el panel de Cloudflare (o una petición anónima al dominio público que falle), registrada aquí con su fecha | Pendiente: verificación manual |
