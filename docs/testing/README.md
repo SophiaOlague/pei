@@ -96,9 +96,9 @@ elimina al terminar y el destino se retira en una revisión explícita, como se 
 ## Evidencias de las ejecuciones C2 (lanzador `pnpm c2`)
 
 Las pruebas contra la rama C2 de Neon y el bucket R2 de pruebas se ejecutan solo con el lanzador
-(`apps/backend/scripts/c2-run.ts`; modos `postgres`, `concurrency`, `r2` y `auth`). El modo `r2` todavía no está
-integrado ni autorizado: `test/r2/`, `jest-r2.json` y `c2-mode-r2.ts` no están versionados. El manifiesto de R2
-(`r2-run.ts`) se versiona solo como biblioteca, sin ejecuciones reales. Desde la etapa 1 de evidencias
+(`apps/backend/scripts/c2-run.ts`; modos `postgres`, `concurrency`, `r2` y `auth`). El modo `r2` está integrado
+y versionado (`test/r2/`, `jest-r2.json`, `c2-mode-r2.ts`, `r2-run.ts` y `r2-verify.ts`) y se validó contra R2 y
+PostgreSQL reales el 2026-11-10 (trazabilidad en `trazabilidad/M03-doctors.md`). Desde la etapa 1 de evidencias
 (2026-11-06), cada `pnpm c2 run` guarda un paquete propio. `check` y `preflight` no generan evidencias.
 
 **Ubicación.** `C:\pei-c2-evidencias\<AAAA-MM-DD>\<C2_RUN_ID>\`: fuera del repositorio (no se versiona) y separada de

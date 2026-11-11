@@ -15,6 +15,16 @@ actualizado en `docs/testing/trazabilidad/M03-doctors.md`:
 Las dos con la huella de PostgreSQL de 13 tablas `equal` y el bucket vacío al terminar. Evidencias en
 `C:\pei-c2-evidencias\2026-11-10\<C2_RUN_ID>\`.
 
+**Cierre (2026-11-11).** R2 está **cerrado para el alcance actual de M03 en C2**:
+- Pendiente 24 (conservación de evidencias): propuesta **aprobada**. `C:\pei-c2-evidencias\` es la ubicación permanente de
+  trabajo, los paquetes no se versionan y el repositorio conserva la trazabilidad.
+- Pendiente 25 (objetos huérfanos): propuesta **aprobada**. Se acepta el riesgo residual, sin barrido automático; la
+  conciliación manual de solo lectura queda como condición previa para habilitar R2 en producción (D-19).
+- Pendiente 28 (Cloudflare): **verificado mediante confirmación manual de la persona usuaria** (bucket sin acceso
+  público; token limitado a `pei-docs-c2-test` con solo Read y Edit de `Workers R2 Storage Bucket Item`).
+
+El detalle está en `M03-doctors.md` (sección «R2 (2026-11-04 y 2026-11-10)» y filas 24, 25 y 28).
+
 El texto siguiente se conserva sin cambios como antecedente (ejecuciones del 2026-11-04, anteriores a la etapa 2 del
 manifiesto). Este archivo se puede eliminar una vez versionado `M03-doctors.md`.
 
