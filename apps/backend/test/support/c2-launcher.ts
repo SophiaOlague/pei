@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'crypto';
 import { existsSync, statSync } from 'fs';
 import { basename, isAbsolute, join, relative, resolve } from 'path';
-import { assertC2BranchTarget, C2_MODES, C2_PERSISTENT_FIXTURES, C2TargetError, NEUTRALIZED_ENV, R2_ENV, RESEND_ENV, type C2Mode } from './c2-target-guard';
+import { assertC2BranchTarget, C2_MODES, C2_PERSISTENT_FIXTURES, C2_WEBHOOKS_FIXTURES, C2TargetError, NEUTRALIZED_ENV, R2_ENV, RESEND_ENV, type C2Mode } from './c2-target-guard';
 
 // Lanzador C2 (lógica pura, sin red): prepara la ejecución de UN spec contra la rama de pruebas de Neon con un entorno
 // de lista blanca leído EXCLUSIVAMENTE del archivo .env.c2 (fuera del repositorio). No hereda variables del proceso
@@ -31,6 +31,7 @@ export const MODE_CONFIG: Record<C2Mode, { config: string; spec: RegExp }> = {
   r2: { config: 'test/jest-r2.json', spec: /^test\/r2\/[a-z0-9-]+\.r2-spec\.ts$/ },
   auth: { config: 'test/jest-integration.json', spec: /^test\/integration\/[a-z0-9-]*better-auth[a-z0-9-]*\.int-spec\.ts$/ },
   migration: { config: 'test/jest-migration.json', spec: /^test\/integration\/m08-m1-(?:migration|part-b)\.int-spec\.ts$/ },
+  webhooks: { config: 'test/jest-webhooks.json', spec: /^test\/webhooks\/[a-z0-9-]+\.wh-spec\.ts$/ },
 };
 
 // Autorización explícita de M-1 parte B (0014) para TC-M08-307: solo con --authorize-part-b 0014, en el modo
@@ -38,8 +39,14 @@ export const MODE_CONFIG: Record<C2Mode, { config: string; spec: RegExp }> = {
 export const PART_B_SPEC = 'test/integration/m08-m1-part-b.int-spec.ts';
 export const PART_B_AUTHORIZATION = Object.freeze({ variable: 'M08_PART_B_AUTHORIZED', value: '0014' });
 
+// Autorización explícita del spec de Payments F1 (aplica 0017 en transacciones revertidas): solo con
+// --authorize-payments-f1 0017, en el modo postgres y para ese spec. Nunca se lee de .env.c2 ni del proceso padre.
+export const PAYMENTS_F1_SPEC = 'test/integration/payments-f1.int-spec.ts';
+export const PAYMENTS_F1_AUTHORIZATION = Object.freeze({ variable: 'PAYMENTS_F1_AUTHORIZED', value: '0017' });
+
 // Marcas de datos confirmados que aceptan los specs que no revierten sus transacciones (rama C2 persistente).
-export const COMMITTED_FIXTURE_MARKERS = [C2_PERSISTENT_FIXTURES] as const;
+// C2_WEBHOOKS_FIXTURES solo en el modo `webhooks`, que la exige (H-5).
+export const COMMITTED_FIXTURE_MARKERS = [C2_PERSISTENT_FIXTURES, C2_WEBHOOKS_FIXTURES] as const;
 
 export class C2LaunchError extends Error {
   constructor(reason: string) {
@@ -120,6 +127,7 @@ export interface RunOptions {
   committedFixtures?: string;
   runId?: string;
   authorizePartB?: string;
+  authorizePaymentsF1?: string;
 }
 
 export const newRunId = (now: Date = new Date()) => `c2-${now.toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${randomBytes(2).toString('hex')}`;
@@ -141,10 +149,24 @@ export function buildChildEnv(options: RunOptions): NodeJS.ProcessEnv {
   if (mode === 'migration' && options.committedFixtures !== undefined) {
     throw new C2LaunchError('el modo migration no admite datos confirmados');
   }
+  if (mode === 'webhooks' && options.committedFixtures !== C2_WEBHOOKS_FIXTURES) {
+    throw new C2LaunchError(`el modo webhooks exige --committed-fixtures ${C2_WEBHOOKS_FIXTURES}`);
+  }
+  if (mode !== 'webhooks' && options.committedFixtures === C2_WEBHOOKS_FIXTURES) {
+    throw new C2LaunchError(`--committed-fixtures ${C2_WEBHOOKS_FIXTURES} solo se admite en el modo webhooks`);
+  }
   const spec = options.spec.replace(/\\/g, '/').replace(/^\.\//, '');
   if (options.authorizePartB !== undefined) {
     if (mode !== 'migration' || spec !== PART_B_SPEC || options.authorizePartB !== PART_B_AUTHORIZATION.value) {
       throw new C2LaunchError('--authorize-part-b solo se admite como 0014, en el modo migration y para el spec de la parte B');
+    }
+  }
+  if (options.authorizePaymentsF1 !== undefined) {
+    if (mode !== 'postgres' || spec !== PAYMENTS_F1_SPEC || options.authorizePaymentsF1 !== PAYMENTS_F1_AUTHORIZATION.value) {
+      throw new C2LaunchError('--authorize-payments-f1 solo se admite como 0017, en el modo postgres y para el spec de Payments F1');
+    }
+    if (options.committedFixtures !== undefined) {
+      throw new C2LaunchError('--authorize-payments-f1 no admite datos confirmados');
     }
   }
 
@@ -164,6 +186,7 @@ export function buildChildEnv(options: RunOptions): NodeJS.ProcessEnv {
   env.NODE_OPTIONS = '';
   if (options.committedFixtures !== undefined) env.C2_COMMITTED_FIXTURES = options.committedFixtures;
   if (options.authorizePartB !== undefined) env[PART_B_AUTHORIZATION.variable] = PART_B_AUTHORIZATION.value;
+  if (options.authorizePaymentsF1 !== undefined) env[PAYMENTS_F1_AUTHORIZATION.variable] = PAYMENTS_F1_AUTHORIZATION.value;
 
   // Las mismas salvaguardas que ejecutará cada spec, antes de iniciar Jest.
   try {

@@ -4,7 +4,9 @@
 //   pnpm c2 preflight <modo>                     además, identidad real de Neon (lectura: neon.*) y, en r2, HeadBucket
 //   pnpm c2 run <modo> <spec> [--committed-fixtures c2-persistent-accepted]
 //   pnpm c2 run migration test/integration/m08-m1-part-b.int-spec.ts --authorize-part-b 0014   (solo TC-M08-307)
-//   pnpm c2 rotate-auth-secret                   genera un BETTER_AUTH_SECRET exclusivo de C2 en .env.c2
+//   pnpm c2 run postgres test/integration/payments-f1.int-spec.ts --authorize-payments-f1 0017   (solo Payments F1)
+//   pnpm c2 run webhooks test/webhooks/stripe-webhook-idempotency.wh-spec.ts --committed-fixtures wh-h5-committed   (H-5)
+//   pnpm c2 rotate-auth-secret                  genera un BETTER_AUTH_SECRET exclusivo de C2 en .env.c2
 //
 // Modos: postgres | concurrency | r2 | auth | migration (rama aislada, con C2_ENV_FILE apuntando a su propio .env.c2). Archivo: C:\pei-c2\.env.c2 (o C2_ENV_FILE). Nunca lee apps/backend/.env,
 // nunca imprime secretos ni cadenas de conexión y ejecuta Jest desde un directorio temporal sin .env.
@@ -121,7 +123,9 @@ async function main(argv: string[]): Promise<number> {
   const committedFixtures = committedIndex >= 0 ? rest[committedIndex + 1] : undefined;
   const partBIndex = rest.indexOf('--authorize-part-b');
   const authorizePartB = partBIndex >= 0 ? rest[partBIndex + 1] ?? '' : undefined;
-  const env = buildChildEnv({ mode, spec: specArg ?? '', vars, committedFixtures, authorizePartB });
+  const paymentsF1Index = rest.indexOf('--authorize-payments-f1');
+  const authorizePaymentsF1 = paymentsF1Index >= 0 ? rest[paymentsF1Index + 1] ?? '' : undefined;
+  const env = buildChildEnv({ mode, spec: specArg ?? '', vars, committedFixtures, authorizePartB, authorizePaymentsF1 });
 
   if (command === 'preflight') {
     await preflight(env);

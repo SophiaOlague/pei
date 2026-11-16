@@ -11,6 +11,13 @@
 // - Se aplica SOLO la siguiente migración pendiente: la BD tiene exactamente un prefijo del journal (hash y `when`), las
 //   pendientes son consecutivas y todas están autorizadas por índice, tag y SHA-256.
 import { sha256, type AppliedMigration, type JournalEntry, type RuntimeIdentity } from './c2-migrate-core';
+import { authorizeForRunner, type Query } from './migration-authorization';
+import type { Fingerprint } from './payments-preflight-core';
+
+// Huella autorizada de desarrollo (8 componentes), fuera del repositorio. Creada el 2026-11-15 a partir de la
+// identificación 0.c de solo lectura, con los ids de Neon confirmados por la responsable del producto
+// (Payments-decisiones.md §7.5). Sin ella, ninguna migración protegida se aplica en desarrollo.
+export const DEV_AUTHORIZED_FINGERPRINT_FILE = 'C:\\pei-dev\\payments-preflight-dev.authorized.json';
 
 export const DEV_MIGRATION_TARGET = Object.freeze({
   project: 'royal-paper-10258990',
@@ -26,15 +33,25 @@ export const DEV_FORBIDDEN_TARGETS = Object.freeze([
   Object.freeze({ name: 'respaldo c2-pre-0013', branch: 'br-silent-butterfly-b5z128fu', endpoint: 'ep-holy-sea-b5zxmnm6' }),
   Object.freeze({ name: 'respaldo de C2 previo a 0015', branch: 'br-hidden-fire-b5u27hik', endpoint: null }),
   Object.freeze({ name: 'respaldo de C2 previo a 0016', branch: 'br-red-cell-b5bpd2dp', endpoint: null }),
+  Object.freeze({ name: 'respaldo de desarrollo previo a 0017', branch: 'br-curly-wind-b5bi0stw', endpoint: 'ep-silent-tooth-b518kt75' }),
 ]);
 
 // Migraciones que este ejecutor puede aplicar en desarrollo. 0000–0013 ya están registradas en desarrollo (0013
 // aplicada y registrada el 2026-11-07, M08-diseno A.15 y A.16): son el requisito previo. Cada una exige respaldo y
 // autorización expresa; cada ejecución aplica solo la siguiente.
+// 0017_payments_f1: autorización expresa de la responsable del producto del 2026-11-15, SOLO para esta rama de
+// desarrollo y SOLO para el SQL con este SHA-256 (Payments-decisiones.md §7.5; respaldo br-curly-wind-b5bi0stw). Es
+// una migración protegida (R-1): además exige la huella de DEV_AUTHORIZED_FINGERPRINT_FILE. La autorización de C2
+// (§7.4) es independiente y vive solo en c2-migrate-core.ts.
 export const DEV_AUTHORIZED_MIGRATIONS = Object.freeze([
   Object.freeze({ idx: 14, tag: '0014_m08_m1_legal_acceptance', sha256: '72af287cf7336d6f56942b35576b89c9cf0e1e3566b42f41ab62145ab440e24c' }),
   Object.freeze({ idx: 15, tag: '0015_m08_m1c_agenda_block_not_null', sha256: '7652c22e8ea4598ca290338ad030fec40170da46c985591bdc85874d7909ef8d' }),
   Object.freeze({ idx: 16, tag: '0016_m08_m1c_wait_defaults', sha256: 'fd9f6f77a778e010a064bd45644f5754faf6b6221387cdcef35e7060aa584936' }),
+  Object.freeze({ idx: 17, tag: '0017_payments_f1', sha256: '5593858840293a7d46866dbd37ada7345c5616cda84db1c566a37b8f840944b1' }),
+  // 0018_payments_stripe_provider: autorización expresa del 2026-11-15, SOLO para esta rama de desarrollo y SOLO para
+  // el SQL con este SHA-256 (Payments-decisiones.md §8.3). Protegida (R-1): exige la huella de desarrollo. La
+  // autorización de C2 (§8.2) es independiente y vive solo en c2-migrate-core.ts.
+  Object.freeze({ idx: 18, tag: '0018_payments_stripe_provider', sha256: 'f15b342a27a8367b94b1be5dc62a550096891e6e9b8d8e786ab2dda25029be56' }),
 ]);
 
 export class DevMigrateError extends Error {
@@ -149,7 +166,13 @@ export interface DevMigrateDeps {
     // Aplica lo que falte de `entries` (el migrador de Drizzle con un journal que termina en la siguiente).
     migrate: (entries: JournalEntry[]) => Promise<void>;
     close: () => Promise<void>;
+    // R-1 (migraciones protegidas): huella de 8 componentes en ESTA conexión y consultas de la variable de autorización.
+    // Opcionales: si faltan y la migración es protegida, el ejecutor se detiene (fallo cerrado).
+    fingerprint?: (url: string) => Promise<Fingerprint>;
+    query?: Query;
   }>;
+  // Huella autorizada del destino (archivo fuera del repositorio). Sin ella, una migración protegida no se aplica.
+  readAuthorizedFingerprint?: () => string | null;
   log: (line: string) => void;
 }
 
@@ -169,7 +192,14 @@ export async function runDevMigrate(deps: DevMigrateDeps, apply: boolean) {
     }
     // Identidad otra vez justo antes de escribir (misma conexión del migrador).
     assertDevRuntimeIdentity(await conn.identity());
-    await conn.migrate(plan.entries);
+    // R-1: solo para una migración protegida y DESPUÉS de la identidad de Neon: huella de 8 componentes, sesión sin
+    // autorización heredada y, entonces, pei.migration_authorized. Se retira siempre después de migrar.
+    const auth = await authorizeForRunner(conn, url, plan.tag, deps.readAuthorizedFingerprint, DEV_AUTHORIZED_FINGERPRINT_FILE, 'desarrollo');
+    try {
+      await conn.migrate(plan.entries);
+    } finally {
+      await auth.reset();
+    }
     const after = await conn.applied();
     assertDevAppliedAfter(before, after, plan);
     deps.log(`aplicada ${plan.tag}; ${after.length} migraciones registradas`);

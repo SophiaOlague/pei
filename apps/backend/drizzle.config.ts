@@ -1,5 +1,9 @@
 import { defineConfig } from 'drizzle-kit';
 import * as dotenv from 'dotenv';
+import { assertDrizzleKitCommandAllowed } from './scripts/drizzle-kit-guard';
+
+// R-1: `drizzle-kit migrate` y `push` quedan bloqueados ANTES de leer el .env (generate, studio y check siguen igual).
+assertDrizzleKitCommandAllowed(process.argv);
 
 dotenv.config();
 

@@ -35,8 +35,12 @@ describe('Arquitectura de M08 (citas)', () => {
   });
 
   it('[RT-M08-02] ningún módulo de M00 a M07 importa M08 (sin dependencias circulares)', () => {
+    // Módulos posteriores a M08 que consumen sus contratos de integración (A.4): pagos (F3.1). Cualquier otro módulo de
+    // modules/ (M00 a M07 y los que se agreguen) sigue sin poder importar M08; la dirección inversa la impide RT-M08-03.
+    const LATER_CONSUMERS = ['modules/payments/'];
     const offenders = files
       .filter((f) => f.path.startsWith('modules/') && !f.path.startsWith('modules/appointments/'))
+      .filter((f) => !LATER_CONSUMERS.some((prefix) => f.path.startsWith(prefix)))
       .filter((f) => f.imports.some((spec) => /(^|\/)appointments\//.test(spec)))
       .map((f) => f.path);
     expect(offenders).toEqual([]);
@@ -101,7 +105,7 @@ describe('Arquitectura de M08 (citas)', () => {
     expect(down).toMatch(/reconnect_grace_minutes set default 5/);
     expect(readFileSync(join(SRC, 'db', 'migrations', '0016_m08_m1c_wait_defaults.sql'), 'utf8')).toBe(up);
     const journal = JSON.parse(readFileSync(join(SRC, 'db', 'migrations', 'meta', '_journal.json'), 'utf8')) as { entries: { idx: number; tag: string }[] };
-    expect(journal.entries.at(-1)).toMatchObject({ idx: 16, tag: '0016_m08_m1c_wait_defaults' });
+    expect(journal.entries[16]).toMatchObject({ idx: 16, tag: '0016_m08_m1c_wait_defaults' });
     // El esquema de Drizzle ya no declara DEFAULT para L y G.
     const config = readFileSync(join(SRC, 'db', 'schema', 'configuration.ts'), 'utf8');
     expect(config).toMatch(/maxProtectedWaitMinutes: integer\('max_protected_wait_minutes'\)\.notNull\(\),/);

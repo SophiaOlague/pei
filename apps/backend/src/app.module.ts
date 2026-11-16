@@ -11,6 +11,8 @@ import { PrivateStorageModule } from './modules/private-storage/private-storage.
 import { DoctorsModule } from './modules/doctors/doctors.module';
 import { AgendaModule } from './modules/agenda/agenda.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { captureStripeRawBody } from './modules/payments/presentation/stripe-webhook.controller';
 
 
 @Module({
@@ -26,14 +28,17 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
     IdentityModule,
     DoctorsModule,
     AgendaModule,
-    AppointmentsModule],
+    AppointmentsModule,
+    // Payments: sin variables de Stripe arranca con UnconfiguredPaymentProvider (todo cobro falla de forma cerrada).
+    PaymentsModule],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-      .apply(bodyParser.json())
+      // verify: conserva los bytes originales del cuerpo SOLO en /webhooks/stripe (Stripe firma el cuerpo).
+      .apply(bodyParser.json({ verify: captureStripeRawBody }))
       .exclude({ path: 'api/auth/*path', method: RequestMethod.ALL })
       .forRoutes('*path');
   }

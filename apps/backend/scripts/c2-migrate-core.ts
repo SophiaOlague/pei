@@ -10,6 +10,11 @@
 //   hashes y `when`); las pendientes deben ser consecutivas y estar todas autorizadas (tag y SHA-256). Al migrador de
 //   Drizzle se le pasa un journal que termina en la siguiente, así que no puede aplicar ninguna más.
 import { createHash } from 'crypto';
+import { authorizeForRunner, type Query } from './migration-authorization';
+import type { Fingerprint } from './payments-preflight-core';
+
+// Huella autorizada de C2 (8 componentes), construida tras --identify (Payments F1, 0.b).
+export const C2_AUTHORIZED_FINGERPRINT_FILE = 'C:\\pei-c2\\payments-preflight-c2.authorized.json';
 
 export const C2_MIGRATION_TARGET = Object.freeze({
   project: 'royal-paper-10258990',
@@ -25,6 +30,12 @@ export const DEVELOPMENT_TARGET = Object.freeze({ branch: 'br-royal-recipe-b54s5
 export const AUTHORIZED_MIGRATIONS = Object.freeze([
   Object.freeze({ idx: 15, tag: '0015_m08_m1c_agenda_block_not_null', sha256: '7652c22e8ea4598ca290338ad030fec40170da46c985591bdc85874d7909ef8d' }),
   Object.freeze({ idx: 16, tag: '0016_m08_m1c_wait_defaults', sha256: 'fd9f6f77a778e010a064bd45644f5754faf6b6221387cdcef35e7060aa584936' }),
+  // Payments F1: autorizada SOLO para C2 el 2026-11-15 (Payments-decisiones.md §7.4). Migración protegida: exige la
+  // huella de 8 componentes y pei.migration_authorized (scripts/migration-authorization.ts).
+  Object.freeze({ idx: 17, tag: '0017_payments_f1', sha256: '5593858840293a7d46866dbd37ada7345c5616cda84db1c566a37b8f840944b1' }),
+  // Stripe como proveedor (solo amplía payment_provider_enum): autorizada para C2 el 2026-11-15, con una autorización
+  // propia e independiente de la de desarrollo (Payments-decisiones.md §8.2). Protegida (R-1), igual que 0017.
+  Object.freeze({ idx: 18, tag: '0018_payments_stripe_provider', sha256: 'f15b342a27a8367b94b1be5dc62a550096891e6e9b8d8e786ab2dda25029be56' }),
 ]);
 
 export class C2MigrateError extends Error {
@@ -137,7 +148,13 @@ export interface C2MigrateDeps {
     // Aplica lo que falte de `entries` (el migrador de Drizzle con un journal que termina en la siguiente).
     migrate: (entries: JournalEntry[]) => Promise<void>;
     close: () => Promise<void>;
+    // R-1 (migraciones protegidas): huella de 8 componentes en ESTA conexión y consultas de la variable de autorización.
+    // Opcionales: si faltan y la migración es protegida, el ejecutor se detiene (fallo cerrado).
+    fingerprint?: (url: string) => Promise<Fingerprint>;
+    query?: Query;
   }>;
+  // Huella autorizada del destino (archivo fuera del repositorio). Sin ella, una migración protegida no se aplica.
+  readAuthorizedFingerprint?: () => string | null;
   log: (line: string) => void;
 }
 
@@ -158,7 +175,14 @@ export async function runC2Migrate(deps: C2MigrateDeps, apply: boolean) {
     }
     // Identidad otra vez justo antes de escribir (misma conexión del migrador).
     assertRuntimeIdentity(await conn.identity());
-    await conn.migrate(plan.entries);
+    // R-1: solo para una migración protegida y DESPUÉS de la identidad de Neon: huella de 8 componentes, sesión sin
+    // autorización heredada y, entonces, pei.migration_authorized. Se retira siempre después de migrar.
+    const auth = await authorizeForRunner(conn, url, plan.tag, deps.readAuthorizedFingerprint, C2_AUTHORIZED_FINGERPRINT_FILE, 'C2');
+    try {
+      await conn.migrate(plan.entries);
+    } finally {
+      await auth.reset();
+    }
     const after = await conn.applied();
     assertAppliedAfter(before, after, plan);
     deps.log(`aplicada ${plan.tag}; ${after.length} migraciones registradas`);
