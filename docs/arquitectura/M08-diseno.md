@@ -55,6 +55,7 @@ de diseño de M08. Las demás siguen pendientes (A.7).
 | AP-25 | 2026-11-07 | E14: N9 y N10 `no_show_both` solo cuando se cumplen las condiciones de ambas ventanas; N8 consulta normal. Autoriza preparar M-1 (cambios 1 a 5, sin el 6) sin ejecutarla, las cuatro consultas de solo lectura, formalizar C-23 a C-32 y la implementación sin M-1. El cambio en M02 sigue pendiente | Responsable del proyecto | A.12 |
 | AP-26 | 2026-11-08 | Precisa AP-19: la cita guarda **las dos** aceptaciones legales del paciente (privacidad y términos), en dos columnas de `appointment` (`privacy_legal_acceptance_id` y `terms_legal_acceptance_id`): las dos presentes o las dos nulas; un trigger valida paciente, tipo documental y régimen; inmutables después del INSERT. `0014` redefine `gst_appointment_guard` con `CREATE OR REPLACE` sin modificar `0013`, y su reversión restaura exactamente el guard de `0013`. Solo se autoriza la documentación: el lector de M02, las columnas en Drizzle, `0014` y TC-M08-307 siguen sin implementar | Responsable del proyecto | A.17 |
 | AP-27 | 2026-11-09 | RF-46: regla de `RootPaymentLookup`. Solo por la cita raíz; `type = 'consultation'` y `status = 'succeeded'`; ninguna fila → `null`; una → `{ paymentId, rootAppointmentId }`; varias → error de integridad, sin elegir una. Solo documentación: el módulo de pagos no existe | Responsable del proyecto | A.20 |
+| AP-27a | 2026-11-11 | Precisa AP-27 (CC-PAY-1 del Maestro, C-23). `status = 'succeeded'` se sustituye por el **conjunto capturado** `succeeded`, `partially_refunded`, `refunded`, `in_dispute`, `charged_back`. La referencia al pago original se conserva aunque su estado cambie después. El resto de AP-27 no cambia (ninguna fila → `null`; una → `{ paymentId, rootAppointmentId }`; varias → error de integridad). Pertenecer al conjunto capturado **no** hace al pago elegible para liquidación ni permite confirmar una cita: `confirmPaid` solo se invoca con un pago `succeeded` verificado con el proveedor. Solo documentación: el código de M08 no cambia y Payments no existe | Responsable del producto | A.20 |
 | — | 2026-11-07 | **Pendientes expresamente**: E14; la ejecución de M-1; la modificación aditiva de M02. C-23 a C-32 siguen como propuestas | — | A.7 |
 
 Notas:
@@ -204,7 +205,10 @@ S1 sigue siendo posible y queda cubierto por el reembolso.
 
 **Contrato:**
 - `confirmPaid(appointmentId, paymentId, amount)` se ejecuta con el candado de la cita y devuelve `Confirmed`,
-  `AlreadyConfirmed` o `NotConfirmable{reason: expired | amount_mismatch | patient_mismatch}`.
+  `AlreadyConfirmed` o `NotConfirmable{reason: expired | amount_mismatch | ~~patient_mismatch~~ invalid_state}`.
+  **Corrección (2026-11-11, PAY-25 de CC-PAY-1):** el código implementado devuelve `invalid_state`, no
+  `patient_mismatch` (`appointment-integration.services.ts`). Se alinea el documento con el código, sin cambiar M08.
+  Payments valida que el pago corresponda al paciente de la cita antes de invocar `confirmPaid`.
 - Pagos, ante `NotConfirmable`, crea el reembolso (motivo `payment_error` del enum existente) de forma idempotente: un solo
   reembolso por pago y por esa causa.
 - **Conciliación**: un evento `appointment.payment.not_confirmable` en la auditoría, con `appointmentId`, `paymentId` y el
@@ -1513,7 +1517,8 @@ dependencia externa** (el módulo de pagos, consumidor del contrato, no existe; 
      índice) y una cita puede tener varios intentos (`pending`, `requires_action`, `succeeded`, `failed`, `canceled`).
      `RootPaymentLookup.paymentForRootAppointment(rootAppointmentId)`:
      - busca **solo** por el `rootAppointmentId` recibido (nunca por una cita derivada de un reagendamiento);
-     - filtra `type = 'consultation'` y `status = 'succeeded'`;
+     - filtra `type = 'consultation'` y ~~`status = 'succeeded'`~~ el estado en el conjunto capturado
+       (`succeeded`, `partially_refunded`, `refunded`, `in_dispute`, `charged_back`) **[AP-27a, 2026-11-11]**;
      - ninguna fila: `null`;
      - exactamente una: `{ paymentId, rootAppointmentId }`;
      - varias: error explícito de integridad; **nunca** elige una arbitrariamente.
@@ -1700,6 +1705,81 @@ de retenciones (DA-9, AP-17); RF-17 cita de emergencia.
 - Catálogo tras 0016 (L y G sin DEFAULT) en C2 y en desarrollo: deducido de que 0016 se aplicó, sin consulta registrada.
 - Los límites de L (480) y G (239) son técnicos, pendientes de confirmación de negocio.
 - No se ejecutaron pruebas contra desarrollo.
+
+## A.25 Consulta duradera de cancelaciones para pagos (RF-46, RN-018; 2026-11-14)
+
+**Contrato implementado con dobles** (`CanceledAppointmentFeed`; aprobado como «A.21» en la propuesta de durabilidad de
+Payments, numerado A.25 porque A.21 ya documenta los eventos RF-51). **Sin validar contra PostgreSQL real.** Sin
+migración. `AppointmentCanceled`, `AppointmentEventSubscribers` y los casos de uso de cancelación no cambian.
+
+**Problema.** `AppointmentCanceled` se entrega en memoria después del COMMIT (A.21): si el proceso cae entre el COMMIT y
+el manejador de pagos, la cancelación con reembolso se pierde para pagos.
+
+**Solución (alternativa B, decisiones D-1 a D-5 aprobadas).** M08 expone una consulta de solo lectura sobre lo que la
+transacción de cancelación ya persiste de forma atómica: la fila `appointment.status.canceled` de `audit_log` (D6, solo
+INSERT) y la cita. No hay escritura nueva ni outbox.
+
+| Contrato | Firma | Dónde |
+|---|---|---|
+| Consulta | `CanceledAppointmentFeed.listCanceled({ after?, limit }): Promise<CanceledAppointmentPage>` | `application/integration/canceled-appointment-feed.ts`; `CanceledAppointmentFeedService`, proveedor y export de `AppointmentsModule` |
+| Lector | `CanceledAppointmentAuditReader.listAfter(after, limit)` (token `CANCELED_APPOINTMENT_AUDIT_READER`) | `infrastructure/persistence/drizzle-canceled-appointment-audit.reader.ts` |
+
+- **Aviso** (`CanceledAppointmentNotice`, versión 1): `eventId` = `appointment-canceled:<appointmentId>` (determinista:
+  `canceled` es terminal), `appointmentId`, `rootAppointmentId` (`resolveChain`, DA-6), `canceledBy` (`patient` /
+  `doctor`), `refundOutcome` y `occurredAt` (`audit_log.created_at`). Sin importes, comisiones, motivo ni datos
+  personales: pagos obtiene el pago, el bruto, los reembolsos y el saldo de sus propios registros.
+- **D-1 (fuente):** el `refundOutcome` literal de la auditoría es la fuente de verdad. Se verifica con
+  `patientCancellationOutcome(scheduled_at, cancelled_at, refund_deadline_hours de la versión aplicada)` o
+  `DOCTOR_CANCELLATION_OUTCOME`; si no coincide, el aviso se excluye como anomalía `outcome_mismatch`. Pagos no recalcula
+  reglas.
+- **D-5 (tiempo), verificación exacta y sin tolerancia (corrección aprobada el 2026-11-14).** `audit_log.created_at`
+  ordena la consulta. Se eliminó la comparación con tolerancia de 5 min entre `audit_log.created_at` (reloj de la BD) y
+  `appointment.cancelled_at` (reloj de la aplicación): comparaba relojes distintos y la diferencia legítima (esperas de
+  candados sin `lock_timeout`, desfase de relojes) no está acotada. En su lugar:
+  1. **Misma transacción:** `audit_log.created_at` debe ser **igual** al `created_at` de la única fila `canceled` de
+     `appointment_status_history`. Ambos son `now()` de PostgreSQL en la transacción de cancelación (trigger
+     `gst_audit_log_before_insert` y `DEFAULT now()`; `changeStatus` no envía la fecha); ambas tablas son de solo
+     inserción. Se comparan las posiciones exactas en texto (UTC, microsegundos). Anomalías: `history_missing`,
+     `history_ambiguous`, `history_time_mismatch`.
+  2. **Integridad de `cancelled_at`:** la auditoría guarda `hoursBefore = round(hoursUntil(scheduled_at, now), 2)` con el
+     mismo `now` que se guarda como `cancelled_at` (`cancellation.use-cases.ts`, sin cambios desde `7a730ba`).
+     `auditedHoursBefore(scheduled_at, cancelled_at)` debe dar exactamente ese número (mismo reloj; resolución de la
+     regla: 0,01 h). Anomalía: `hours_before_mismatch` (cubre `cancelled_at` alterado y `hoursBefore` inconsistente). Una
+     alteración menor que la resolución que además cambiara el resultado de la política la detecta `outcome_mismatch`.
+  `cancelled_at`, ya verificado, alimenta la regla de la política.
+  Condiciones comprobadas: solo `CancelByPatientUseCase` y `CancelByDoctorUseCase` cancelan y auditan
+  `appointment.status.canceled`, ambos en una sola unidad de trabajo; ningún trigger inserta historial ni reescribe su
+  `created_at`; `hoursBefore` se audita desde el mismo commit que la acción.
+- **Otras anomalías** (excluidas, solo con ids técnicos): `invalid_audit_metadata` (incluye `hoursBefore` ausente o no
+  numérico), `appointment_missing`, `status_mismatch`, `actor_mismatch`, `cancelled_at_missing`, `policy_missing`,
+  `chain_broken`. Un error de lectura no es anomalía: se propaga y el barrido se reintenta (ninguna fila se salta).
+- **D-2 (paginación):** clave estable (`created_at` en UTC con microsegundos, `audit_log.id`), `limit` ≤ 500, LEFT JOIN
+  de cita y política (una fila sin cita llega como anomalía); el historial se lee con subconsultas correlacionadas
+  (`appointment_status_history_appointment_idx`), que no multiplican filas. Sin horizonte ni cursor persistente: cada barrido recorre
+  toda la historia, así que una transacción que confirme tarde con un `created_at` anterior aparece en el siguiente.
+- **Rendimiento:** usa `audit_action_idx` y `audit_created_at_idx`; el coste crece con el número total de
+  cancelaciones. Índice opcional (no creado): `audit_log (action, created_at, id)`.
+- **Consumidor:** `ReconcileCanceledAppointmentRefundsUseCase` de pagos y el CLI `payments-reconcile-cancellations`
+  (periodicidad: decisión operativa pendiente). La ruta en memoria sigue como optimización; ambas usan el mismo manejador
+  idempotente de pagos.
+- **Pruebas (dobles):** `canceled-appointment-feed.spec.ts` (avisos, paginación, cancelaciones antiguas, cadena,
+  discrepancias, ausencia de falsos positivos), `canceled-appointment-feed.contract.spec.ts` (casos de uso de cancelación
+  reales frente a la verificación exacta), `drizzle-canceled-appointment-audit.reader.spec.ts` (SQL generado, sin
+  ejecutar) y
+  `canceled-appointment-feed.architecture.spec.ts` (sin ruta HTTP, sin dependencia de pagos, contrato sin importes,
+  lector de solo lectura). **Pendiente:** ejecutar el lector contra PostgreSQL (C2) y verificar el orden con microsegundos.
+- **Riesgo aceptado (D-5):** `cancelled_at` no está protegido por trigger después de cancelar; una modificación posterior
+  se detecta como `hours_before_mismatch` (o `outcome_mismatch`) y excluye el aviso.
+- **Seguimiento (2026-11-14): corrección aceptada a nivel de código y pruebas simuladas.**
+  - Eliminada la tolerancia de cinco minutos entre `audit_log.created_at` y `appointment.cancelled_at`.
+  - Implementada la verificación exacta entre `audit_log.created_at` y `appointment_status_history.created_at` (fila
+    `canceled`).
+  - Añadida la validación de `cancelled_at` con `hoursBefore` y de `refundOutcome` contra las reglas de M08.
+  - Pruebas automatizadas aprobadas según los resultados reportados (solo dobles): M08, Payments, CLI y arquitectura 43
+    suites y 734 pruebas; suite completa 1765 aprobadas y 3 fallidas preexistentes ajenas a A.25; E2E con dobles 12/12;
+    lint sin avisos; TypeScript solo con el error preexistente. Detalle en `docs/testing/trazabilidad/M08-appointments.md`.
+  - **Pendiente:** validar el lector contra PostgreSQL real (C2) para confirmar la igualdad de los timestamps con
+    precisión de microsegundos.
 
 ## 1. Alcance y límites
 
