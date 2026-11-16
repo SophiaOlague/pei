@@ -23,6 +23,9 @@ async function insertPolicy(tx: Tx, from: Date, until: Date) {
     maxReschedules: 2,
     doctorWaitMinutes: 30,
     patientToleranceMinutes: 15,
+    // 0016 (M-1c): L y G sin DEFAULT; valores iniciales de AP-22.
+    maxProtectedWaitMinutes: 60,
+    reconnectGraceMinutes: 5,
     effectiveFrom: from,
     effectiveUntil: until,
     createdBy: profile.id,

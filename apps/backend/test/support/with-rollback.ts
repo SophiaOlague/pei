@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto';
 import { db } from '../../src/db';
 import { transactionStorage } from '../../src/db/transaction-context';
 
@@ -28,13 +27,8 @@ export async function withRollback<T>(work: (tx: Tx) => Promise<T>): Promise<T> 
   return result as T;
 }
 
-// Identificador único para los datos que crea una prueba; permite comprobar después que no quedó nada.
-export const TEST_PREFIX = 'gst-m00-test';
-export const TEST_EMAIL_DOMAIN = 'm00.test.invalid';
-
-export function testTag(): string {
-  return `${TEST_PREFIX}-${randomUUID()}`;
-}
+// Identificadores sintéticos (TEST_PREFIX, testTag): ver test-tag.ts, sin dependencia de la BD.
+export { C2_RUN_ID_PATTERN, TEST_EMAIL_DOMAIN, TEST_PREFIX, testTag } from './test-tag';
 
 export interface Deferred<T = void> {
   promise: Promise<T>;

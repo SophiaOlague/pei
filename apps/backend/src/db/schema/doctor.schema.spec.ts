@@ -127,7 +127,7 @@ describe('SQL de 0010 y 0011 (M03 B2, sin aplicar)', () => {
 
   it('[TC-M03-100][plan v2 §3] el journal registra 0009 a 0012 en orden y sin huecos', () => {
     const journal = JSON.parse(sqlOf(join('meta', '_journal.json'))) as { entries: { idx: number; tag: string }[] };
-    const tail = journal.entries.slice(-4).map((e) => [e.idx, e.tag]);
+    const tail = journal.entries.slice(9, 13).map((e) => [e.idx, e.tag]);
     expect(tail).toEqual([
       [9, '0009_m03_specialty_catalog'],
       [10, '0010_m03_doctor_profile_drop_legacy'],

@@ -10,6 +10,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { PrivateStorageModule } from './modules/private-storage/private-storage.module';
 import { DoctorsModule } from './modules/doctors/doctors.module';
 import { AgendaModule } from './modules/agenda/agenda.module';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
 
 
 @Module({
@@ -24,7 +25,8 @@ import { AgendaModule } from './modules/agenda/agenda.module';
     PrivateStorageModule,
     IdentityModule,
     DoctorsModule,
-    AgendaModule],
+    AgendaModule,
+    AppointmentsModule],
   controllers: [AppController],
   providers: [AppService],
 })

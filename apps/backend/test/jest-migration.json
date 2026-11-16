@@ -1,0 +1,14 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "testEnvironment": "node",
+  "setupFiles": [
+    "<rootDir>/test/support/db-tripwire.ts",
+    "<rootDir>/test/support/c2-mode-migration.ts"
+  ],
+  "testRegex": "test/integration/m08-m1-(migration|part-b)\\.int-spec\\.ts$",
+  "testTimeout": 60000,
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  }
+}

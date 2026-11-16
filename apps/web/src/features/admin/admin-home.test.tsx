@@ -10,7 +10,7 @@ import {
   rejectDoctorLicenseReview,
 } from "@/lib/api";
 import { meAs, mockFetch, ok } from "@/test/http";
-import { ADMIN_PROFESSIONALS_PATH } from "./paths";
+import { ADMIN_CONSULTATION_PRICE_PATH, ADMIN_PROFESSIONALS_PATH } from "./paths";
 
 const replace = vi.fn();
 // Como el de Next, el router es el mismo objeto en cada render.
@@ -67,6 +67,7 @@ describe("/admin (panel administrativo)", () => {
     expect(links).toEqual([
       ["Inicio", "/admin"],
       ["Revisión de profesionales", ADMIN_PROFESSIONALS_PATH],
+      ["Precio de consulta", ADMIN_CONSULTATION_PRICE_PATH],
     ]);
     expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute(
       "aria-current",

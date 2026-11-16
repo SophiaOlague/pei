@@ -317,6 +317,71 @@ contraseña, así que no les afecta (TC-M02-241), salvo una consulta más por ve
 
 **Bootstrap real:** ejecutado en `production` (informado por la responsable del producto el 2026-10-18; sin evidencia versionada). Como el CLI exige `APP_WEB_URL` antes de cualquier operación, esa variable estaba definida en el entorno de ejecución, que no está versionado. El recorrido real del administrador no está documentado como evidencia formal.
 
+## Lector de aceptaciones legales para reservas (AP-19, AP-25 y AP-26; 2026-11-08)
+
+Cambio aditivo de M02 para M08 (`docs/arquitectura/M08-diseno.md`, A.17.1). M08 todavía no lo consume: la integración
+con la reserva, las columnas de `appointment` y la migración `0014` siguen sin implementar.
+
+| Elemento | Archivo |
+|---|---|
+| Puerto `BOOKING_LEGAL_ACCEPTANCE_READER.currentFor(userProfileId)` | `src/modules/identity/application/ports/booking-legal-acceptance.reader.ts` |
+| Contrato y regla (lógica pura) | `src/modules/identity/domain/booking-legal-acceptance.ts` (`selectBookingLegalAcceptances`) |
+| Adaptador Drizzle | `src/modules/identity/infrastructure/persistence/drizzle-booking-legal-acceptance.reader.ts` |
+| Registro y export | `src/modules/identity/identity.module.ts` |
+| Doble en memoria | `test/support/identity-in-memory.ts` (`currentFor`; `recordAcceptances` asigna un `id` a cada aceptación) |
+| Dependencia permitida para M08 | `test/appointments-architecture.spec.ts` (RT-M08-01) |
+
+**Contrato.** `currentFor` devuelve `{ regime: 'current' | 'legacy', privacy, terms }`, donde cada aceptación tiene
+`acceptanceId` (`user_legal_acceptance.id`), `legalDocumentId`, `type` y `version`; o `null`.
+
+**Reglas.**
+
+- Documentos vigentes: el más reciente por tipo con `published_at <= now()`, con la hora de la BD y la misma regla que
+  `DrizzleRegistrationStatusReader`. El régimen se resuelve con `resolveLegalRegime`.
+- Devuelve las dos aceptaciones solo si el perfil es de paciente, hay un régimen completo publicado y el paciente aceptó
+  los dos documentos vigentes de ese régimen.
+- Devuelve `null` si falta cualquiera de las dos, si no hay un régimen completo publicado, si el perfil no es de paciente
+  (o no existe) o si se publicó una versión nueva que el paciente no aceptó.
+- Lee con `getDbContext()`: dentro de una transacción activa usa esa transacción. Es de solo lectura.
+- No cambian `CanBookAppointmentsPolicy`, `REGISTRATION_STATUS_READER` ni ningún endpoint.
+
+| Caso | Spec | Qué comprueba |
+|---|---|---|
+| TC-M02-249 | `src/modules/identity/domain/booking-legal-acceptance.spec.ts` | Régimen actual completo: `privacy_policy` y `patient_terms` con sus ids |
+| TC-M02-250 | ídem | Régimen anterior: `privacy_notice` y `terms_and_conditions` |
+| TC-M02-251 | ídem (3) | Falta la aceptación de privacidad, la de términos o las dos: `null` |
+| TC-M02-252 | ídem | Sin régimen completo publicado: `null` |
+| TC-M02-253 | ídem (3) | Perfil de médico, de administrador o inexistente: `null` |
+| TC-M02-254 | ídem | Versión vigente nueva no aceptada: `null` |
+| TC-M02-255 | `test/support/booking-legal-acceptance-in-memory.spec.ts` | El doble devuelve las dos aceptaciones con el id que asignó `recordAcceptances` |
+| TC-M02-256 | ídem | El doble devuelve `null` sin aceptación completa, con una versión nueva no aceptada, para otro rol y para un perfil inexistente |
+
+En el doble, una aceptación insertada a mano sin `id` cuenta como inexistente (falla cerrado).
+
+**Integración contra PostgreSQL** (`test/integration/booking-legal-acceptance.int-spec.ts`, modo `postgres` de C2). Cada
+prueba va dentro de `withRollback` y publica sus propios documentos sintéticos (versión `testTag()`, `published_at`
+poco antes del inicio de la transacción): son los vigentes solo dentro de ella. No modifica documentos existentes y
+`afterAll` comprueba los recuentos de M00 y M02.
+
+**Ejecución (2026-11-09):** `pnpm c2 run postgres test/integration/booking-legal-acceptance.int-spec.ts`, `C2_RUN_ID` `c2-20261109030103-0bd7`, destino `royal-paper-10258990` / `br-shy-pond-b50a3m8f` / `ep-withered-block-b5e8v9ov` (identidad real verificada por el lanzador). Commit `2daebe7c` con cambios sin commit (el spec, la línea de inventario y esta documentación). Resultado: **4 aprobadas, 1 omitida**; `run.json` con estado `completed` y código 0. Rollback: todas las pruebas en `withRollback`; `afterAll` comprobó que los recuentos de `countM00Residue` y `countM02Residue` son idénticos antes y después (los valores absolutos no quedan en el paquete). Sin residuo. Paquete: `C:\pei-c2-evidencias\2026-11-09\c2-20261109030103-0bd7\`; SHA-256 de `SHA256SUMS`: `6cd6416b0d06fb716547eb09229c6fa8691c222407b1d2aa2efb95b564cd2432`.
+
+| Caso | Qué comprueba | Estado |
+|---|---|---|
+| TC-M02-257 | Régimen actual: `privacy_policy` y `patient_terms` con los ids de sus filas de `user_legal_acceptance` y sus versiones | Aprobado (`c2-20261109030103-0bd7`) |
+| TC-M02-258 | Régimen anterior: `privacy_notice` y `terms_and_conditions` | **PENDIENTE DE ENTORNO**: omitido (`skipped`) en `c2-20261109030103-0bd7`, no ejecutado (ver abajo) |
+| TC-M02-259 | Falta una de las dos aceptaciones: `null` | Aprobado (`c2-20261109030103-0bd7`) |
+| TC-M02-260 | Versión nueva de `patient_terms` publicada sin aceptar: `null` | Aprobado (`c2-20261109030103-0bd7`) |
+| TC-M02-261 | Perfil inexistente o de médico con los dos documentos aceptados: `null` | Aprobado (`c2-20261109030103-0bd7`) |
+
+**TC-M02-258, pendiente de entorno.** El régimen anterior solo rige si la rama no tiene vigente el régimen actual
+completo (`privacy_policy` y `patient_terms`). Los documentos legales son de solo inserción: no se pueden retirar ni
+despublicar, y la rama C2 persistente puede tener ya el régimen actual, así que la precondición no está garantizada en C2.
+Jest no permite omitir una prueba según una lectura de la BD hecha durante la ejecución, por lo que el caso está omitido
+de forma estática (`it.skip`): Jest lo informa como **skipped**, no como aprobado ni como fallido, y no hay resultado que
+registrar. Se conserva completo para validarlo en una base desechable o una rama aislada preparada con el régimen
+anterior, cambiando `it.skip` por `it` en una revisión explícita. Su primera aserción comprueba la precondición dentro de
+la transacción y falla con un mensaje claro si no se cumple.
+
 ## Infraestructura real
 
 | Validación | Resultado |

@@ -3,9 +3,10 @@ import { assertC2BranchTarget, NEUTRALIZED_ENV } from './c2-target-guard';
 // Interceptor de conexiones (sin red): se carga en un registro de módulos aislado, con un driver de Neon nuevo, para
 // comprobar su efecto real sobre Pool y Client. Los hosts son .invalid: aunque fallara, no habría conexión posible.
 
-const BRANCH = 'br-autumn-sun-b52qoep4';
-const ENDPOINT = 'ep-noisy-pond-b5owxox3';
+const BRANCH = 'br-shy-pond-b50a3m8f';
+const ENDPOINT = 'ep-withered-block-b5e8v9ov';
 const C2_ENV = {
+  C2_MODE: 'postgres',
   C2_EXPECTED_BRANCH: BRANCH,
   C2_EXPECTED_ENDPOINT: ENDPOINT,
   C2_EXPECTED_PROJECT: 'royal-paper-10258990',

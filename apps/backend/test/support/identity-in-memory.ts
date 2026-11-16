@@ -24,6 +24,8 @@ import type {
   PublishedLegalDocument,
 } from '../../src/modules/identity/application/ports/legal-document.repository';
 import type { RegistrationStatusReader } from '../../src/modules/identity/application/ports/registration-status-reader';
+import type { BookingLegalAcceptanceReader } from '../../src/modules/identity/application/ports/booking-legal-acceptance.reader';
+import { selectBookingLegalAcceptances, type BookingLegalAcceptances } from '../../src/modules/identity/domain/booking-legal-acceptance';
 import type { AdminAccountProvisioner } from '../../src/modules/identity/application/ports/admin-account-provisioner';
 import type { RegistrationSnapshot } from '../../src/modules/identity/domain/registration-status';
 import { UniqueConstraintViolationError } from '../../src/common/domain/persistence.errors';
@@ -54,6 +56,9 @@ interface PatientProfileRow {
 }
 interface LegalDocumentRow extends CurrentLegalDocumentRecord {}
 interface AcceptanceRow {
+  // user_legal_acceptance.id. Opcional porque algunos specs insertan filas a mano; sin id, el lector la trata como
+  // inexistente (falla cerrado). recordAcceptances siempre lo asigna.
+  id?: string;
   userProfileId: string;
   legalDocumentId: string;
   ipAddress: string | null;
@@ -71,7 +76,7 @@ interface State {
 
 const unique = (constraint: string) => new UniqueConstraintViolationError({ code: '23505', constraint });
 
-export class InMemoryIdentityStore implements UserProfileRepository, LegalDocumentRepository, RegistrationStatusReader {
+export class InMemoryIdentityStore implements UserProfileRepository, LegalDocumentRepository, RegistrationStatusReader, BookingLegalAcceptanceReader {
   state: State = { userProfiles: [], patientProfiles: [], verifications: [], legalDocuments: [], acceptances: [], audit: [] };
   now = () => new Date();
 
@@ -252,7 +257,7 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
     for (const legalDocumentId of input.legalDocumentIds) {
       const exists = this.state.acceptances.some((a) => a.userProfileId === input.userProfileId && a.legalDocumentId === legalDocumentId);
       if (!exists) {
-        this.state.acceptances.push({ userProfileId: input.userProfileId, legalDocumentId, ipAddress: input.ipAddress, userAgent: input.userAgent });
+        this.state.acceptances.push({ id: randomUUID(), userProfileId: input.userProfileId, legalDocumentId, ipAddress: input.ipAddress, userAgent: input.userAgent });
         recorded.push(legalDocumentId);
       }
     }
@@ -298,6 +303,21 @@ export class InMemoryIdentityStore implements UserProfileRepository, LegalDocume
       })),
       latestIdentityVerification: latest ? { status: latest.status, rejectionReason: latest.rejectionReason } : null,
     };
+  }
+
+  // --- BookingLegalAcceptanceReader (AP-26): misma regla de documentos vigentes que findCurrent.
+  async currentFor(userProfileId: string): Promise<BookingLegalAcceptances | null> {
+    const profile = this.state.userProfiles.find((p) => p.id === userProfileId) ?? null;
+    const current = await this.findCurrent();
+    return selectBookingLegalAcceptances(
+      profile?.role ?? null,
+      current.map((doc) => ({
+        type: doc.type,
+        documentId: doc.id,
+        version: doc.version,
+        acceptanceId: this.state.acceptances.find((a) => a.userProfileId === userProfileId && a.legalDocumentId === doc.id)?.id ?? null,
+      })),
+    );
   }
 }
 

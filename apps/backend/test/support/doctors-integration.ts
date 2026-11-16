@@ -20,9 +20,11 @@ import {
 } from '../../src/modules/doctors/application/use-cases/admin/doctor-review.use-cases';
 import { ListDoctorsUseCase } from '../../src/modules/doctors/application/use-cases/admin/doctor-admin.use-cases';
 import { DoctorOperationalPolicy } from '../../src/modules/doctors/application/policies/doctor-operational.policy';
+import type { PrivateObjectStorage } from '../../src/modules/private-storage/application/ports/private-object-storage';
 import { FakeDocumentStorage } from './identity-in-memory';
 import { insertAuthUser, publishLegalDocument, sessionActor } from './identity-integration';
 import { syntheticCurp } from './synthetic-identity';
+import { type CurrentDoctorRegime, DOCTOR_LEGAL_TYPES } from './doctor-regime';
 
 // M03 B8: casos de uso del médico con los adaptadores REALES de PostgreSQL (repositorios Drizzle, gateway de Identity,
 // UnitOfWork y AuditTrail). R2 se reemplaza por un doble. Solo dentro de withRollback.
@@ -30,10 +32,11 @@ import { syntheticCurp } from './synthetic-identity';
 export const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
 export const PDF = Buffer.from('%PDF-1.7\n% sintetico M03\n');
 
-export function doctorUseCases() {
+// `storage` es el doble en memoria por defecto; los specs de R2 (test/r2) inyectan el adaptador real envuelto en el
+// manifiesto de la ejecución.
+export function doctorUseCases<S extends PrivateObjectStorage = FakeDocumentStorage>(storage: S = new FakeDocumentStorage() as unknown as S) {
   const uow = new DrizzleUnitOfWork();
   const audit = new DrizzleAuditTrail();
-  const storage = new FakeDocumentStorage();
   const gateway = new DrizzleDoctorIdentityGateway();
   const profiles = new DrizzleDoctorProfileRepository();
   const reviews = new DrizzleDoctorReviewRepository();
@@ -72,6 +75,36 @@ export async function acceptDoctorRegime(userProfileId: string): Promise<void> {
     const { rows } = await getDbContext().execute<{ id: string }>(sql`select id from legal_document where type = ${type} and published_at = now() limit 1`);
     const id = rows[0]?.id ?? (await publishLegalDocument(type));
     await getDbContext().execute(sql`insert into user_legal_acceptance (user_profile_id, legal_document_id) values (${userProfileId}, ${id})`);
+  }
+}
+
+// Rama C2 persistente: la concurrencia NO publica documentos legales (cambiaría la versión vigente de la rama para
+// todos sus usuarios). Reutiliza los privacy_policy y doctor_terms vigentes con la MISMA regla que el backend
+// (DrizzleDoctorIdentityGateway.doctorLegalAccepted: el más reciente por tipo con published_at <= now()) y solo inserta
+// las aceptaciones del médico sintético. Sin documentos vigentes, falla: nunca publica como alternativa.
+export { assertReusableDoctorRegime, DOCTOR_LEGAL_TYPES, type CurrentDoctorRegime } from './doctor-regime';
+
+export async function readCurrentDoctorRegime(): Promise<CurrentDoctorRegime> {
+  const { rows } = await getDbContext().execute<{ type: string; id: string; version: string; published_at: string }>(sql`
+    select distinct on (type) type, id, version, published_at::text as published_at
+      from legal_document
+     where published_at <= now() and type in ('privacy_policy', 'doctor_terms')
+     order by type, published_at desc`);
+  const next = await getDbContext().execute<{ next: string | null; total: string }>(sql`
+    select (select min(published_at)::text from legal_document where published_at > now() and type in ('privacy_policy', 'doctor_terms')) as next,
+           (select count(*) from legal_document) as total`);
+  return {
+    documents: rows.map((r) => ({ type: r.type as CurrentDoctorRegime['documents'][number]['type'], id: r.id, version: r.version, publishedAt: r.published_at })),
+    nextScheduledAt: next.rows[0].next,
+    totalLegalDocuments: Number(next.rows[0].total),
+  };
+}
+
+export async function acceptCurrentDoctorRegime(userProfileId: string, regime: CurrentDoctorRegime): Promise<void> {
+  for (const type of DOCTOR_LEGAL_TYPES) {
+    const document = regime.documents.find((d) => d.type === type);
+    if (!document) throw new Error(`No hay documento legal vigente de tipo ${type}`);
+    await getDbContext().execute(sql`insert into user_legal_acceptance (user_profile_id, legal_document_id) values (${userProfileId}, ${document.id})`);
   }
 }
 

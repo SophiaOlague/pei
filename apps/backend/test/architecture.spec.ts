@@ -100,7 +100,7 @@ describe('Arquitectura: dependencias permitidas (R-11)', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('[RT-M03-16][B8] el spec de concurrencia confirma datos: exige C2 y una marca explícita (rama desechable, o `rama` con aceptación)', () => {
+  it('[RT-M03-16][B8] el spec de concurrencia confirma datos: exige C2 y la marca explícita de la rama C2 persistente aprobada', () => {
     const source = readFileSync(join(__dirname, 'concurrency', 'doctors.conc-spec.ts'), 'utf8');
     const call = source.search(/^assertC2BranchTarget\(\);$/m);
     const guard = source.search(/if \(!allowed\)/);
@@ -108,7 +108,29 @@ describe('Arquitectura: dependencias permitidas (R-11)', () => {
     expect(call).toBeGreaterThan(-1);
     expect(guard).toBeGreaterThan(call);
     expect(firstSuite).toBeGreaterThan(guard);
-    expect(source).toMatch(/C2_EXPECTED_BRANCH === RAMA\s*\? process\.env\.C2_COMMITTED_FIXTURES === 'rama-permanent-accepted'/);
-    expect(source).toMatch(/: process\.env\.C2_COMMITTED_FIXTURES === 'disposable-branch'/);
+    expect(source).toMatch(/process\.env\.C2_EXPECTED_BRANCH === C2_TARGET\.branch && process\.env\.C2_COMMITTED_FIXTURES === C2_PERSISTENT_FIXTURES/);
+    expect(source).not.toMatch(/disposable-branch|rama-permanent-accepted/);
+  });
+
+  it('[RT-M03-17] doctors.int-spec libera el pool de src/db al terminar y comprueba que quedó vacío', () => {
+    const source = readFileSync(join(__dirname, 'integration', 'doctors.int-spec.ts'), 'utf8');
+    const afterAll = source.slice(source.search(/^  afterAll\(/m));
+    expect(afterAll).toMatch(/finally \{[\s\S]*await db\.\$client\.end\(\);[\s\S]*expect\(db\.\$client\.totalCount\)\.toBe\(0\);/);
+  });
+
+  it('[RT-M03-18] admin-bootstrap-better-auth conserva sus seis escenarios; los dos de bootstrap inicial están marcados como pendientes en C2', () => {
+    const source = readFileSync(join(__dirname, 'integration', 'admin-bootstrap-better-auth.int-spec.ts'), 'utf8');
+    const always = source.match(/^  it\('\[TC-M02-(118|119|120)\]/gm) ?? [];
+    const initial = source.match(/^  itInitialBootstrap\(`\[TC-M02-121\]/gm) ?? [];
+    expect(always).toHaveLength(4);
+    expect(initial).toHaveLength(2);
+    expect(source).toMatch(/caso de uso con Drizzle: perfil admin y auditoría, un solo correo; repetir aborta/);
+    expect(source).toMatch(/H1 con el esquema real: una cuenta del registro público \(con contraseña\) hace abortar el bootstrap/);
+    expect(source).toMatch(/const itInitialBootstrap = IN_C2_WITH_ADMIN \? it\.skip : it;/);
+    expect(source).toMatch(/\[pendiente en C2: la rama ya tiene administrador\]/);
+    expect(source).toMatch(/^  it\('\[TC-M03-293\]/m);
+    // Todas las pruebas ejecutables usan withRollback y el pool se cierra al final.
+    expect((source.match(/await withRollback\(/g) ?? []).length).toBe(7);
+    expect(source).toMatch(/finally \{[\s\S]*await db\.\$client\.end\(\);[\s\S]*expect\(db\.\$client\.totalCount\)\.toBe\(0\);/);
   });
 });

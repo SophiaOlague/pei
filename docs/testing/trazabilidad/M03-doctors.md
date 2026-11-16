@@ -8,6 +8,8 @@
 
 > **Publicación legal segura (pruebas del 2026-10-30; resultados y limitaciones documentados aquí):** TC-M03-227 a 272. Resultados locales, sin BD: unitarias 698/698 y E2E con dobles 86/86 (las E2E, sin las 3 suites que exigen BD). Build correcto; TypeScript de build sin errores; TypeScript completo con el error preexistente de `test/support/better-auth-memory.ts`; lint con el error preexistente de `src/main.ts` y un aviso nuevo en `src/cli/legal-publish.spec.ts`. Integración mediante C2 en `br-shy-pond-b50a3m8f`: TC-M03-044 y 244 a 248, 6/6 PASS en transacciones revertidas, con huella idéntica antes y después; TC-M03-268 a 272, 5/5 PASS con datos confirmados. **Limitaciones:** la protección de `production` se validó con dobles, nunca contra producción; la cadena completa `pnpm legal:publish` (`tsc && ts-node`) no se ha ejecutado; TC-M03-269 demuestra una ejecución concurrente, no todas las intercalaciones posibles; `br-shy-pond-b50a3m8f` conserva cuatro documentos sintéticos y sus eventos de auditoría; `dev-1` sigue pendiente de verificación; no se publicaron documentos legales reales; el resto de la integración de M03 no se volvió a ejecutar.
 
+> **Infraestructura real en la rama C2 persistente (2026-11-03):** PostgreSQL de `br-shy-pond-b50a3m8f`, mediante el lanzador C2: concurrencia TC-M03-183 a 187 **5/5** (datos sintéticos persistentes autorizados); integración TC-M03-172 a 182 **10/10** (rollback); Better Auth **5 aprobadas y 2 pendientes** (bootstrap inicial no aplicable con administrador). Estas ejecuciones son anteriores a los paquetes de evidencias del lanzador (2026-11-06) y no tienen paquete propio (pendiente 27). Las pruebas de R2 se documentarán en la etapa de integración de R2. Detalle y limitaciones en «Validación con infraestructura real en la rama C2 persistente».
+
 Gestinnovo es la empresa; PEI es la aplicación.
 Decisiones: [registro de decisiones de M03](../../arquitectura/M03-decisiones.md). Incremento sobre M02: [M02](M02-identity.md#incremento-controlado-a1a3-posterior-a-la-etapa-a).
 
@@ -93,6 +95,13 @@ evidencia versionada (ninguna todavía).
 | E.5, R-2, E.1, plan v2 §9 (concurrencia con datos confirmados) | B8 | `test/concurrency/doctors.conc-spec.ts`, `test/jest-concurrency.json` | TC-M03-183 a 187 | C2 v11.1 `probar-concurrencia` en `rama`: 5/5 (datos confirmados, permanentes) | Interna |
 | D-17 (enumeración), IDOR, DT-8, DT-4, RN-122 (seguridad) | B8 | `test/doctors-security.e2e-spec.ts` | TC-M03-188 a 192 | E2E con dobles locales | Interna (sin BD) |
 | P.7, R-11 (arquitectura) | B8 | `test/architecture.spec.ts` | RT-M03-14 a 16 | Unitarias locales | Interna |
+| E.5, R-2, E.1, plan v2 §9 (concurrencia; rama C2 persistente) | C2 | `test/concurrency/doctors.conc-spec.ts` (marca `c2-persistent-accepted`; régimen legal vigente reutilizado, sin publicar) | TC-M03-183 a 187 | Lanzador C2, modo `concurrency`, `c2-20261103212355-50d8`: 5/5; datos sintéticos persistentes; huellas de las filas preexistentes iguales | Interna |
+| B5–B7 con adaptadores Drizzle y triggers de 0012 (rama C2 persistente) | C2 | `test/integration/doctors.int-spec.ts` | TC-M03-172 a 182 | Lanzador C2, modo `postgres` (`C2_RUN_ID` no conservado): 10/10; 13 tablas con recuentos y hashes iguales | Interna |
+| DT-12 (Better Auth con el adaptador Drizzle; rama C2 persistente) | C2 | `test/integration/admin-bootstrap-better-auth.int-spec.ts` | TC-M02-118 a 120, TC-M03-293 (ejecutados); TC-M02-121 ×2 (pendientes) | Lanzador C2, modo `auth`, `c2-20261103214452-f673`: 5 aprobadas, 2 pendientes; 13 tablas con recuentos y hashes iguales | Interna (pendientes: no ejecutados) |
+| Salvaguardas y lanzador C2, identificadores por ejecución y régimen legal reutilizable | C2 | `test/support/c2-*.ts`, `scripts/c2-run.ts`, `test/support/test-tag.ts`, `test/support/doctor-regime.ts`, `test/support/r2-run.ts` | TC-M03-277 a 292, 294 a 297; RT-M03-17 y 18 | Unitarias locales, sin BD (dobles) | Interna (sin BD) |
+| Evidencias C2, manifiesto de R2 (etapa 2) y huella de PostgreSQL de 13 tablas | C2 | `test/support/c2-evidence.ts`, `test/support/r2-run.ts`, `test/support/c2-pg-fingerprint.ts`, `scripts/c2-run.ts` | TC-M03-307 a 334 | Unitarias locales, sin BD (dobles) | Interna (sin BD) |
+| DT-18, R-11, D-16, D-19, DT-6 (almacenamiento privado con R2 real) | C2 | `test/r2/private-storage.r2-spec.ts`, `test/support/r2-run.ts`, `test/support/r2-verify.ts`, `test/jest-r2.json` | TC-M03-298 a 303 | Lanzador C2, modo `r2`, `c2-20261110235152-506c` (2026-11-10): 6/6; 13 tablas `equal`; bucket vacío al terminar (antes: `c2-20261104162631-70e6`, 6/6) | Interna (paquete de evidencias fuera del repositorio) |
+| D-16, D-19, DT-6, D-17, D-22 (documentos del médico con PostgreSQL y R2 reales) | C2 | `test/r2/doctor-documents.r2-spec.ts` | TC-M03-304 a 306 | Lanzador C2, modo `r2`, `c2-20261110235308-76ca` (2026-11-10): 3/3; 13 tablas `equal`; bucket vacío al terminar (antes: `c2-20261104162955-f9c7`, 3/3) | Interna (paquete de evidencias fuera del repositorio) |
 | Evidencia formal | B9 | `scripts/record-test-run.mjs` | Todas las suites (786 casos) | `docs/testing/ejecuciones/2026-10-20T09-32-22_35e205c_M03/` | **Formal** |
 
 ## Casos de prueba
@@ -401,9 +410,69 @@ Rutas relativas a `apps/backend`; la línea es la del primer uso del identificad
 | TC-M03-274 | D-38 | Unitaria | `src/modules/doctors/application/policies/doctor-operational.policy.spec.ts` | [D-38][R-13] | aprobado con aceptación pendiente: la política rechaza, `/me` informa `canOperate: false`; al aceptar vuelve a operar |
 | TC-M03-275 | D-38 | Unitaria | ídem | [D-38] | aceptación legal sin aprobación administrativa no habilita |
 | TC-M03-276 | D-38 | E2E | `test/doctors.e2e-spec.ts` | [D-38][R-13] | versión legal nueva: sigue en `?status=approved`, fuera de `pending` y de las colas, sin `returned_to_pending`; al aceptar recupera `canOperate` |
+| TC-M03-277 | C2 | Unitaria | `test/support/c2-target-guard.spec.ts` | [C2] | concurrencia acepta solo la conexión directa al endpoint aprobado |
+| TC-M03-278 | C2 | Unitaria | ídem | [C2] | modo `r2`: solo `R2_BUCKET_NAME === C2_EXPECTED_BUCKET === pei-docs-c2-test` |
+| TC-M03-279 | C2 | Unitaria | ídem | [C2] | rechaza otro bucket, credenciales incompletas o credenciales R2 fuera del modo `r2` |
+| TC-M03-280 | C2 | Unitaria | ídem | [C2] | `jest-concurrency.json` fija su modo después del tripwire (la comprobación de `jest-r2.json` queda pendiente de la etapa R2) |
+| TC-M03-281 | C2 | Unitaria | ídem | [C2] | identidad real por `neon.*`: acepta la aprobada y rechaza otro proyecto, otra rama o la base de desarrollo |
+| TC-M03-282 | C2 | Unitaria | `test/support/c2-launcher.spec.ts` | [C2] | lectura de `.env.c2`: claves repetidas o líneas inválidas se rechazan |
+| TC-M03-283 | C2 | Unitaria | ídem | [C2] | solo `.env.c2` fuera del repositorio; rechaza `apps/backend/.env` y rutas relativas |
+| TC-M03-284 | C2 | Unitaria | ídem | [C2] | el directorio de ejecución de Jest no puede contener `.env` ni estar dentro del repositorio |
+| TC-M03-285 | C2 | Unitaria | ídem | [C2] | entorno de lista blanca: R2 y Resend vacíos fuera de `r2`; nada del proceso padre |
+| TC-M03-286 | C2 | Unitaria | ídem | [C2] | rechaza configuración incompleta, identidad distinta, pooler en concurrencia, Resend con valor y secreto sin huella; marca de datos confirmados solo `c2-persistent-accepted` |
+| TC-M03-287 | C2 | Unitaria | ídem | [C2] | cada spec solo se ejecuta en su modalidad |
+| TC-M03-288 | C2 | Unitaria | ídem | [C2] | `rotate-auth-secret` genera un secreto exclusivo con huella y conserva las demás líneas |
+| TC-M03-289 | C2 | Unitaria | ídem | [C2] | la salida de Jest oculta secretos, contraseña y cadenas de conexión |
+| TC-M03-290 | C2 | Unitaria | ídem | [C2] | el lanzador y su CLI no cargan dotenv ni leen el `.env` del repositorio |
+| TC-M03-291 | C2 | Unitaria | `test/support/test-tag.spec.ts` | [C2] | `testTag()` incluye `C2_RUN_ID` tras el prefijo; formato inválido rechazado |
+| TC-M03-292 | C2 | Unitaria | ídem | [C2] | régimen legal reutilizable: ambos tipos vigentes y ninguna publicación programada en 24 h |
+| TC-M03-293 | C2 | Integración (PostgreSQL C2 real) | `test/integration/admin-bootstrap-better-auth.int-spec.ts` | [DT-12] | con un administrador existente, el bootstrap aborta con `AdminAlreadyExistsError` sin crear nada |
+| TC-M03-294 | C2 | Unitaria | `test/support/r2-run.spec.ts` | [C2] | UUID v5 de la ejecución (vector de la RFC 4122) y claves con la gramática de producción |
+| TC-M03-295 | C2 | Unitaria | ídem | [C2] | el manifiesto registra cada operación; la limpieza borra solo las claves vivas |
+| TC-M03-296 | C2 | Unitaria | ídem | [C2] | no admite claves ajenas (otro espacio, otro médico o no subidas en la ejecución) |
+| TC-M03-297 | C2 | Unitaria | ídem | [C2] | un fallo de limpieza queda pendiente y se conserva la evidencia; `cleanups` acumula todas las limpiezas |
+| TC-M03-298 | C2 | R2 real | `test/r2/private-storage.r2-spec.ts` | [DT-18] | subida y lectura de PNG, JPEG y PDF: bytes idénticos (SHA-256) y `ContentLength` real |
+| TC-M03-299 | C2 | R2 real | ídem | [DT-18] | streaming de un documento de unos 5 MB: se recibe en varias partes y completo |
+| TC-M03-300 | C2 | R2 real | ídem | [DT-18] | un objeto inexistente responde `StoredFileNotFoundError` |
+| TC-M03-301 | C2 | R2 real | ídem | [DT-18] | borrado idempotente: borrar dos veces no falla y después el objeto no existe |
+| TC-M03-302 | C2 | R2 real | ídem | [DT-3] | una clave fuera de la gramática del bucket privado se rechaza sin llamar a R2 |
+| TC-M03-303 | C2 | R2 real | ídem | [DT-18] | credenciales inválidas (solo en ese caso): `DocumentStorageError` sin clave, bucket ni credenciales en el mensaje |
+| TC-M03-304 | C2 | PostgreSQL y R2 reales | `test/r2/doctor-documents.r2-spec.ts` | [D-16][D-22] | las claves guardadas en PostgreSQL existen en R2 con los mismos bytes (SHA-256); la lectura del admin queda auditada |
+| TC-M03-305 | C2 | PostgreSQL y R2 reales | ídem | [D-19][D-16] | aprobar la INE purga en R2 el frente y el reverso; la cédula se conserva con los mismos bytes |
+| TC-M03-306 | C2 | PostgreSQL y R2 reales | ídem | [DT-6][D-17] | cédula duplicada: la transacción falla y la compensación elimina el objeto subido; no queda en R2 |
+| TC-M03-307 | C2 | Unitaria | `test/support/c2-evidence.spec.ts` | [C2] | las evidencias se organizan por fecha y `C2_RUN_ID`, fuera del repositorio y de `C:\pei-c2` |
+| TC-M03-308 | C2 | Unitaria | ídem | [C2] | `C2_RUN_ID` único por ejecución; nunca se reutiliza un directorio ni se sobrescribe un archivo |
+| TC-M03-309 | C2 | Unitaria | ídem | [C2] | `run.json` omite los campos que no corresponden y registra el código de salida; `gitState` registra el commit y si el árbol tiene cambios, sin listar archivos |
+| TC-M03-310 | C2 | Unitaria | ídem | [C2] | la huella de PostgreSQL solo admite recuentos y hashes, nunca filas |
+| TC-M03-311 | C2 | Unitaria | ídem | [C2] | `SHA256SUMS` cubre todos los archivos y detecta cambios, faltantes y archivos añadidos |
+| TC-M03-312 | C2 | Unitaria | ídem | [C2] | la depuración del log oculta secretos, conexiones, cookies, tokens, correos reales, CURP, RFC y cadenas largas |
+| TC-M03-313 | C2 | Unitaria | ídem | [C2] | revisión para versionar: un paquete limpio (incluidos el manifiesto de R2 y su comprobación final) pasa; uno depurado, sospechoso, binario o desconocido se rechaza |
+| TC-M03-314 | C2 | Unitaria | ídem | [C2] | Jest correcto o con fallos: código de salida, log depurado, estado y `SHA256SUMS` |
+| TC-M03-315 | C2 | Unitaria | ídem | [C2] | interrupción (o proceso que muere): queda como `interrupted` y se conserva lo parcial |
+| TC-M03-316 | C2 | Unitaria | ídem | [C2] | las cuatro modalidades C2 generan su `run.json`; solo `r2` incluye el bucket |
+| TC-M03-317 | C2 | Unitaria | `test/support/r2-run.spec.ts` | [C2] | el manifiesto se crea en exclusiva (con y sin `C2_EVIDENCE_DIR`): nunca sobrescribe uno existente |
+| TC-M03-318 | C2 | Unitaria | ídem | [C2] | escritura incremental y atómica tras cada operación; operaciones concurrentes sin pérdidas |
+| TC-M03-319 | C2 | Unitaria | ídem | [C2] | un fallo al escribir el manifiesto no pierde operaciones: queda en `persistenceErrors` y la siguiente escritura lo recupera |
+| TC-M03-320 | C2 | Unitaria | ídem | [C2] | `finalCheck` se registra una vez (manifiesto y `r2-final-check.json`); los specs de R2 no acceden a R2 fuera del manifiesto (salvo el rechazo local de TC-M03-302) |
+| TC-M03-321 | C2 | Unitaria | `test/support/c2-pg-fingerprint.spec.ts` | [C2] | huella: dos estados idénticos producen el mismo hash (md5) |
+| TC-M03-322 | C2 | Unitaria | ídem | [C2] | cambiar un valor de una fila cambia el hash |
+| TC-M03-323 | C2 | Unitaria | ídem | [C2] | cambiar el número de filas (o duplicar una) cambia el hash |
+| TC-M03-324 | C2 | Unitaria | ídem | [C2] | NULL es determinista y distinto de cadena vacía o de una columna ausente |
+| TC-M03-325 | C2 | Unitaria | ídem | [C2] | ni el orden de lectura ni el tamaño de los bloques alteran el hash |
+| TC-M03-326 | C2 | Unitaria | ídem | [C2] | las 13 tablas se leen en una transacción READ ONLY, tras confirmar la identidad de Neon, y terminan con `ROLLBACK`, sin consultas de escritura |
+| TC-M03-327 | C2 | Unitaria | ídem | [C2] | otra rama de Neon o una sesión que no es de solo lectura: falla sin leer ninguna tabla |
+| TC-M03-328 | C2 | Unitaria | ídem | [C2] | sin cambios, `equal`; una fila nueva o modificada señala exactamente las tablas afectadas |
+| TC-M03-329 | C2 | Unitaria | ídem | [C2] | estados de la comparación: `equal`, `different`, `incomplete` y `error` |
+| TC-M03-330 | C2 | Unitaria | ídem | [C2] | si `pg-before` falla, Jest no se inicia y se registra `error` |
+| TC-M03-331 | C2 | Unitaria | ídem | [C2] | si `pg-after` falla, la comparación queda `incomplete` y se conserva la evidencia anterior |
+| TC-M03-332 | C2 | Unitaria | ídem | [C2] | Jest correcto y huellas iguales: código 0, `pg-comparison.json` `equal` y paquete revisable |
+| TC-M03-333 | C2 | Unitaria | ídem | [C2] | Jest correcto pero huellas distintas: código 1 y las tablas afectadas en la evidencia, sin corregir nada |
+| TC-M03-334 | C2 | Unitaria | ídem | [C2] | Jest con fallos: se toma igualmente `pg-after` y se conserva el código de Jest |
 | RT-M03-14 | B8 | Unitaria | `test/architecture.spec.ts` | [P.7] | doctors solo usa de identity dominio, puertos, registro y módulo |
 | RT-M03-15 | B8 | Unitaria | ídem | [R-11] | doctors sin SDK de AWS ni infraestructura de private-storage |
 | RT-M03-16 | B8 | Unitaria | ídem | [B8] | el spec de concurrencia exige C2, rechaza `rama` y la marca de rama desechable |
+| RT-M03-17 | C2 | Unitaria | `test/architecture.spec.ts` | [C2] | `doctors.int-spec` cierra el pool de `src/db` y comprueba que quedó vacío |
+| RT-M03-18 | C2 | Unitaria | ídem | [C2] | `admin-bootstrap-better-auth` conserva sus seis escenarios; los dos de bootstrap inicial, marcados como pendientes en C2 |
 
 Casos A1–A3 y TC-M03-060 a 067: estado **Interna** (incluidos en suites que terminaron sin fallos en las ejecuciones descritas
 arriba; acreditación agregada, no individual). TC-M03-068 a 074: **Interna**, ejecutados en la rama temporal `rama` con C2 v10.1 (8/8; acreditación agregada, sin evidencia formal). Evidencia formal **pendiente** para todos; A4 no cierra la evidencia formal de M02.
@@ -1090,6 +1159,197 @@ una evidencia formal.
 - `production` sigue sin régimen legal del médico (riesgo 21) y sin el código de M03 desplegado.
 - Decidir qué hacer con `br-floral-mode-b5hqaix0` y `br-winter-pond-b56r7iy6`.
 
+### Validación con infraestructura real en la rama C2 persistente (2026-11-03)
+
+Ejecuciones con el lanzador C2 (`pnpm c2`, `scripts/c2-run.ts`) contra la rama `br-shy-pond-b50a3m8f`, creada a partir
+de la base de desarrollo (`br-royal-recipe-b54s5hnn`, llamada `production` en documentos anteriores) y conservada como
+entorno C2 **persistente**: los registros que las pruebas dejan en ella son sintéticos. El lanzador carga solo `C:\pei-c2\.env.c2`, ejecuta Jest desde un directorio sin `.env` (dotenv informó
+«injected env (0)»), deja Resend y R2 vacíos fuera del modo `r2` y, antes de cada ejecución, confirma la identidad real
+de Neon (`neon.project_id`, `neon.branch_id` y `neon.endpoint_id`). Cada ejecución se comparó con una huella de solo
+lectura de 13 tablas (`user`, `session`, `account`, `verification`, `user_profile`, `patient_profile`, `doctor_profile`,
+`doctor_identity_verification`, `doctor_license_verification`, `legal_document`, `user_legal_acceptance`, `audit_log` y
+`specialty`): recuento total y hash md5 de las filas anteriores a un instante de corte.
+
+| Estado | Significado en esta sección |
+|---|---|
+| Aprobado | Ejecutado contra la infraestructura indicada y sin fallos |
+| Fallido | Ejecutado con al menos un fallo (ninguno en estas ejecuciones) |
+| Pendiente / no ejecutado | No se ejecutó; se indica el motivo |
+| Infraestructura real | PostgreSQL de la rama C2 |
+| Dobles | Pruebas locales sin BD (almacenamiento en memoria, entornos simulados) |
+
+#### PostgreSQL (2026-11-03)
+
+| Ejecución | Casos | `C2_RUN_ID` | Infraestructura | Resultado | Rollback |
+|---|---|---|---|---|---|
+| Concurrencia (`doctors.conc-spec.ts`), conexión directa | TC-M03-183 a 187 | `c2-20261103212355-50d8` | PostgreSQL C2 real | **5 aprobadas** | No: datos confirmados, autorizados (`c2-persistent-accepted`) |
+| Integración (`doctors.int-spec.ts`) | TC-M03-172 a 176 y 178 a 182 | No conservado (la salida filtrada de la consola lo omitió) | PostgreSQL C2 real | **10 aprobadas** | Sí (`withRollback`) |
+| Better Auth (`admin-bootstrap-better-auth.int-spec.ts`) | TC-M02-118 ×2, 119, 120 y TC-M03-293 | `c2-20261103214452-f673` | PostgreSQL C2 real | **5 aprobadas**; TC-M02-121 ×2 **pendientes** | Sí (`withRollback`) |
+
+**Concurrencia.** Antes de la ejecución, `doctors.conc-spec.ts` se adaptó para reutilizar los documentos legales
+vigentes de la rama (`privacy_policy@dev-1` y `doctor_terms@dev-1`) en lugar de publicar otros. Huella (corte
+2026-11-03 21:23:38 UTC):
+
+| Tabla | Antes | Después | Creados por la ejecución |
+|---|---|---|---|
+| `user` | 7 | 16 | 9 |
+| `user_profile` | 6 | 15 | 9 |
+| `doctor_profile` | 0 | 5 | 5 |
+| `doctor_identity_verification` | 0 | 7 | 7 |
+| `doctor_license_verification` | 0 | 8 | 8 |
+| `user_legal_acceptance` | 10 | 20 | 10 |
+| `audit_log` | 26 | 60 | 34 |
+| `session`, `account`, `verification`, `patient_profile`, `legal_document`, `specialty` | — | — | 0 |
+
+- El hash de las filas anteriores al corte es idéntico en las 12 tablas con `created_at`; `legal_document` conserva el
+  mismo hash completo y los documentos vigentes no cambiaron.
+- `user_legal_acceptance` no tiene `created_at`, por lo que su hash completo cambia al añadir filas. Una comprobación de
+  solo lectura aparte, sobre las filas que no pertenecen a los perfiles de la ejecución y con el mismo método, dio el
+  mismo hash que antes (10 filas preexistentes sin cambios). Esa comprobación se vio en la consola de la sesión; no se
+  conservó en un archivo.
+- Los usuarios de la ejecución llevan el `C2_RUN_ID` en su id (`gst-m00-test-c2-20261103212355-50d8-…`); los perfiles,
+  médicos, revisiones, aceptaciones y eventos se identifican por pertenecer a esos usuarios. Permanecen en la rama C2.
+
+**Integración.** Las 13 tablas conservaron el mismo recuento y el mismo hash (corte 2026-11-03 21:35:24 UTC); no
+persistió ningún registro y los documentos legales vigentes no cambiaron. Antes de esta ejecución se endureció
+TC-M03-181: sus aserciones comparan booleanos y nunca imprimen listas, nombres, CURP ni correos de otros registros.
+Durante la ejecución Jest avisó «did not exit one second after the test run»: la suite no cerraba el pool. El cierre
+(con la comprobación `totalCount === 0` y RT-M03-17) se añadió **después** de esta ejecución y todavía no se ha
+ejecutado contra C2.
+
+**Better Auth.** La rama conserva un administrador copiado de la base de desarrollo, así que el bootstrap inicial no es aplicable:
+los dos escenarios TC-M02-121 (bootstrap correcto y H1) se conservan sin cambios y quedan marcados como **pendientes en
+C2** (`it.skip` con la etiqueta «[pendiente en C2: la rama ya tiene administrador]»); se validarán en una rama sin
+administradores. Se quitaron las precondiciones `admins === 0` y `test_users === 0`, los correos sintéticos usan
+`testTag()` con `C2_RUN_ID` y se añadió TC-M03-293 (administrador existente: el bootstrap aborta sin crear nada). Las 13
+tablas conservaron el mismo recuento y el mismo hash (corte 2026-11-03 21:44:44 UTC): no persistieron usuarios, cuentas,
+sesiones, verificaciones, perfiles ni eventos de auditoría. La suite terminó sin el aviso de recursos abiertos y su
+registro de salida no contiene correos, cookies, tokens, contraseñas ni cadenas de conexión. Esta suite crea su propia
+instancia de Better Auth con un secreto fijo de pruebas, no el de `.env.c2`.
+
+**Evidencias de PostgreSQL.** Huellas de solo lectura de antes y después (`before.json`/`after.json`,
+`before-int.json`/`after-int.json`, `before-auth.json`/`after-auth.json`) y registro de salida de Better Auth
+(`run-auth.log`), en el directorio temporal de la sesión, fuera del repositorio y sin versionar. No se conservó en
+archivo la salida de las ejecuciones de concurrencia ni de integración: sus resultados por caso se vieron en la consola.
+Estas ejecuciones son anteriores a los paquetes de evidencias del lanzador (2026-11-06): no hay un paquete que permita
+reproducir o comprobar sus resultados (pendiente 27).
+
+**Salvaguardas C2 (TC-M03-277 a 292, 294 a 297; RT-M03-17 y 18).** Pruebas **unitarias locales, sin BD** (dobles y
+entornos simulados): pasaron en `pnpm test` (766/766 en la última corrida local). No son pruebas contra infraestructura
+real; el lanzador y las salvaguardas sí se usaron en las ejecuciones reales de esta sección. TC-M03-293 es la única de ese
+rango ejecutada contra PostgreSQL C2.
+
+#### R2 (2026-11-04 y 2026-11-10)
+
+Pruebas de M03 contra Cloudflare R2 real con el lanzador C2 (`pnpm c2`, `scripts/c2-run.ts`). El lanzador carga solo
+`C:\pei-c2\.env.c2`, ejecuta Jest desde un directorio sin `.env` (dotenv: «injected env (0)») y deja Resend vacío. En el
+modo `r2` exige `R2_BUCKET_NAME === C2_EXPECTED_BUCKET === pei-docs-c2-test`. Antes de cada ejecución, el preflight
+confirma la identidad real de Neon (`neon.project_id`, `neon.branch_id` y `neon.endpoint_id`) y el acceso al bucket
+(`HeadBucket`).
+
+| Destino | Valor |
+|---|---|
+| Proyecto Neon | `royal-paper-10258990` |
+| Rama | `br-shy-pond-b50a3m8f` (C2 persistente; nunca `production`) |
+| Endpoint | `ep-withered-block-b5e8v9ov` (conexión directa) |
+| Bucket R2 | `pei-docs-c2-test` (exclusivo de C2) |
+
+**Identificación de los objetos (opción A).** Las claves conservan la gramática de producción (`doctor-identity/…`,
+`doctor-licenses/…`, `doctor-photos/…`). La ejecución se identifica por el `doctorProfileId`:
+- en las pruebas del adaptador, el UUID v5 derivado de `C2_RUN_ID`;
+- en las de integración, el de los médicos sintéticos que crea la ejecución, registrados con su origen (`createDoctor`)
+  y la cuenta sintética de la ejecución que los creó.
+
+Un manifiesto por ejecución registra cada operación, sin bytes, credenciales ni datos personales. La limpieza solo
+borra las claves que el manifiesto registró como subidas por la ejecución. `ListObjects` solo se usa en la comprobación
+final, por prefijos de la ejecución.
+
+**Ejecuciones válidas (2026-11-10, commit `91de98f`).** Ambas registran `workingTreeDirty: true`. Incluían la
+activación de la huella de PostgreSQL (`c2-pg-fingerprint.ts`, `c2-evidence.ts` y `scripts/c2-run.ts`), todavía sin
+commit en ese momento, y otros cambios locales ajenos a R2.
+
+| Ejecución | Casos | `C2_RUN_ID` | Resultado | Huella PostgreSQL | R2 al terminar | Evidencia |
+|---|---|---|---|---|---|---|
+| Adaptador R2 (`private-storage.r2-spec.ts`) | TC-M03-298 a 303 | `c2-20261110235152-506c` | **6/6** | `equal` (13/13) | 0 objetos en 3 prefijos; `livingKeys` vacío; 1 limpieza sin pendientes | `C:\pei-c2-evidencias\2026-11-10\c2-20261110235152-506c\` |
+| Documentos con PostgreSQL y R2 (`doctor-documents.r2-spec.ts`) | TC-M03-304 a 306 | `c2-20261110235308-76ca` | **3/3** | `equal` (13/13) | 0 objetos en 15 prefijos; `livingKeys` vacío; 3 limpiezas sin pendientes | `C:\pei-c2-evidencias\2026-11-10\c2-20261110235308-76ca\` |
+
+Cada paquete contiene `run.started.json`, `run.json` (estado `completed`, código de salida 0, `pgComparison: equal`),
+`jest-results.json`, `jest-output.log`, `pg-before.json`, `pg-after.json`, `pg-comparison.json`, `r2-manifest.json`,
+`r2-final-check.json` y `SHA256SUMS`, verificado sin diferencias, faltantes ni archivos de más. En los dos manifiestos,
+`persistenceErrors` está vacío y `revision` es 20 y 32, respectivamente.
+
+**Huella de PostgreSQL.** Las 13 tablas conservaron recuento y hash en las dos ejecuciones, con los mismos valores en
+ambas. El hash cubre **todas** las filas: cada fila se serializa con `to_jsonb(fila)::text` en una transacción
+`REPEATABLE READ READ ONLY` que vuelve a confirmar la identidad de Neon, y se hace md5 de los hashes de fila ordenados
+y del recuento.
+
+| Tabla | Filas | md5 |
+|---|---|---|
+| `user` | 52 | `e86dcbb912bed3a4b388bf5b3328edb2` |
+| `session` | 8 | `4fda1b31aa8212d42fca47a66e0f6909` |
+| `account` | 7 | `0076880e692ab2a3742558519a77d190` |
+| `verification` | 0 | `897316929176464ebc9ad085f31e7284` |
+| `user_profile` | 51 | `21b6c116149dfce6abd11d20a2dfdcd7` |
+| `patient_profile` | 23 | `86f46781d15d1b2cf168eb6b604849a9` |
+| `doctor_profile` | 17 | `efd12eebd94d18b78a0c6b8e9afc97de` |
+| `doctor_identity_verification` | 19 | `00de1523e89dba92cbe538871aeaca8e` |
+| `doctor_license_verification` | 20 | `bd85b9b2633b68b1afa6e8af0b3d535f` |
+| `legal_document` | 8 | `fb4edcdef01cfe0226f258f825d9512b` |
+| `user_legal_acceptance` | 98 | `89292e61ee51659df85154826f13835f` |
+| `audit_log` | 222 | `8737bbfcc964f91e123c8e10c51c6f22` |
+| `specialty` | 3 | `3f90f6637130685c59b8a8b310bba741` |
+
+**Operaciones registradas en R2:**
+- **Adaptador:**
+  - Subidas: 5 correctas y 1 fallida a propósito (TC-M03-303, credenciales inválidas en una instancia propia).
+  - Lecturas: 4 correctas y 2 de objetos inexistentes, esperadas.
+  - Borrados: 2 de la prueba de idempotencia y 4 en la limpieza.
+- **Documentos:**
+  - Subidas: 8.
+  - Borrados de la propia lógica: 3 (2 en la purga de la INE y 1 en la compensación).
+  - Borrados en la limpieza: 5.
+  - Lecturas de objetos inexistentes, esperadas: 3 (después de la purga y de la compensación).
+
+**Hallazgos de la integración:**
+- **TC-M03-304:** las claves guardadas en PostgreSQL corresponden a objetos de R2 con los mismos bytes (SHA-256), y la
+  lectura del administrador queda auditada.
+- **TC-M03-305:** la purga de la INE elimina el frente y el reverso, y la cédula se conserva.
+- **TC-M03-306:** con un número de cédula duplicado, la transacción falla y la compensación elimina el objeto subido.
+
+No se ejecutó la CLI de conciliación global, porque recorre las INE de toda la rama y modificaría registros
+preexistentes.
+
+**Ejecuciones anteriores (2026-11-04, código previo a la etapa 2 del manifiesto).**
+
+| Ejecución | `C2_RUN_ID` | Resultado | Evidencia |
+|---|---|---|---|
+| Adaptador R2 | `c2-20261104162631-70e6` | 6/6 | Manifiesto en `%TEMP%\pei-c2-evidence\` |
+| Documentos con PostgreSQL y R2 | `c2-20261104162955-f9c7` | 3/3 | Manifiesto en `%TEMP%\pei-c2-evidence\` |
+
+Sus manifiestos no tienen `revision`, `doctorOwners`, `cleanups` ni `finalCheck`, y en el de integración `cleanup`
+conserva solo la última limpieza. La huella de las 13 tablas de esa fecha se comprobó fuera del lanzador y no quedó en
+un paquete de evidencias. Se conservan como antecedente; las ejecuciones válidas son las del 2026-11-10.
+
+**Verificaciones de seguridad posibles desde el repositorio:**
+- El adaptador usa solo `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` y `R2_BUCKET_NAME`. No usa
+  `R2_PUBLIC_URL` (TC-M02-087) y no genera URLs públicas ni firmadas: el contenido sale siempre a través del backend.
+- Los errores no incluyen la clave, el bucket ni las credenciales (TC-M03-303, con R2 real).
+- `.env` está ignorado; los archivos `.env.example` solo tienen nombres de variables, y el historial de Git no contiene
+  un valor de `R2_SECRET_ACCESS_KEY`.
+- El lanzador oculta los valores sensibles de `.env.c2` en la salida.
+
+**Configuración de Cloudflare (pendiente 28).** Verificada el 2026-11-11 mediante confirmación manual de la persona
+usuaria, no por inspección directa del asistente:
+- el bucket `pei-docs-c2-test` no tiene acceso público habilitado;
+- el token de C2 está limitado a ese bucket, con solo Read y Edit de `Workers R2 Storage Bucket Item` y ningún otro
+  permiso.
+
+**Cierre de R2 (2026-11-11).** R2 queda **cerrado para el alcance actual de M03 en C2**: TC-M03-298 a 306 aprobados con
+R2 y PostgreSQL reales (huella de 13 tablas `equal`, bucket vacío), código en los commits `91de98f` y `9a0142b`,
+pendientes 24 y 25 resueltos por decisión aprobada y 28 verificado. Fuera de este cierre: la conciliación de objetos
+huérfanos antes de habilitar R2 en producción (pendiente 25) y las pruebas complementarias (foto del médico y purga
+fallida con R2 real; CLI de purga y conciliación, que requiere una rama aislada).
+
 ### Ramas temporales de Neon (revisión de solo lectura, 2026-10-20)
 
 | Rama | Origen | Estado | Evidencia que contiene | Datos persistentes conocidos | Conservar | Eliminar |
@@ -1125,4 +1385,9 @@ una evidencia formal.
 | 21 | `privacy_policy` es común a pacientes y médicos. Si se publica un `privacy_policy` de prueba o de un solo rol, una publicación posterior de solo `patient_terms` (admitida por N1, TC-M03-023) lo dejaría en el régimen del paciente; nada en el código, la BD ni C2 lo impide. Por eso el régimen TEST-1 se publicó solo en la rama `m03-flujo-medicos` y no en `production` | Pendiente: guard en la publicación o en la BD antes de cualquier régimen no definitivo en `production` |
 | 22 | C-16: la corrección de una CURP o un nombre legal incorrectos no tiene ninguna vía hoy (DP-CORR: flujo definido documentalmente en `M03-decisiones.md`, sección 8, pendiente de implementación). El enum `doctor_license_review_reason_enum` conserva `legal_name_changed` sin uso (no se migra). `docs/academico/M03-doctors.md` todavía describe el cambio de CURP y de nombre (D-28) y la ruta retirada | DP-CORR pendiente de implementación (fase final de M03) |
 | 23 | D-37 y RN-140 sin implementar: la conexión de las políticas depende de cada módulo con operaciones protegidas: agenda (M07), citas (M08), videoconsulta (`video`), expediente clínico (`clinical-record`) y prescripciones (`prescriptions`). Ninguno está implementado. Los módulos en carpetas no usan la numeración M07 y M08 | Pendiente de implementación |
+| 24 | Conservación de las evidencias de R2. **Decisión aprobada (2026-11-11):** (1) `C:\pei-c2-evidencias\` es la ubicación permanente de trabajo de las evidencias C2 (paquetes del lanzador por `<fecha>\<C2_RUN_ID>\`, con `SHA256SUMS`, fuera del repositorio y separados de los secretos de `C:\pei-c2`); (2) los paquetes completos no se versionan en Git; (3) el repositorio conserva la trazabilidad: `C2_RUN_ID`, resultados, recuentos, hashes y la referencia a la ubicación de cada paquete (sección «R2 (2026-11-04 y 2026-11-10)»); (4) la copia de seguridad fuera del equipo queda como recomendación operativa, no como requisito técnico implementado. Los manifiestos del 2026-11-04 (`%TEMP%\pei-c2-evidence\`) son antecedentes prescindibles | Resuelto (decisión aprobada) |
+| 25 | Objetos huérfanos en R2. La compensación (TC-M03-306) y la purga (TC-M03-305) funcionan con R2 real. Huecos residuales sin prueba: (a) si el borrado de compensación falla, el objeto queda huérfano y solo se registra un log sin clave (lo mismo con la foto anterior del médico); (b) si un `COMMIT` se confirma y su respuesta se pierde, la compensación borraría objetos de una fila confirmada. **Decisión aprobada (2026-11-11):** se acepta el riesgo residual para el alcance actual de R2/C2; no se implementa un barrido automático. Se conserva como medida futura una conciliación manual **de solo lectura**: listar las claves de los espacios de M03, cruzarlas con `doctor_*_verification` y `doctor_profile.photo_object_key` y reportar las que no tengan fila y superen un margen de antigüedad; el borrado, solo con aprobación explícita sobre la lista revisada. **Condición para producción:** la conciliación y la resolución de los objetos huérfanos deben hacerse antes de habilitar R2 en producción, en especial por los documentos de identidad y la retención de D-19 | Riesgo aceptado en el alcance actual; conciliación pendiente antes de habilitar R2 en producción |
 | 6 | Las etiquetas de decisión de las pruebas (D-, R-, N-, M01-D2) no están en las convenciones de `docs/testing/README.md` | Pendiente de decidir |
+| 26 | Bootstrap inicial del primer administrador (TC-M02-121 ×2: caso correcto y H1) sin validar con PostgreSQL real en C2: la rama persistente tiene un administrador copiado de la base de desarrollo. Requiere una rama sin administradores | Pendiente |
+| 27 | Evidencia incompleta de las ejecuciones de PostgreSQL del 2026-11-03: no se conservó en archivo la salida de concurrencia ni de integración, ni el `C2_RUN_ID` de integración; las huellas están fuera del repositorio. El cierre del pool de `doctors.int-spec` no se ha ejecutado aún contra C2 | Pendiente: conservar la salida completa en futuras ejecuciones |
+| 28 | Configuración de Cloudflare de C2. **Verificado mediante confirmación manual de la persona usuaria (2026-11-11);** el asistente no inspeccionó Cloudflare directamente. Confirmado: el bucket `pei-docs-c2-test` no tiene acceso público habilitado; el token de C2 está limitado a ese bucket y solo tiene los permisos Read y Edit de `Workers R2 Storage Bucket Item`, sin ningún otro permiso. Complementa las comprobaciones desde el repositorio (sin URLs públicas ni firmadas, TC-M02-087; errores sin credenciales, TC-M03-303) | Verificado (confirmación manual del usuario) |

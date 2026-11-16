@@ -1,7 +1,7 @@
-import { randomUUID } from 'crypto';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { sql } from 'drizzle-orm';
 import { assertC2BranchTarget } from '../support/c2-target-guard';
+import { C2_TARGET } from '../support/c2-target-guard';
 import { db } from '../../src/db';
 import * as schema from '../../src/db/schema';
 import { getDbContext } from '../../src/db/transaction-context';
@@ -14,7 +14,7 @@ import { BootstrapAdminUseCase } from '../../src/modules/identity/application/us
 import { AdminAlreadyExistsError, BootstrapAccountHasCredentialError } from '../../src/modules/identity/domain/identity.errors';
 import { BetterAuthAdminAccountProvisioner } from '../../src/modules/identity/infrastructure/auth/better-auth-admin-account.provisioner';
 import { DrizzleUserProfileRepository } from '../../src/modules/identity/infrastructure/persistence/drizzle-user-profile.repository';
-import { captureError, TEST_EMAIL_DOMAIN, withRollback, type Tx } from '../support/with-rollback';
+import { captureError, TEST_EMAIL_DOMAIN, testTag, withRollback, type Tx } from '../support/with-rollback';
 
 // Integración del primer administrador (DT-12, opción C) con el esquema REAL de Drizzle: Better Auth sobre la
 // transacción de la prueba (drizzleAdapter(tx): sus escrituras son SAVEPOINTs dentro de ella) y los repositorios
@@ -47,7 +47,25 @@ const RELAXED_RATE_LIMIT = {
 };
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
-const testEmail = (label: string) => `${label}-${randomUUID()}@${TEST_EMAIL_DOMAIN}`;
+// Correo sintético único por fixture: testTag() incluye C2_RUN_ID cuando lo define el lanzador
+// (gst-m00-test-<C2_RUN_ID>-<uuid>-<etiqueta>@m00.test.invalid).
+const testEmail = (label: string) => `${testTag()}-${label}@${TEST_EMAIL_DOMAIN}`;
+
+// La rama C2 persistente (C2_TARGET) conserva un administrador copiado de la base de desarrollo: el bootstrap
+// INICIAL (sin ningún administrador) no es aplicable allí y sus dos escenarios quedan pendientes para una rama sin
+// administradores. No se eliminan ni se sustituyen; el escenario «ya existe un administrador» valida en C2 el
+// comportamiento real.
+const IN_C2_WITH_ADMIN = process.env.C2_EXPECTED_BRANCH === C2_TARGET.branch;
+const itInitialBootstrap = IN_C2_WITH_ADMIN ? it.skip : it;
+const PENDING_IN_C2 = '[pendiente en C2: la rama ya tiene administrador]';
+
+// Cada fixture usa un correo nuevo: si ya existiera (colisión con un usuario preexistente), la prueba se detiene.
+async function freshEmail(label: string): Promise<string> {
+  const email = testEmail(label);
+  const { rows } = await getDbContext().execute<{ n: number }>(sql`select count(*)::int as n from "user" where email = ${email}`);
+  if (rows[0].n !== 0) throw new Error('colisión del correo sintético con un usuario existente');
+  return email;
+}
 
 function setup(tx: Tx) {
   const emailSender = new OutboxEmailSender();
@@ -106,8 +124,18 @@ async function fingerprint() {
       (select count(*) from user_profile)::int as user_profiles,
       (select count(*) from user_profile where role = 'admin')::int as admins,
       (select count(*) from audit_log)::int as audit_log,
-      (select count(*) from "user" where email like ${'%@' + TEST_EMAIL_DOMAIN})::int as test_users
+      (select count(*) from "user" where email like ${'%@' + TEST_EMAIL_DOMAIN})::int as test_users,
+      (select count(*) from legal_document)::int as legal_documents
   `);
+  return rows[0];
+}
+
+// Recuentos dentro de la transacción de la prueba (para comprobar que un caso no creó nada).
+async function txCounts() {
+  const { rows } = await getDbContext().execute<Record<string, number>>(sql`
+    select (select count(*) from "user")::int as users, (select count(*) from account)::int as accounts,
+           (select count(*) from session)::int as sessions, (select count(*) from verification)::int as verifications,
+           (select count(*) from user_profile)::int as user_profiles, (select count(*) from audit_log)::int as audit_log`);
   return rows[0];
 }
 
@@ -115,20 +143,25 @@ describe('Primer administrador con Better Auth y el esquema real (DT-12, opción
   let before: Record<string, number>;
 
   beforeAll(async () => {
+    // Sin precondiciones sobre el contenido de la rama (la C2 persistente conserva administradores y usuarios
+    // sintéticos): la huella solo se compara antes y después para demostrar el rollback.
     before = await fingerprint();
-    // Precondición: sin administradores en la rama (si no, el caso de uso abortaría con AdminAlreadyExistsError).
-    expect(before.admins).toBe(0);
-    expect(before.test_users).toBe(0);
+    if (IN_C2_WITH_ADMIN) expect(before.admins).toBeGreaterThan(0);
   });
 
   afterAll(async () => {
-    expect(await fingerprint()).toEqual(before);
+    try {
+      expect(await fingerprint()).toEqual(before);
+    } finally {
+      await db.$client.end();
+      expect(db.$client.totalCount).toBe(0);
+    }
   });
 
   it('[TC-M02-118][DT-12] createAccount: solo la fila user (email_verified=false, correo en minúsculas), sin credencial', async () => {
     await withRollback(async (tx) => {
       const { provisioner } = setup(tx);
-      const email = testEmail('admin');
+      const email = await freshEmail('admin');
       const userId = await provisioner.createAccount({ email: email.toUpperCase(), name: 'Admin Inicial' });
 
       expect(await userRow(email)).toEqual({ id: userId, email, email_verified: false });
@@ -141,7 +174,7 @@ describe('Primer administrador con Better Auth y el esquema real (DT-12, opción
   it('[TC-M02-118][DT-12] un segundo createAccount con el mismo correo viola user.email unique', async () => {
     await withRollback(async (tx) => {
       const { provisioner } = setup(tx);
-      const email = testEmail('admin');
+      const email = await freshEmail('admin');
       await provisioner.createAccount({ email, name: 'Admin Inicial' });
       // Última operación de la transacción: el error la invalida y withRollback la revierte.
       expect(await captureError(provisioner.createAccount({ email, name: 'Otra' }))).toBeInstanceOf(Error);
@@ -153,7 +186,7 @@ describe('Primer administrador con Better Auth y el esquema real (DT-12, opción
     try {
       await withRollback(async (tx) => {
         const { emailSender, provisioner, post, get } = setup(tx);
-        const email = testEmail('admin');
+        const email = await freshEmail('admin');
         const userId = await provisioner.createAccount({ email, name: 'Admin Inicial' });
 
         await provisioner.sendPasswordSetup(email);
@@ -182,7 +215,7 @@ describe('Primer administrador con Better Auth y el esquema real (DT-12, opción
   it('[TC-M02-120][DT-12] enlace prematuro con el esquema real: rechazo sin fila session ni email_verified', async () => {
     await withRollback(async (tx) => {
       const { emailSender, provisioner, post, get } = setup(tx);
-      const email = testEmail('admin');
+      const email = await freshEmail('admin');
       const userId = await provisioner.createAccount({ email, name: 'Admin Inicial' });
       expect((await post('/send-verification-email', { email, callbackURL: `${WEB}/completar-registro` })).status).toBe(200);
 
@@ -195,12 +228,12 @@ describe('Primer administrador con Better Auth y el esquema real (DT-12, opción
     });
   });
 
-  it('[TC-M02-121][DT-12] caso de uso con Drizzle: perfil admin y auditoría, un solo correo; repetir aborta', async () => {
+  itInitialBootstrap(`[TC-M02-121][DT-12] caso de uso con Drizzle: perfil admin y auditoría, un solo correo; repetir aborta${IN_C2_WITH_ADMIN ? ` ${PENDING_IN_C2}` : ''}`, async () => {
     process.env.APP_WEB_URL = WEB;
     try {
       await withRollback(async (tx) => {
         const { registry, useCase, userProfiles } = setup(tx);
-        const email = testEmail('admin');
+        const email = await freshEmail('admin');
 
         const { userProfileId, resumedExistingAccount } = await useCase.execute({ email, firstName: 'Admin', lastName: 'Inicial' });
         expect(resumedExistingAccount).toBe(false);
@@ -220,12 +253,12 @@ describe('Primer administrador con Better Auth y el esquema real (DT-12, opción
     }
   });
 
-  it('[TC-M02-121][DT-12] H1 con el esquema real: una cuenta del registro público (con contraseña) hace abortar el bootstrap sin perfil admin', async () => {
+  itInitialBootstrap(`[TC-M02-121][DT-12] H1 con el esquema real: una cuenta del registro público (con contraseña) hace abortar el bootstrap sin perfil admin${IN_C2_WITH_ADMIN ? ` ${PENDING_IN_C2}` : ''}`, async () => {
     process.env.APP_WEB_URL = WEB;
     try {
       await withRollback(async (tx) => {
         const { registry, useCase, userProfiles, post } = setup(tx);
-        const email = testEmail('admin');
+        const email = await freshEmail('admin');
         expect((await post('/sign-up/email', { email, password: 'Contrasena-De-Otra-Persona-1', name: 'Otra persona' })).status).toBe(200);
 
         expect(await captureError(useCase.execute({ email, firstName: 'Admin', lastName: 'Inicial' }))).toBeInstanceOf(
@@ -233,6 +266,24 @@ describe('Primer administrador con Better Auth y el esquema real (DT-12, opción
         );
         expect(await userProfiles.adminExists()).toBe(false);
         expect((await registry.settle()).map((o) => o.kind)).toEqual(['email_verification']); // solo la del registro
+      });
+    } finally {
+      delete process.env.APP_WEB_URL;
+    }
+  });
+
+  it('[TC-M03-293][DT-12] con un administrador existente, el bootstrap aborta con AdminAlreadyExistsError sin crear nada', async () => {
+    process.env.APP_WEB_URL = WEB;
+    try {
+      await withRollback(async (tx) => {
+        const { registry, useCase, userProfiles } = setup(tx);
+        expect(await userProfiles.adminExists()).toBe(true);
+        const email = await freshEmail('admin-existente');
+        const counts = await txCounts();
+        expect(await captureError(useCase.execute({ email, firstName: 'Admin', lastName: 'Sintetico' }))).toBeInstanceOf(AdminAlreadyExistsError);
+        expect(await txCounts()).toEqual(counts);
+        expect((await userRow(email)) === undefined).toBe(true);
+        expect(await registry.settle()).toEqual([]);
       });
     } finally {
       delete process.env.APP_WEB_URL;

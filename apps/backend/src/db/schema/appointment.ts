@@ -1,4 +1,5 @@
-import { pgTable, uuid, varchar, text, timestamp, numeric, integer, index, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { pgTable, uuid, varchar, text, timestamp, numeric, integer, index, check, foreignKey, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import {
   appointmentTypeEnum,
   appointmentStatusEnum,
@@ -11,6 +12,7 @@ import { userProfile } from './identity';
 import { patientProfile } from './patient';
 import { doctorProfile } from './doctor';
 import { cancellationPolicy } from './configuration';
+import { userLegalAcceptance } from './consent';
 
 // pending_payment pasa a expired, nunca a canceled, cuando vence la retención sin pago.
 // cancellation_policy_id: [PROPUESTO] Estructura pendiente de aprobación del líder técnico.
@@ -34,9 +36,15 @@ export const appointment = pgTable(
     cancelledByType: cancellationActorTypeEnum('cancelled_by_type'),
     cancelledByUserProfileId: uuid('cancelled_by_user_profile_id').references(() => userProfile.id),
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    // M-1 (0013, DA-3): fin del bloque reservado, solo para la ocupación de la agenda; distinto de meeting.ended_at.
+    // M-1c (0015): NOT NULL.
+    agendaBlockEndsAt: timestamp('agenda_block_ends_at', { withTimezone: true }).notNull(),
     rescheduledFromAppointmentId: uuid('rescheduled_from_appointment_id').references(
       (): AnyPgColumn => appointment.id,
     ),
+    // AP-26 (0014): las dos aceptaciones legales vigentes al reservar; ambas o ninguna (citas históricas con nulos).
+    privacyLegalAcceptanceId: uuid('privacy_legal_acceptance_id'),
+    termsLegalAcceptanceId: uuid('terms_legal_acceptance_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -46,6 +54,12 @@ export const appointment = pgTable(
     index('appointment_scheduled_at_idx').on(t.scheduledAt),
     index('appointment_doctor_schedule_idx').on(t.doctorId, t.scheduledAt),
     index('appointment_payment_hold_idx').on(t.paymentHoldExpiresAt),
+    check('appointment_agenda_block_ends_at_chk', sql`${t.agendaBlockEndsAt} > ${t.scheduledAt}`),
+    foreignKey({ name: 'appointment_privacy_legal_acceptance_fk', columns: [t.privacyLegalAcceptanceId], foreignColumns: [userLegalAcceptance.id] }),
+    foreignKey({ name: 'appointment_terms_legal_acceptance_fk', columns: [t.termsLegalAcceptanceId], foreignColumns: [userLegalAcceptance.id] }),
+    index('appointment_privacy_legal_acceptance_idx').on(t.privacyLegalAcceptanceId),
+    index('appointment_terms_legal_acceptance_idx').on(t.termsLegalAcceptanceId),
+    check('appointment_legal_acceptances_chk', sql`(${t.privacyLegalAcceptanceId} is null) = (${t.termsLegalAcceptanceId} is null)`),
   ],
 );
 

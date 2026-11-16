@@ -47,6 +47,123 @@ Un caso con `it.each` tiene varias ejecuciones; su resultado es FAIL si alguna f
 
 Los resultados se toman solo de la salida de Jest. Un caso omitido o una suite que no pudo ejecutarse aparece como **NO EJECUTADA**.
 
+## Salvaguarda de destino C2 e incompatibilidades temporales
+
+`test/support/c2-target-guard.ts` (`assertC2BranchTarget`) exige `C2_MODE` (`postgres`, `concurrency`, `r2` o `auth`) y
+un único destino aprobado, `C2_TARGET`: proyecto `royal-paper-10258990`, rama `br-shy-pond-b50a3m8f`, endpoint
+`ep-withered-block-b5e8v9ov`. Cualquier otra rama, aunque tenga un formato válido, se rechaza al cargar el spec y sin
+conexiones. La única marca aprobada para datos confirmados es `C2_PERSISTENT_FIXTURES` (`c2-persistent-accepted`).
+
+Desde esta salvaguarda (2026-11-08), dos grupos de pruebas versionadas son **temporalmente incompatibles**. No están
+retiradas: se conservan sin cambios y quedan pendientes de una integración futura con un destino y un modo autorizados.
+
+| Pruebas | Qué esperan | Por qué no se ejecutan ahora |
+|---|---|---|
+| `test/flujo/**/*.flow-spec.ts` (`flow-guard.ts`) | Rama `br-floral-mode-b5hqaix0` / `ep-cool-base-b55xjarv` y `C2_COMMITTED_FIXTURES=flujo-medicos-accepted` | La salvaguarda solo admite `C2_TARGET` y no existe un modo de flujo |
+| `test/concurrency/legal-publication.conc-spec.ts` | Una rama desechable con `C2_COMMITTED_FIXTURES=disposable-branch` | La salvaguarda solo admite `C2_TARGET` y esa marca no está autorizada |
+
+Ninguno de los dos forma parte de `pnpm test`, así que la incompatibilidad solo impide ejecutarlos contra Neon. Las
+comprobaciones puras de `test/flujo/*.spec.ts` siguen en la suite unitaria.
+
+## Modo `migration`: rama aislada para las pruebas de migración de M-1
+
+Las pruebas de migración de M08 M-1 parten de un esquema 0000–0012 y no pueden ejecutarse en C2, que ya tiene `0013`:
+`m08-m1-migration.int-spec.ts` (D, TC-M08-300 a 306) y `m08-m1-part-b.int-spec.ts` (parte B, TC-M08-307). Para ellas
+existe el modo `migration`, con su propio destino.
+
+> **Modo deshabilitado (sin destino aprobado).** La rama aislada `br-green-grass-b5yhyp89` (endpoint
+> `ep-nameless-sun-b5njoeb3`, hija de `c2-pre-0013`) se usó el 2026-11-09 para D y TC-M08-307 (evidencia en
+> `trazabilidad/M08-appointments.md`) y después se eliminó. `C2_ISOLATED_TARGET` vale `null`: el modo `migration` falla
+> antes de conectarse con cualquier identidad, y la rama retirada queda en la lista de destinos prohibidos.
+> Reactivarlo exige crear una rama desechable nueva, fijar su identidad en `C2_ISOLATED_TARGET` en una revisión
+> explícita y obtener una autorización expresa para cada ejecución.
+
+Cuando hay un destino aprobado, el modo funciona así:
+
+| Elemento | Valor |
+|---|---|
+| Destino (`C2_ISOLATED_TARGET`) | Una rama Neon desechable con esquema 0000–0012 (por ejemplo, hija del respaldo `c2-pre-0013`). Hoy: ninguno |
+| Destinos prohibidos | C2 (`br-shy-pond-b50a3m8f`), la base de desarrollo (`br-royal-recipe-b54s5hnn`), los respaldos `br-silent-butterfly-b5z128fu` y `br-rapid-water-b5za50z4` y la rama aislada retirada `br-green-grass-b5yhyp89`, también como identidad real |
+| Configuración | `C2_ENV_FILE` apunta a un `.env.c2` propio de la rama aislada (fuera del repositorio y separado del de C2) |
+| Jest | `test/jest-migration.json`: el tripwire y después `c2-mode-migration.ts`, que exige `C2_MODE=migration` |
+| Specs | Solo los dos de migración. El modo `postgres` ya no los admite y `migration` no admite ningún otro |
+| Conexión | Directa (sin `-pooler`). Sin datos confirmados: todo se revierte |
+| Parte B (`0014`) | `M08_PART_B_AUTHORIZED=0014` solo llega a Jest con `--authorize-part-b 0014`, en el modo `migration` y para `m08-m1-part-b.int-spec.ts`. Nunca desde `.env.c2` ni desde el proceso padre |
+
+Los demás modos no cambian: siguen exigiendo exactamente C2 y rechazan cualquier rama aislada. La rama desechable se
+elimina al terminar y el destino se retira en una revisión explícita, como se hizo con `br-green-grass-b5yhyp89`.
+
+## Evidencias de las ejecuciones C2 (lanzador `pnpm c2`)
+
+Las pruebas contra la rama C2 de Neon y el bucket R2 de pruebas se ejecutan solo con el lanzador
+(`apps/backend/scripts/c2-run.ts`; modos `postgres`, `concurrency`, `r2` y `auth`). El modo `r2` está integrado
+y versionado (`test/r2/`, `jest-r2.json`, `c2-mode-r2.ts`, `r2-run.ts` y `r2-verify.ts`) y se validó contra R2 y
+PostgreSQL reales el 2026-11-10 (trazabilidad en `trazabilidad/M03-doctors.md`). Desde la etapa 1 de evidencias
+(2026-11-06), cada `pnpm c2 run` guarda un paquete propio. `check` y `preflight` no generan evidencias.
+
+**Ubicación.** `C:\pei-c2-evidencias\<AAAA-MM-DD>\<C2_RUN_ID>\`: fuera del repositorio (no se versiona) y separada de
+`C:\pei-c2\`, que contiene `.env.c2` con secretos. El lanzador rechaza una raíz dentro del repositorio o dentro de
+`C:\pei-c2\`. El directorio de cada ejecución se crea sin reutilizar uno existente y ningún archivo se sobrescribe.
+
+| Archivo | Contenido | Cuándo |
+|---|---|---|
+| `run.started.json` | Registro inicial (estado `running`) | Al empezar |
+| `run.json` | `C2_RUN_ID`, UUID derivado, modo, suite, commit, si había cambios sin commit, destino (proyecto, rama, endpoint y, en `r2`, bucket; sin secretos), fechas, estado (`completed`, `failed`, `interrupted`) y código de salida | Al terminar o al interrumpirse con Ctrl+C |
+| `jest-results.json` | Salida `--json` de Jest | La escribe Jest |
+| `jest-output.log` | stdout y stderr de Jest con depuración conservadora (secretos conocidos de `.env.c2`, cadenas de conexión, cookies, tokens, correos no sintéticos, CURP y RFC no sintéticos, cadenas largas de alta entropía) | Durante la ejecución |
+| `pg-before.json`, `pg-after.json` | Huella de PostgreSQL de 13 tablas (`test/support/c2-pg-fingerprint.ts`): recuentos y hashes md5 de todas las filas, **nunca filas**; transacción READ ONLY que vuelve a confirmar la identidad de Neon | Solo en el modo `r2`: antes de iniciar Jest (si falla, Jest no se inicia) y después de que termine |
+| `pg-comparison.json` | Comparación por tabla (recuentos y hashes antes y después): `equal`, `different`, `incomplete` o `error`. También queda en `run.json` (`pgComparison`); si no es `equal`, la ejecución termina con código 1 | Solo en el modo `r2`, al terminar |
+| `r2-manifest.json`, `r2-final-check.json` | Operaciones sobre objetos de la ejecución y comprobación final por prefijos | Solo en el modo `r2` (los escribe el spec; ver más abajo) |
+| `SHA256SUMS` | SHA-256 de todos los archivos anteriores | Al terminar |
+
+Si existe `run.started.json` pero no `run.json`, la ejecución terminó de forma inesperada: lo escrito hasta ese momento
+se conserva, sin `SHA256SUMS`.
+
+**Manifiesto de R2** (`test/support/r2-run.ts`, etapa 2, 2026-11-06).
+
+- Al cargarse, el spec vincula el manifiesto al directorio de la ejecución (`attach`): `r2-manifest.json` se crea en
+  exclusiva y nunca sobre uno existente.
+- Después de cada operación (subida, lectura, borrado, limpieza, fallo, registro de un médico y comprobación final) se
+  reescribe de forma atómica: archivo temporal propio y renombrado. Una interrupción conserva todo lo registrado hasta
+  ese momento. Las escrituras son síncronas, así que las operaciones concurrentes no se pisan.
+- Si una escritura falla, la operación se conserva en memoria, el fallo queda en `persistenceErrors` y la siguiente
+  escritura lo incluye. El spec exige que no haya ninguno.
+- Propiedad: `put` exige que el médico de la clave sea de la ejecución, ya sea el UUID derivado de `C2_RUN_ID` o un
+  médico registrado con `allowDoctor`. `allowDoctor` exige el origen (`createDoctor`) y la cuenta sintética de **esta**
+  ejecución (`gst-m00-test-<C2_RUN_ID>-…`); un UUID suelto no basta.
+- `delete` y la limpieza exigen además que la clave se haya subido en la ejecución.
+- Las lecturas y las comprobaciones de los specs pasan por el manifiesto; la única excepción son las dos claves inválidas
+  de TC-M03-302, que el adaptador rechaza sin llamar a R2.
+- `cleanup` conserva la última limpieza (el formato de las evidencias anteriores), `cleanups` acumula todas y
+  `finalCheck` guarda el recuento por prefijos del listado final.
+- Sin `C2_EVIDENCE_DIR` (ejecuciones fuera del lanzador), el manifiesto se escribe una sola vez al final en el directorio
+  temporal, también en exclusiva.
+
+**Original y resumen versionable.** El paquete de `C:\pei-c2-evidencias\` es la evidencia original y nunca se versiona
+automáticamente: la rama C2 se creó a partir de la base de desarrollo (llamada `production` en documentos anteriores)
+y puede contener datos personales; ninguna expresión regular garantiza detectarlos todos. Un resumen en `docs/testing/ejecuciones/` solo puede prepararse a partir de un paquete que supere
+`reviewForVersioning` (`test/support/c2-evidence.ts`): la revisión rechaza el paquete ante cualquier archivo no
+admitido o binario, cualquier marca de depuración (indica que había algo sensible) o cualquier patrón dudoso, sin repetir
+el valor encontrado. Aun así, el resumen se revisa a mano antes de cualquier commit.
+
+**Permisos y respaldo.**
+
+- Restringir el acceso al usuario local, por ejemplo en PowerShell:
+  `icacls C:\pei-c2-evidencias /inheritance:r /grant:r "$($env:USERNAME):(OI)(CI)F"`.
+- Respaldar periódicamente la carpeta completa en un medio con acceso restringido (por ejemplo, la unidad institucional)
+  y conservarla al menos hasta el cierre de M03 y la entrega académica. Antes de respaldar y después de restaurar,
+  comprobar la integridad con `SHA256SUMS`.
+- No guardar nunca `.env.c2` ni otros secretos dentro de `C:\pei-c2-evidencias\`.
+
+**Consultar una ejecución por `C2_RUN_ID`.** El identificador aparece en la consola al empezar
+(`run <modo>: <spec> (C2_RUN_ID=…)`) y la ruta del paquete al terminar (`evidencias: …`). Para localizarla después:
+`Get-ChildItem C:\pei-c2-evidencias -Directory -Recurse -Filter <C2_RUN_ID>`; para comprobar su integridad, comparar
+cada línea de `SHA256SUMS` con `Get-FileHash -Algorithm SHA256 <archivo>`. Las matrices de trazabilidad enlazan cada
+ejecución por su `C2_RUN_ID`.
+
+Las evidencias anteriores a esta etapa (2026-11-03 y 2026-11-04) siguen donde se generaron; sus limitaciones se documentarán en
+la trazabilidad de M03 cuando se integre esa entrega.
+
 ## Matrices de trazabilidad por módulo
 
 - [M00 Fundaciones](trazabilidad/M00-fundaciones.md)
