@@ -2,9 +2,11 @@
 
 import { UserCircle } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { UserMenu } from "@/features/components/user-menu";
+import { IDENTITY_VERIFICATION_PATH } from "@/features/identity-verification/paths";
 import { ChangePasswordModal } from "@/features/landing/pages/change-password-modal";
 import {
   ApiError,
@@ -405,6 +407,28 @@ export function Landing() {
                 </div>
               </div>
             </div>
+
+            {/* Verificación de identidad (RF-07): el estado se consulta en su propia pantalla. */}
+            <section
+              aria-label="Verificación de identidad"
+              className="w-full bg-[#F8F8F8] rounded-2xl p-4 sm:p-6 md:p-8 mb-4 sm:mb-6"
+            >
+              <h3 className="text-base sm:text-lg font-medium text-[#000000] mb-4 sm:mb-6">
+                Verificación de identidad
+              </h3>
+              <div className="flex flex-col md:flex-row justify-between gap-3">
+                <p className={labelClass}>
+                  Para agendar consultas necesitas verificar tu identidad con tu
+                  INE.
+                </p>
+                <Link
+                  href={IDENTITY_VERIFICATION_PATH}
+                  className="text-sm sm:text-base md:text-[18px] font-medium text-[#7355F7] hover:underline transition md:text-right w-fit md:w-auto"
+                >
+                  Ver mi verificación
+                </Link>
+              </div>
+            </section>
 
             {/* Seguridad */}
             <div className="w-full bg-[#F8F8F8] rounded-2xl p-4 sm:p-6 md:p-8">
