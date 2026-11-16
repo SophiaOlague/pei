@@ -42,11 +42,17 @@ export type MissingRequirement =
   | "identity_review"
   | "identity_resubmission";
 
+export type IdentityVerificationStatus =
+  | "not_submitted"
+  | "pending"
+  | "rejected"
+  | "approved";
+
 export interface RegistrationStatus {
   profileCompleted: boolean;
   legal: { accepted: boolean; pending: PendingLegalDocument[] };
   identity: {
-    status: "not_submitted" | "pending" | "rejected" | "approved";
+    status: IdentityVerificationStatus;
     rejectionReason: string | null;
   };
   registrationComplete: boolean;
@@ -61,18 +67,31 @@ export interface PatientProfileInput {
   birthDate: string; // AAAA-MM-DD
 }
 
+// missing: requisitos que faltan según el backend (details.missing de RegistrationIncompleteError); vacío si no aplica.
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
     readonly error?: string,
+    readonly missing: readonly string[] = [],
   ) {
     super(message);
     this.name = "ApiError";
   }
 }
 
-type ErrorBody = { message?: string | string[]; error?: string };
+type ErrorBody = {
+  message?: string | string[];
+  error?: string;
+  details?: { missing?: unknown };
+};
+
+function missingFrom(body: ErrorBody | null): string[] {
+  const missing = body?.details?.missing;
+  return Array.isArray(missing)
+    ? missing.filter((m): m is string => typeof m === "string")
+    : [];
+}
 
 function messageFor(status: number, body: ErrorBody | null): string {
   if (status === 401) return "Tu sesión expiró. Inicia sesión de nuevo.";
@@ -110,6 +129,7 @@ async function send(path: string, init?: RequestInit): Promise<Response> {
       response.status,
       messageFor(response.status, body),
       body?.error,
+      missingFrom(body),
     );
   }
   return response;
@@ -205,6 +225,72 @@ export function uploadProfilePhoto(file: File): Promise<{ hasPhoto: true }> {
   const body = new FormData();
   body.append("photo", file);
   return request("/me/profile/photo", { method: "PUT", body });
+}
+
+// Verificación de identidad del paciente (RF-07; me.controller.ts):
+//   GET  /me/identity-verification  → estado del último envío (not_submitted | pending | approved | rejected).
+//   POST /me/identity-verification  → multipart front/back, JPEG o PNG de máximo 5 MB; el backend decide por la firma
+//                                     binaria, guarda los documentos en su almacenamiento privado y limita los envíos.
+// El estado siempre lo decide el backend: la interfaz nunca lo infiere de su propio envío.
+export interface IdentityVerification {
+  status: IdentityVerificationStatus;
+  attempt: number;
+  rejectionReason: string | null;
+}
+
+export interface IdentitySubmission {
+  submissionId: string;
+  status: "pending";
+  attempt: number;
+}
+
+export const IDENTITY_DOCUMENT_TYPES = ["image/jpeg", "image/png"];
+export const IDENTITY_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
+
+export function getIdentityVerification(): Promise<IdentityVerification> {
+  return request("/me/identity-verification");
+}
+
+// El nombre del archivo lo fija la interfaz: el del dispositivo podría contener datos personales.
+const documentName = (side: "front" | "back", file: File) =>
+  `${side}.${file.type === "image/png" ? "png" : "jpg"}`;
+
+export function submitIdentityVerification(
+  front: File,
+  back: File,
+): Promise<IdentitySubmission> {
+  const body = new FormData();
+  body.append("front", front, documentName("front", front));
+  body.append("back", back, documentName("back", back));
+  return request("/me/identity-verification", { method: "POST", body });
+}
+
+// Requisito de identidad pendiente (details.missing de RegistrationIncompleteError o `missing` del estado del
+// registro), o null. Orden: reenviar, enviar, en revisión.
+export type IdentityRequirement =
+  | "identity_submission"
+  | "identity_review"
+  | "identity_resubmission";
+
+const IDENTITY_REQUIREMENTS: readonly IdentityRequirement[] = [
+  "identity_resubmission",
+  "identity_submission",
+  "identity_review",
+];
+
+export function identityRequirementIn(
+  missing: readonly string[],
+): IdentityRequirement | null {
+  return IDENTITY_REQUIREMENTS.find((r) => missing.includes(r)) ?? null;
+}
+
+export function identityRequirementOf(
+  error: unknown,
+): IdentityRequirement | null {
+  return error instanceof ApiError &&
+    error.error === "RegistrationIncompleteError"
+    ? identityRequirementIn(error.missing)
+    : null;
 }
 
 // La foto es privada: se descarga con la sesión y se muestra desde un blob local.
