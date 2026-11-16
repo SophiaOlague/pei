@@ -39,6 +39,11 @@ export const C2_FORBIDDEN_FOR_ISOLATED = Object.freeze([
 // que no revierten (por ejemplo, concurrencia). No habilita ningún otro destino: la identidad exacta se exige antes.
 export const C2_PERSISTENT_FIXTURES = 'c2-persistent-accepted';
 
+// Marca de datos confirmados de la suite de webhooks (H-5, autorizada el 2026-11-16): solo el modo `webhooks` la admite
+// y ese modo la exige. Sus fixtures sintéticos llevan la marca wh-h5-<C2_RUN_ID> y quedan en C2 cuando los triggers
+// impiden borrarlos (payment, provider_webhook_event, configuraciones versionadas, audit_log).
+export const C2_WEBHOOKS_FIXTURES = 'wh-h5-committed';
+
 // Bucket R2 exclusivo de C2. Solo los specs de R2 (modo `r2`) pueden tener credenciales R2.
 export const C2_R2_BUCKET = 'pei-docs-c2-test';
 
@@ -49,8 +54,9 @@ export const NEUTRALIZED_ENV = Object.freeze([...RESEND_ENV, ...R2_ENV]);
 
 // Modalidades de C2. `concurrency` exige conexión directa (los candados no se prueban a través del pooler);
 // `r2` es la única que admite credenciales R2, y solo del bucket de C2. `migration` es la única que apunta a la rama
-// aislada (C2_ISOLATED_TARGET) y también exige conexión directa.
-export const C2_MODES = ['postgres', 'concurrency', 'r2', 'auth', 'migration'] as const;
+// aislada (C2_ISOLATED_TARGET) y también exige conexión directa. `webhooks` (H-5) apunta a C2, exige conexión directa
+// (concurrencia real) y la marca C2_WEBHOOKS_FIXTURES: es la única que confirma escrituras de Payments en C2.
+export const C2_MODES = ['postgres', 'concurrency', 'r2', 'auth', 'migration', 'webhooks'] as const;
 export type C2Mode = (typeof C2_MODES)[number];
 
 export interface C2BranchTarget { project: string; branch: string; endpoint: string }
@@ -116,6 +122,13 @@ export function assertC2BranchTarget(env: NodeJS.ProcessEnv = process.env): { br
   if (firstLabel !== endpoint && !pooled) throw new C2TargetError('DATABASE_URL no corresponde al endpoint esperado');
   if (pooled && mode === 'concurrency') throw new C2TargetError('las pruebas de concurrencia exigen conexión directa (sin -pooler)');
   if (pooled && mode === 'migration') throw new C2TargetError('las pruebas de migración exigen conexión directa (sin -pooler)');
+  if (pooled && mode === 'webhooks') throw new C2TargetError('las pruebas de webhooks exigen conexión directa (sin -pooler)');
+  if (mode === 'webhooks' && env.C2_COMMITTED_FIXTURES !== C2_WEBHOOKS_FIXTURES) {
+    throw new C2TargetError(`el modo webhooks exige C2_COMMITTED_FIXTURES=${C2_WEBHOOKS_FIXTURES}`);
+  }
+  if (mode !== 'webhooks' && env.C2_COMMITTED_FIXTURES === C2_WEBHOOKS_FIXTURES) {
+    throw new C2TargetError('la marca de datos confirmados de webhooks solo se admite en el modo webhooks');
+  }
 
   const resendSet = RESEND_ENV.filter((key) => env[key] !== '');
   if (resendSet.length > 0) throw new C2TargetError(`variables sin neutralizar: ${resendSet.join(', ')}`);

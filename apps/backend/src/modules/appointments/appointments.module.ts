@@ -4,6 +4,8 @@ import { DoctorsModule } from '../doctors/doctors.module';
 import { IdentityModule } from '../identity/identity.module';
 import { AppointmentConfirmationService, AppointmentSessionService } from './application/integration/appointment-integration.services';
 import { AppointmentChainService } from './application/integration/appointment-chain.services';
+import { CANCELED_APPOINTMENT_AUDIT_READER, CanceledAppointmentFeedService } from './application/integration/canceled-appointment-feed';
+import { DrizzleCanceledAppointmentAuditReader } from './infrastructure/persistence/drizzle-canceled-appointment-audit.reader';
 import { AfterCommitAppointmentEventPublisher, APPOINTMENT_EVENT_PUBLISHER, AppointmentEventSubscribers } from './application/appointment-events';
 import {
   DoctorAppointmentsQuery, DoctorOccupancyService, GetDoctorSlotsForPatientUseCase, HoldSlotUseCase, ListBookableDoctorsUseCase, PatientAppointmentsQuery,
@@ -47,6 +49,9 @@ import {
     AppointmentConfirmationService,
     AppointmentSessionService,
     AppointmentChainService,
+    // A.25: consulta duradera de cancelaciones para pagos (solo lectura, sin ruta HTTP).
+    CanceledAppointmentFeedService,
+    { provide: CANCELED_APPOINTMENT_AUDIT_READER, useClass: DrizzleCanceledAppointmentAuditReader },
     AppointmentEventSubscribers,
     { provide: APPOINTMENT_EVENT_PUBLISHER, useClass: AfterCommitAppointmentEventPublisher },
     { provide: APPOINTMENT_REPOSITORY, useClass: DrizzleAppointmentRepository },
@@ -57,6 +62,9 @@ import {
     { provide: BOOKING_FEATURE, useClass: EnvBookingFeature },
     { provide: BOOKING_LEGAL_ACCEPTANCES, useClass: ReaderBookingLegalAcceptances },
   ],
-  exports: [AppointmentConfirmationService, AppointmentSessionService, AppointmentChainService, AppointmentEventSubscribers, ConsultationPriceService, CancellationPolicyService],
+  exports: [
+    AppointmentConfirmationService, AppointmentSessionService, AppointmentChainService, CanceledAppointmentFeedService, AppointmentEventSubscribers, ConsultationPriceService,
+    CancellationPolicyService,
+  ],
 })
 export class AppointmentsModule {}

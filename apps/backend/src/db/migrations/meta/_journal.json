@@ -120,6 +120,20 @@
       "when": 1794259028118,
       "tag": "0016_m08_m1c_wait_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794425816408,
+      "tag": "0017_payments_f1",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794789319985,
+      "tag": "0018_payments_stripe_provider",
+      "breakpoints": true
     }
   ]
 }

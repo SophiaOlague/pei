@@ -23,7 +23,7 @@
     "test:evidence": "node ./scripts/record-test-run.mjs",
     "c2": "ts-node --transpile-only scripts/c2-run.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "ts-node --transpile-only scripts/db-migrate-blocked.ts",
     "db:studio": "drizzle-kit studio",
     "admin:bootstrap": "ts-node --transpile-only src/cli/admin-bootstrap.ts",
     "appointments:seed-config": "ts-node --transpile-only src/cli/appointments-config-seed.ts",

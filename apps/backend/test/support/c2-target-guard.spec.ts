@@ -137,11 +137,44 @@ describe('verifyNeonRuntimeIdentity (identidad real por neon.*)', () => {
   });
 });
 
+describe('Modo webhooks (H-5): C2, conexión directa y marca de datos confirmados', () => {
+  const wh = (overrides: Record<string, string | undefined> = {}) => env({ C2_MODE: 'webhooks', C2_COMMITTED_FIXTURES: 'wh-h5-committed', ...overrides });
+
+  it('[H5-GUARD-01] acepta C2 con conexión directa y la marca wh-h5-committed', () => {
+    expect(assertC2BranchTarget(wh())).toEqual({ branch: BRANCH, endpoint: ENDPOINT });
+    expect(() => assertJestConfigMode('webhooks', wh())).not.toThrow();
+  });
+
+  it.each([
+    ['sin marca', { C2_COMMITTED_FIXTURES: undefined }],
+    ['marca de otra suite', { C2_COMMITTED_FIXTURES: 'c2-persistent-accepted' }],
+    ['pooler', { DATABASE_URL: POOLER_URL }],
+    ['rama de desarrollo', { C2_EXPECTED_BRANCH: ORIGINAL_BRANCH.branch }],
+    ['endpoint de desarrollo', { C2_EXPECTED_ENDPOINT: ORIGINAL_BRANCH.endpoint }],
+    ['respaldo', { C2_EXPECTED_BRANCH: 'br-silent-butterfly-b5z128fu' }],
+    ['URL de desarrollo', { DATABASE_URL: `postgresql://rol:clave@${ORIGINAL_BRANCH.endpoint}.c-7.us-east-2.aws.neon.tech/neondb` }],
+    ['R2 sin neutralizar', { R2_BUCKET_NAME: 'pei-docs' }],
+  ])('[H5-GUARD-02] rechaza: %s', (_label, overrides) => {
+    expect(errorOf(() => assertC2BranchTarget(wh(overrides)))).toBeInstanceOf(C2TargetError);
+  });
+
+  it('[H5-GUARD-03] la marca de webhooks no vale en otro modo y jest-webhooks exige el modo webhooks', () => {
+    for (const mode of ['postgres', 'concurrency', 'auth']) {
+      expect(errorOf(() => assertC2BranchTarget(env({ C2_MODE: mode, C2_COMMITTED_FIXTURES: 'wh-h5-committed' })))).toBeInstanceOf(C2TargetError);
+    }
+    expect(errorOf(() => assertJestConfigMode('webhooks', env({ C2_MODE: 'postgres' })))).toBeInstanceOf(C2TargetError);
+    const config = JSON.parse(readFileSync(join(__dirname, '..', 'jest-webhooks.json'), 'utf8')) as { setupFiles: string[]; testRegex: string };
+    expect(config.setupFiles).toEqual(['<rootDir>/test/support/db-tripwire.ts', '<rootDir>/test/support/c2-mode-webhooks.ts']);
+    expect(config.testRegex).toBe('test/webhooks/.*\\.wh-spec\\.ts$');
+  });
+});
+
 // Specs que usan la BD real y solo deben ejecutarse mediante C2. Cada uno llama a la salvaguarda en el nivel superior
 // del módulo, ANTES de su primer describe/beforeAll: si falla, Jest no llega a definir ni ejecutar ninguna prueba.
 const GUARDED_DB_SPECS = [
   'test/integration/actor-profile-reader.int-spec.ts',
   'test/integration/appointments.int-spec.ts',
+  'test/integration/appointments-reschedule.int-spec.ts',
   'test/integration/admin-bootstrap-better-auth.int-spec.ts',
   'test/integration/audit-trail.int-spec.ts',
   'test/integration/booking-legal-acceptance.int-spec.ts',
@@ -155,12 +188,20 @@ const GUARDED_DB_SPECS = [
   'test/integration/m08-m1-migration.int-spec.ts',
   'test/integration/m08-m1-part-b.int-spec.ts',
   'test/integration/m08-m1-schema.int-spec.ts',
+  'test/integration/m08-0014-verify.int-spec.ts',
+  'test/integration/payments-f1.int-spec.ts',
   'test/integration/postgres-errors.int-spec.ts',
   'test/integration/role-profile-coherence.int-spec.ts',
   'test/integration/unit-of-work.int-spec.ts',
   'test/audit-db.e2e-spec.ts',
   'test/me.e2e-spec.ts',
   'test/app.e2e-spec.ts',
+  'test/webhooks/stripe-webhook-idempotency.wh-spec.ts',
+  'test/webhooks/stripe-webhook-redelivery.wh-spec.ts',
+  'test/webhooks/stripe-webhook-retry-worker.wh-spec.ts',
+  'test/webhooks/stripe-webhook-retry-policy.wh-spec.ts',
+  'test/webhooks/payments-fee-reconciliation.wh-spec.ts',
+  'test/webhooks/payments-fee-reconciliation-verify.wh-spec.ts',
 ];
 // E2E con dobles (Better Auth en memoria y proveedores sustituidos): sin salvaguarda explícita para poder ejecutarse
 // sin C2; el interceptor (db-tripwire) bloquea cualquier intento de conexión.
@@ -196,7 +237,8 @@ describe('Specs con BD protegidos por la salvaguarda de destino', () => {
     const { readdirSync } = require('fs') as typeof import('fs');
     const integration = readdirSync(join(ROOT, 'test', 'integration')).filter((f) => f.endsWith('.int-spec.ts')).map((f) => `test/integration/${f}`);
     const e2e = readdirSync(join(ROOT, 'test')).filter((f) => f.endsWith('.e2e-spec.ts')).map((f) => `test/${f}`);
-    expect([...integration, ...e2e].sort()).toEqual([...GUARDED_DB_SPECS, ...DOUBLES_E2E_SPECS].sort());
+    const webhooks = readdirSync(join(ROOT, 'test', 'webhooks')).filter((f) => f.endsWith('.wh-spec.ts')).map((f) => `test/webhooks/${f}`);
+    expect([...integration, ...e2e, ...webhooks].sort()).toEqual([...GUARDED_DB_SPECS, ...DOUBLES_E2E_SPECS].sort());
   });
 
   it.each(DOUBLES_E2E_SPECS)('[TC-M02-247] %s (con dobles) no lleva salvaguarda explícita ni importa src/db directamente', (file) => {

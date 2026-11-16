@@ -146,12 +146,28 @@ export const orderStatusEnum = pgEnum('order_status_enum', [
 
 export const paymentTypeEnum = pgEnum('payment_type_enum', ['consultation', 'medication']);
 
+// Estados internos de PEI (PAY-11). El estado original del proveedor se guarda aparte (payment.provider_status).
 export const paymentStatusEnum = pgEnum('payment_status_enum', [
   'pending',
-  'requires_action',
+  'processing',
   'succeeded',
   'failed',
   'canceled',
+  'refunded',
+  'partially_refunded',
+  'charged_back',
+  'in_dispute',
+]);
+
+// 0018: 'stripe' es el proveedor activo de ambos checkouts; 'mercado_pago' se conserva (Payments-decisiones.md §8).
+export const paymentProviderEnum = pgEnum('payment_provider_enum', ['mercado_pago', 'stripe']);
+
+export const providerWebhookEventStatusEnum = pgEnum('provider_webhook_event_status_enum', [
+  'received',
+  'processing',
+  'processed',
+  'failed',
+  'ignored',
 ]);
 
 export const refundStatusEnum = pgEnum('refund_status_enum', [
@@ -172,16 +188,6 @@ export const refundReasonEnum = pgEnum('refund_reason_enum', [
   'payment_error',
   'other',
 ]);
-
-export const stripeConnectStatusEnum = pgEnum('stripe_connect_status_enum', [
-  'pending',
-  'onboarding',
-  'restricted',
-  'enabled',
-  'disabled',
-]);
-
-export const stripePaymentMethodStatusEnum = pgEnum('stripe_payment_method_status_enum', ['active', 'detached']);
 
 export const payoutFrequencyEnum = pgEnum('payout_frequency_enum', ['weekly', 'biweekly', 'monthly']);
 
@@ -204,6 +210,20 @@ export const doctorPayoutAdjustmentTypeEnum = pgEnum('doctor_payout_adjustment_t
   'chargeback',
   'correction',
   'other',
+]);
+
+// Ledger del médico (PAY-09, §3.5). En F1 no hay correcciones administrativas (§3.5.2).
+export const doctorLedgerEntryTypeEnum = pgEnum('doctor_ledger_entry_type_enum', [
+  'consultation_earning',
+  'refund_reversal',
+  'chargeback',
+]);
+
+export const doctorLedgerSourceTypeEnum = pgEnum('doctor_ledger_source_type_enum', [
+  'payment',
+  'refund_adjustment',
+  'item_revocation',
+  'dispute',
 ]);
 
 // ============================================================

@@ -67,8 +67,10 @@ describe('Modo migration sin destino aprobado (rama aislada retirada)', () => {
   });
 
   it.each(C2_MODES.filter((m) => m !== 'migration'))('[TC-M08-352] el modo %s sigue exigiendo C2 y rechaza la rama retirada', (mode) => {
-    expect(() => assertC2BranchTarget(env(mode, RETIRED))).toThrow(C2TargetError);
-    if (mode !== 'r2') expect(assertC2BranchTarget(env(mode, C2_TARGET))).toEqual({ branch: C2_TARGET.branch, endpoint: C2_TARGET.endpoint });
+    // H-5: el modo webhooks exige además su marca de datos confirmados.
+    const marker: Record<string, string> = mode === 'webhooks' ? { C2_COMMITTED_FIXTURES: 'wh-h5-committed' } : {};
+    expect(() => assertC2BranchTarget(env(mode, RETIRED, marker))).toThrow(C2TargetError);
+    if (mode !== 'r2') expect(assertC2BranchTarget(env(mode, C2_TARGET, marker))).toEqual({ branch: C2_TARGET.branch, endpoint: C2_TARGET.endpoint });
   });
 
   it('[TC-M08-353] la identidad real de C2 sigue verificándose; la de la rama retirada no pasa por ningún destino', async () => {

@@ -11,6 +11,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { Client, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
+import { readConnectionFingerprint } from './migration-authorization';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { migrate } from 'drizzle-orm/neon-serverless/migrator';
 import type { AppliedMigration, JournalEntry, RuntimeIdentity } from './c2-migrate-core';
@@ -70,6 +71,16 @@ async function main() {
             rmSync(dir, { recursive: true, force: true });
           }
         },
+        // R-1: huella de 8 componentes en ESTA conexión (solo lectura) y consultas de la autorización de sesión.
+        fingerprint: async (u) => {
+          await client.query('begin transaction read only');
+          try {
+            return await readConnectionFingerprint(async (t) => (await client.query(t)).rows as Record<string, unknown>[], u);
+          } finally {
+            await client.query('rollback');
+          }
+        },
+        query: async (t) => (await client.query(t)).rows as Record<string, unknown>[],
         close: () => client.end(),
       };
     },

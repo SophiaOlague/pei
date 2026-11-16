@@ -140,6 +140,34 @@ describe('Lanzador C2: entorno del proceso de Jest', () => {
     expect(launchError(() => resolveSpec('postgres', 'test/integration/no-existe.int-spec.ts'))).toBeInstanceOf(C2LaunchError);
     expect(launchError(() => resolveSpec('postgres', '../../.env'))).toBeInstanceOf(C2LaunchError);
   });
+
+  it('[H5-LAUNCH-01] modo webhooks: exige la marca wh-h5-committed, apunta a C2 y su marca no vale en otro modo', () => {
+    const env = buildChildEnv({ mode: 'webhooks', spec: '', vars: VARS, systemEnv: SYSTEM, committedFixtures: 'wh-h5-committed' });
+    expect(env).toMatchObject({ C2_MODE: 'webhooks', C2_COMMITTED_FIXTURES: 'wh-h5-committed', C2_EXPECTED_BRANCH: C2_TARGET.branch, R2_BUCKET_NAME: '' });
+    expect(env.DATABASE_URL).toBe(VARS.DATABASE_URL);
+    for (const marker of [undefined, 'c2-persistent-accepted', 'otra']) {
+      expect(launchError(() => buildChildEnv({ mode: 'webhooks', spec: '', vars: VARS, systemEnv: SYSTEM, committedFixtures: marker }))).toBeInstanceOf(C2LaunchError);
+    }
+    for (const mode of ['postgres', 'concurrency', 'auth'] as const) {
+      expect(launchError(() => buildChildEnv({ mode, spec: '', vars: VARS, systemEnv: SYSTEM, committedFixtures: 'wh-h5-committed' }))).toBeInstanceOf(C2LaunchError);
+    }
+  });
+
+  it('[H5-LAUNCH-02] modo webhooks: nunca desarrollo, respaldos ni el pooler', () => {
+    const run = (vars: Record<string, string>) => launchError(() => buildChildEnv({ mode: 'webhooks', spec: '', vars, systemEnv: SYSTEM, committedFixtures: 'wh-h5-committed' }));
+    expect(run({ ...VARS, C2_EXPECTED_BRANCH: 'br-royal-recipe-b54s5hnn' })).toBeInstanceOf(C2LaunchError);
+    expect(run({ ...VARS, C2_EXPECTED_ENDPOINT: 'ep-wandering-bonus-b5kxacor' })).toBeInstanceOf(C2LaunchError);
+    expect(run({ ...VARS, C2_EXPECTED_BRANCH: 'br-silent-butterfly-b5z128fu' })).toBeInstanceOf(C2LaunchError);
+    expect(run({ ...VARS, DATABASE_URL: VARS.DATABASE_URL.replace(C2_TARGET.endpoint, `${C2_TARGET.endpoint}-pooler`) })).toBeInstanceOf(C2LaunchError);
+    expect(run({ ...VARS, DATABASE_URL: 'postgresql://u:p@ep-wandering-bonus-b5kxacor.c-7.us-east-2.aws.neon.tech/neondb' })).toBeInstanceOf(C2LaunchError);
+  });
+
+  it('[H5-LAUNCH-03] el spec de webhooks solo se ejecuta en su modalidad', () => {
+    expect(resolveSpec('webhooks', 'test/webhooks/stripe-webhook-idempotency.wh-spec.ts').config).toMatch(/jest-webhooks\.json$/);
+    expect(launchError(() => resolveSpec('postgres', 'test/webhooks/stripe-webhook-idempotency.wh-spec.ts'))).toBeInstanceOf(C2LaunchError);
+    expect(launchError(() => resolveSpec('concurrency', 'test/webhooks/stripe-webhook-idempotency.wh-spec.ts'))).toBeInstanceOf(C2LaunchError);
+    expect(launchError(() => resolveSpec('webhooks', 'test/integration/doctors.int-spec.ts'))).toBeInstanceOf(C2LaunchError);
+  });
 });
 
 describe('Lanzador C2: secreto de Better Auth y registros', () => {

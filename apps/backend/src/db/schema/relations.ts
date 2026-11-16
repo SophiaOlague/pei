@@ -17,9 +17,11 @@ import {
   orderStatusHistory,
   treatmentDispensation,
 } from './order';
-import { stripeConnectAccount, stripePaymentMethod, payment, refund } from './payment';
+import { payment, refund, processorFeeSchedule, providerWebhookEvent, idempotencyKey } from './payment';
+import { doctorLedgerEntry } from './ledger';
 import {
-  consultationCommissionConfiguration,
+  peiFeeConfiguration,
+  payoutScheduleConfiguration,
   doctorPayout,
   doctorPayoutItem,
   doctorPayoutAdjustment,
@@ -102,7 +104,6 @@ export const patientProfileRelations = relations(patientProfile, ({ one, many })
   appointments: many(appointment),
   medicationOrders: many(medicationOrder),
   payments: many(payment),
-  stripePaymentMethods: many(stripePaymentMethod),
   adherenceSegments: many(patientAdherenceSegment),
 }));
 
@@ -140,10 +141,10 @@ export const doctorProfileRelations = relations(doctorProfile, ({ one, many }) =
   medicalRecordEntries: many(medicalRecordEntry),
   prescriptions: many(prescription),
   prescriptionSignatures: many(prescriptionSignature),
-  stripeConnectAccount: one(stripeConnectAccount),
   payments: many(payment),
   payouts: many(doctorPayout),
   payoutAdjustments: many(doctorPayoutAdjustment),
+  ledgerEntries: many(doctorLedgerEntry),
 }));
 
 export const specialtyRelations = relations(specialty, ({ many }) => ({
@@ -393,15 +394,21 @@ export const treatmentDispensationRelations = relations(treatmentDispensation, (
 }));
 
 // ============================================================
-// Pagos y Stripe
+// Pagos (Payments F1, 0017)
 // ============================================================
 
-export const stripeConnectAccountRelations = relations(stripeConnectAccount, ({ one }) => ({
-  doctor: one(doctorProfile, { fields: [stripeConnectAccount.doctorId], references: [doctorProfile.id] }),
+export const processorFeeScheduleRelations = relations(processorFeeSchedule, ({ one, many }) => ({
+  createdBy: one(userProfile, { fields: [processorFeeSchedule.createdBy], references: [userProfile.id] }),
+  payments: many(payment),
 }));
 
-export const stripePaymentMethodRelations = relations(stripePaymentMethod, ({ one }) => ({
-  patient: one(patientProfile, { fields: [stripePaymentMethod.patientId], references: [patientProfile.id] }),
+export const providerWebhookEventRelations = relations(providerWebhookEvent, ({ one }) => ({
+  payment: one(payment, { fields: [providerWebhookEvent.paymentId], references: [payment.id] }),
+}));
+
+export const idempotencyKeyRelations = relations(idempotencyKey, ({ one }) => ({
+  payment: one(payment, { fields: [idempotencyKey.paymentId], references: [payment.id] }),
+  refund: one(refund, { fields: [idempotencyKey.refundId], references: [refund.id] }),
 }));
 
 export const paymentRelations = relations(payment, ({ one, many }) => ({
@@ -409,13 +416,18 @@ export const paymentRelations = relations(payment, ({ one, many }) => ({
   patient: one(patientProfile, { fields: [payment.patientId], references: [patientProfile.id] }),
   appointment: one(appointment, { fields: [payment.appointmentId], references: [appointment.id] }),
   medicationOrder: one(medicationOrder, { fields: [payment.medicationOrderId], references: [medicationOrder.id] }),
+  peiFeeConfiguration: one(peiFeeConfiguration, { fields: [payment.peiFeeConfigurationId], references: [peiFeeConfiguration.id] }),
+  processorFeeSchedule: one(processorFeeSchedule, { fields: [payment.processorFeeScheduleId], references: [processorFeeSchedule.id] }),
   refunds: many(refund),
   payoutItem: one(doctorPayoutItem),
   payoutAdjustments: many(doctorPayoutAdjustment),
+  ledgerEntries: many(doctorLedgerEntry),
+  webhookEvents: many(providerWebhookEvent),
 }));
 
-export const refundRelations = relations(refund, ({ one }) => ({
+export const refundRelations = relations(refund, ({ one, many }) => ({
   payment: one(payment, { fields: [refund.paymentId], references: [payment.id] }),
+  ledgerEntries: many(doctorLedgerEntry),
   requestedBy: one(userProfile, {
     fields: [refund.requestedByUserProfileId],
     references: [userProfile.id],
@@ -432,15 +444,26 @@ export const refundRelations = relations(refund, ({ one }) => ({
 // Liquidaciones al médico
 // ============================================================
 
-export const consultationCommissionConfigurationRelations = relations(
-  consultationCommissionConfiguration,
-  ({ one }) => ({
-    createdBy: one(userProfile, {
-      fields: [consultationCommissionConfiguration.createdBy],
-      references: [userProfile.id],
-    }),
+export const peiFeeConfigurationRelations = relations(peiFeeConfiguration, ({ one, many }) => ({
+  createdBy: one(userProfile, { fields: [peiFeeConfiguration.createdBy], references: [userProfile.id] }),
+  payments: many(payment),
+}));
+
+export const payoutScheduleConfigurationRelations = relations(payoutScheduleConfiguration, ({ one }) => ({
+  createdBy: one(userProfile, { fields: [payoutScheduleConfiguration.createdBy], references: [userProfile.id] }),
+}));
+
+export const doctorLedgerEntryRelations = relations(doctorLedgerEntry, ({ one }) => ({
+  doctor: one(doctorProfile, { fields: [doctorLedgerEntry.doctorId], references: [doctorProfile.id] }),
+  payment: one(payment, { fields: [doctorLedgerEntry.paymentId], references: [payment.id] }),
+  refund: one(refund, { fields: [doctorLedgerEntry.refundId], references: [refund.id] }),
+  reverses: one(doctorLedgerEntry, {
+    fields: [doctorLedgerEntry.reversesEntryId],
+    references: [doctorLedgerEntry.id],
+    relationName: 'ledger_reversal',
   }),
-);
+  createdBy: one(userProfile, { fields: [doctorLedgerEntry.createdByUserId], references: [userProfile.id] }),
+}));
 
 export const doctorPayoutRelations = relations(doctorPayout, ({ one, many }) => ({
   doctor: one(doctorProfile, { fields: [doctorPayout.doctorId], references: [doctorProfile.id] }),
@@ -452,6 +475,16 @@ export const doctorPayoutRelations = relations(doctorPayout, ({ one, many }) => 
 export const doctorPayoutItemRelations = relations(doctorPayoutItem, ({ one, many }) => ({
   payout: one(doctorPayout, { fields: [doctorPayoutItem.payoutId], references: [doctorPayout.id] }),
   payment: one(payment, { fields: [doctorPayoutItem.paymentId], references: [payment.id] }),
+  ledgerEntry: one(doctorLedgerEntry, {
+    fields: [doctorPayoutItem.ledgerEntryId],
+    references: [doctorLedgerEntry.id],
+    relationName: 'payout_item_ledger_entry',
+  }),
+  revocationLedgerEntry: one(doctorLedgerEntry, {
+    fields: [doctorPayoutItem.revocationLedgerEntryId],
+    references: [doctorLedgerEntry.id],
+    relationName: 'payout_item_revocation_entry',
+  }),
   adjustments: many(doctorPayoutAdjustment),
 }));
 
@@ -468,6 +501,7 @@ export const doctorPayoutAdjustmentRelations = relations(doctorPayoutAdjustment,
   appointment: one(appointment, { fields: [doctorPayoutAdjustment.appointmentId], references: [appointment.id] }),
   payment: one(payment, { fields: [doctorPayoutAdjustment.paymentId], references: [payment.id] }),
   createdBy: one(userProfile, { fields: [doctorPayoutAdjustment.createdByUserId], references: [userProfile.id] }),
+  ledgerEntry: one(doctorLedgerEntry, { fields: [doctorPayoutAdjustment.ledgerEntryId], references: [doctorLedgerEntry.id] }),
   applications: many(doctorPayoutAdjustmentApplication),
 }));
 

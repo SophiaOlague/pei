@@ -14,6 +14,8 @@ async function bootstrap() {
   app.enableCors(corsOptionsFor(loadAuthConfig().trustedOrigins));
   app.useGlobalFilters(new DomainExceptionFilter());
   app.useGlobalPipes(createValidationPipe());
+  // H-6: SIGTERM/SIGINT ejecutan los hooks de apagado (el worker de webhooks deja de iniciar turnos y espera al actual).
+  app.enableShutdownHooks();
   await app.listen(3000);
 }
 bootstrap();
