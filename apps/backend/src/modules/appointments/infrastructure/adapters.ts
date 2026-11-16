@@ -29,7 +29,7 @@ export class PolicyBookingEligibility implements BookingEligibility {
   }
 }
 
-// AP-16: solo el valor exacto "true" activa la reserva. Sin la variable (producción), queda desactivada.
+// AP-16: solo el valor exacto "true" activa la reserva. Sin la variable (desarrollo y la futura producción), queda desactivada.
 export const BOOKING_FLAG = 'APPOINTMENTS_BOOKING_ENABLED';
 
 @Injectable()

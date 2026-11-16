@@ -224,6 +224,31 @@ Implementado (`3f4b612`; sin O1 desde `9009a5e`). Validado con dobles y contra P
 - **Integración con notificaciones: dependencia externa** (no hay módulo suscriptor). Sin tablas ni migraciones (sin outbox).
 - Validación solo con dobles y con una transacción falsa; sin prueba contra PostgreSQL.
 
+## Consulta duradera de cancelaciones para pagos (A.25, 2026-11-14)
+
+- **Contrato implementado y corrección aceptada a nivel de código y pruebas simuladas (2026-11-14).**
+  `CanceledAppointmentFeed` (`application/integration/canceled-appointment-feed.ts`) y su lector de solo lectura
+  (`infrastructure/persistence/drizzle-canceled-appointment-audit.reader.ts`), exportados por `AppointmentsModule`.
+  Detalle en M08-diseno A.25. Sin migraciones ni cambios de esquema.
+- **Tolerancia de cinco minutos eliminada.** Ya no se compara `audit_log.created_at` (reloj de la BD) con
+  `appointment.cancelled_at` (reloj de la aplicación); la anomalía `time_mismatch` desaparece.
+- **Verificación exacta de la transacción:** `audit_log.created_at` debe ser igual, al microsegundo, al `created_at` de la
+  única fila `canceled` de `appointment_status_history` (los dos son `now()` de la misma transacción). Anomalías:
+  `history_missing`, `history_ambiguous`, `history_time_mismatch`.
+- **Validaciones de la cancelación:** `cancelled_at` frente al `hoursBefore` auditado con la misma regla de redondeo
+  (`hours_before_mismatch`; `hoursBefore` ausente o no numérico → `invalid_audit_metadata`), y `refundOutcome` literal
+  de la auditoría verificado contra las reglas de M08 (`outcome_mismatch`). Toda discrepancia excluye el aviso del
+  procesamiento automático y queda como anomalía.
+- **Pruebas automatizadas: pasan (resultados reportados el 2026-11-14, solo con dobles):** M08, Payments, CLI y
+  arquitectura 43 suites y 734 pruebas; suite completa 1765 aprobadas y 3 fallidas preexistentes, ajenas a A.25
+  (`scripts/c2-migrate-core.spec.ts`, `scripts/migration-authorization.spec.ts`, `test/support/c2-target-guard.spec.ts`);
+  E2E con dobles 12/12; lint sin avisos; TypeScript solo con el error preexistente de
+  `test/support/better-auth-memory.ts`.
+- **Pendiente: validar el lector contra PostgreSQL real** (C2, con 0017 aplicada y autorización) para confirmar que
+  `audit_log.created_at` y `appointment_status_history.created_at` de una cancelación real son idénticos con precisión de
+  microsegundos, y el orden y la paginación por `(created_at, id)`. Hasta entonces, la igualdad está demostrada solo en
+  el código (trigger y `DEFAULT now()` en la misma transacción) y con dobles.
+
 ## M-1c: `agenda_block_ends_at` NOT NULL (2026-11-09)
 
 - **Implementada en el repositorio (`9009a5e`); 0015 aplicada en C2 y en desarrollo** (2026-11-09; SHA-256 `7652c22e…`,
@@ -252,6 +277,27 @@ Entorno separado de C2: `royal-paper-10258990` / `br-royal-recipe-b54s5hnn` / `e
 | 0016 | `br-noisy-river-b5842mpp` | Un registro nuevo, hash `fd9f6f77…`, `when` 1794259028118; anteriores intactos; sin pendientes | 17 |
 
 - Sin pruebas ejecutadas contra desarrollo. Las pruebas del migrador son unitarias con dobles (TC-DEV-001 a 014).
+
+## Desarrollo: carga inicial de precio y política (AP-1, AP-22, 2026-11-15)
+
+Autorización expresa de la responsable del producto del 2026-11-15, solo para la principal de desarrollo, para preparar
+la prueba integral con Mercado Pago Sandbox (Payments-decisiones.md §7.6). Mecanismo: el CLI oficial
+`pnpm appointments:seed-config` (servicios `ConsultationPriceService` y `CancellationPolicyService`, `source:
+initial_setup`), primero en simulación y después con `--apply --target-branch br-royal-recipe-b54s5hnn
+--confirm-main-db`, a las 23:34 UTC. `--created-by` es el administrador de desarrollo
+`6d8387b8-a87a-45f5-8c96-1de1ccfd1877`.
+
+| Registro | id | Valores | Auditoría |
+|---|---|---|---|
+| `consultation_price_configuration` | `44c4d6c0-7cfc-4a40-ad5c-91484a573b91` | 200.00 MXN, vigente desde 2026-11-15 23:34 UTC, sin fin | `consultation_price.version.published` |
+| `cancellation_policy` | `18d0b250-8631-4868-9798-1deb88128a86` | 24 h, 2 reagendamientos, W 30, Tol 15, L 60, G 5; vigente, sin fin | `appointment_policy.version.published` |
+
+- Comprobado con los repositorios del backend (`findEffective`): las dos versiones están vigentes.
+- `APPOINTMENTS_BOOKING_ENABLED=true` en el `.env` local de desarrollo (no versionado).
+- AP-11 sigue vigente para producción: la carga no se ha ejecutado en ninguna otra base. El comentario «NO ejecutado»
+  de `src/cli/appointments-config-seed*.ts` quedó desactualizado para desarrollo; no se cambió el código.
+- Sin reservas ni citas creadas (0 en `appointment`). La reserva aún no es posible: el médico de prueba no puede
+  operar (Payments-decisiones.md §7.6).
 
 ## Residuo persistente aceptado en C2 (no se limpia)
 
@@ -291,6 +337,10 @@ Las 6 citas en `pending_payment` ya existían antes de esta operación; no se mo
 | TC-M08-420 a 424 | `test/integration/appointments-reschedule.int-spec.ts` | **5/5 contra PostgreSQL en C2** (`c2-20261110000243-57bd`, rollback): confirmed → rescheduled y cita nueva con precio, política, motivo, referencias legales y bloque (420); cadena desde la raíz y original no reprogramable (421); horario ocupado con reversión completa (422); horario original liberado (423); la BD protege el resultado: rescheduled final, referencias y bloque inmutables, NOT NULL (424) |
 | TC-M08-015, 017, 018 | `src/modules/appointments/domain/appointments-domain.spec.ts` | Unitarias, aprobadas (2026-11-09): valores iniciales con L 60 y G 5 (015, actualizada); L y G por omisión y rechazos `W > L`, `G >= Tol`, `G = 0`, no enteros (017); `blockOf` con fin guardado y O1 para nulos (018; desde M-1c, `9009a5e`, solo el fin guardado) |
 | TC-M08-382 | `reschedule.use-cases.spec.ts` | Unitaria, aprobada: la cita reagendada guarda el fin de bloque con la duración vigente al reagendar |
+| A.25: contrato (sin TC asignado; 36 pruebas) | `src/modules/appointments/application/integration/canceled-appointment-feed.spec.ts` | Unitarias con dobles, aprobadas (2026-11-14): avisos, paginación por clave estable, cancelaciones antiguas, cadena, discrepancias (historial, `hoursBefore`, `cancelled_at`, `refundOutcome`, metadata, cita, política) y ausencia de falsos positivos sin tolerancia temporal |
+| A.25: contrato con los casos de uso reales (sin TC asignado; 7 pruebas) | `src/modules/appointments/application/integration/canceled-appointment-feed.contract.spec.ts` | Unitarias con dobles, aprobadas (2026-11-14): `CancelByPatientUseCase` y `CancelByDoctorUseCase` reales frente a la verificación exacta (plazo, límite exacto, médico), con `now()` de la BD distinto del reloj de la aplicación; detecta `cancelled_at` alterado e historial de otra transacción |
+| A.25: lector (sin TC asignado; 5 pruebas) | `src/modules/appointments/infrastructure/persistence/drizzle-canceled-appointment-audit.reader.spec.ts` | Unitarias sin conexión (SQL generado con `toSQL`), aprobadas (2026-11-14): solo lectura, LEFT JOIN, orden `(created_at, id)`, cursor con microsegundos, subconsultas del historial `canceled`. **Sin ejecutar contra PostgreSQL** |
+| A.25: arquitectura (sin TC asignado; 5 pruebas) | `src/modules/appointments/application/integration/canceled-appointment-feed.architecture.spec.ts` | Análisis estático, aprobadas (2026-11-14): sin ruta HTTP, sin dependencia de pagos, contrato sin importes ni datos personales, lector de solo lectura, registrado y exportado |
 | TC-M08-390 a 395 | `src/modules/appointments/application/integration/appointment-chain.services.spec.ts` | Unitarias con dobles, aprobadas (2026-11-09): raíz propia (390); un reagendamiento (391); varios niveles y largo máximo (392); cita inexistente 404 y antecesor inexistente (393); autorreferencia, ciclo de tres y cadena demasiado larga (394); `paymentForAppointment` al pago de la raíz, sin pago y sin consultar pagos ante una cadena rota (395) |
 | TC-M08-400 a 408 | `src/modules/appointments/application/appointment-events.spec.ts` | Unitarias con dobles, aprobadas (2026-11-09): confirmación una sola vez, sin evento al retener, duplicado o importe distinto (400); cancelación del paciente y del médico con origen, motivo y resultado (401); cancelaciones rechazadas sin eventos (402); un evento por reagendamiento con original, nueva, raíz y número; rechazado sin eventos (403); vencimiento por liberación, pago fallido y confirmación tardía, una sola vez cada uno (404); vencimiento perezoso sin repetirse (405); sin publicación tras rollback, incluido el vencimiento preparado antes del fallo (406); semántica AFTER_COMMIT con unidades anidadas (407); suscriptor que falla (408) |
 | TC-M00-024 a 026 | `src/common/infrastructure/drizzle-unit-of-work.spec.ts` | Unitarias sin BD (transacción falsa), aprobadas: acción después de terminar la transacción (024); descarte con rollback y con SAVEPOINT fallido (025); fallo de una acción y ejecución inmediata fuera de una unidad (026) |
