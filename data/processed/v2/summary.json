@@ -1,0 +1,120 @@
+{
+  "dataset_version": "v2",
+  "eligible_records": 8776,
+  "outcome_counts": {
+    "attended": 6550,
+    "both_no_show": 20,
+    "doctor_no_show": 406,
+    "patient_no_show": 1800
+  },
+  "label_counts": {
+    "0": 6976,
+    "1": 1800
+  },
+  "alternative_target_counts": {
+    "y_patient_no_show": {
+      "0": 6976,
+      "1": 1800
+    },
+    "y_patient_absent_any": {
+      "0": 6956,
+      "1": 1820
+    }
+  },
+  "x_source_columns": [
+    "appointment_type",
+    "hour",
+    "lead_time_hours",
+    "month",
+    "prior_appointments_90d",
+    "prior_attended_rate",
+    "prior_cancel_count",
+    "prior_patient_no_show_count",
+    "prior_reschedule_count",
+    "specialty_code",
+    "weekday"
+  ],
+  "numeric_columns": [
+    "hour",
+    "lead_time_hours",
+    "month",
+    "prior_appointments_90d",
+    "prior_attended_rate",
+    "prior_cancel_count",
+    "prior_patient_no_show_count",
+    "prior_reschedule_count",
+    "weekday"
+  ],
+  "categorical_columns": [
+    "appointment_type",
+    "specialty_code"
+  ],
+  "transformed_columns": [
+    "numeric__hour",
+    "numeric__lead_time_hours",
+    "numeric__month",
+    "numeric__prior_appointments_90d",
+    "numeric__prior_attended_rate",
+    "numeric__prior_cancel_count",
+    "numeric__prior_patient_no_show_count",
+    "numeric__prior_reschedule_count",
+    "numeric__weekday",
+    "categorical__appointment_type_emergency",
+    "categorical__appointment_type_scheduled",
+    "categorical__specialty_code_cardiology",
+    "categorical__specialty_code_dermatology",
+    "categorical__specialty_code_endocrinology",
+    "categorical__specialty_code_gynecology",
+    "categorical__specialty_code_mental_health",
+    "categorical__specialty_code_nutrition",
+    "categorical__specialty_code_pediatrics",
+    "categorical__specialty_code_primary_care"
+  ],
+  "splits": {
+    "train": {
+      "rows": 6143,
+      "start": "2025-01-01T02:32:22+00:00",
+      "end": "2025-09-14T01:00:46+00:00",
+      "label_counts": {
+        "0": 4862,
+        "1": 1281
+      },
+      "alternative_label_counts": {
+        "0": 4850,
+        "1": 1293
+      }
+    },
+    "validation": {
+      "rows": 1316,
+      "start": "2025-09-14T04:32:30+00:00",
+      "end": "2025-11-07T11:33:45+00:00",
+      "label_counts": {
+        "0": 1068,
+        "1": 248
+      },
+      "alternative_label_counts": {
+        "0": 1064,
+        "1": 252
+      }
+    },
+    "test": {
+      "rows": 1317,
+      "start": "2025-11-07T11:58:56+00:00",
+      "end": "2025-12-31T23:55:30+00:00",
+      "label_counts": {
+        "0": 1046,
+        "1": 271
+      },
+      "alternative_label_counts": {
+        "0": 1042,
+        "1": 275
+      }
+    }
+  },
+  "train_fit_only": true,
+  "input_files_sha256": {
+    "appointments_synthetic.csv": "2a27486df4d40de7985ea536802227bd7bd23cc3a7bf805b4a2b0f4b72528541",
+    "appointments_synthetic_audit.csv": "b369f90b87cbeb5fea447e34e61804018c3e5babc64c515c0e684c3b995bb6c0",
+    "preparation_v2.json": "7a2f8ac61179cc53b8b0c6fa246835d99efa196d74d3fb47c0243d2652c7fb53"
+  }
+}

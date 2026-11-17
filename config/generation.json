@@ -1,0 +1,18 @@
+{
+  "n_records": 10000,
+  "period_start": "2025-01-01T00:00:00Z",
+  "period_months": 12,
+  "seed": 20261116,
+  "n_patients": 1200,
+  "n_doctors": 60,
+  "specialty_codes": ["primary_care", "cardiology", "dermatology", "endocrinology", "gynecology", "mental_health", "nutrition", "pediatrics"],
+  "emergency_share": 0.08,
+  "outcome_distribution": {
+    "attended": 0.70,
+    "patient_no_show": 0.12,
+    "doctor_no_show": 0.04,
+    "both_no_show": 0.01,
+    "canceled": 0.09,
+    "rescheduled": 0.04
+  }
+}

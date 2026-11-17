@@ -1,0 +1,26 @@
+{
+  "dataset_version": "v2",
+  "records": 10000,
+  "eligible_records": 8776,
+  "period_start": "2025-01-01T00:00:00Z",
+  "period_months": 12,
+  "seed": 20261116,
+  "outcome_counts": {
+    "attended": 6550,
+    "both_no_show": 20,
+    "canceled": 824,
+    "doctor_no_show": 406,
+    "patient_no_show": 1800,
+    "rescheduled": 400
+  },
+  "target_counts": {
+    "y_patient_absent_any": {
+      "1": 1820,
+      "0": 6956
+    },
+    "y_patient_no_show": {
+      "1": 1800,
+      "0": 6976
+    }
+  }
+}
