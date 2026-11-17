@@ -978,3 +978,186 @@ export function publishConsultationPrice(
     body: JSON.stringify({ price }),
   });
 }
+
+// Payments: pago de una consulta con Stripe (apps/backend/src/modules/payments/presentation). El cliente envía solo la
+// referencia del medio de pago que crea Stripe.js (pm_…).
+//   GET  /me/patient/appointments/:id                 (M08: estado, precio y retención de la cita)
+//   POST /me/patient/appointments/:id/payment         (Idempotency-Key; cuerpo: token = PaymentMethod de Stripe, SIN importe)
+//   POST /me/patient/payments/:paymentId/sync         (consulta el estado real y, si se capturó, confirma la cita)
+
+export interface PatientAppointment {
+  id: string;
+  status: string;
+  scheduledAt: string;
+  price: string;
+  holdExpiresAt: string | null;
+}
+
+export type PaymentStatus =
+  | "pending"
+  | "processing"
+  | "succeeded"
+  | "failed"
+  | "canceled"
+  | "refunded"
+  | "partially_refunded"
+  | "charged_back"
+  | "in_dispute";
+
+export type PaymentConfirmation =
+  | { result: "confirmed" }
+  | { result: "already_confirmed" }
+  | { result: "not_confirmable"; reason: string }
+  | { result: "not_requested" }
+  | { result: "confirmation_failed" };
+
+export interface PatientPayment {
+  paymentId: string;
+  status: PaymentStatus;
+  amount: string;
+  currency: "MXN";
+  appointmentConfirmed: boolean;
+  confirmation: PaymentConfirmation;
+  recoverable: boolean;
+  // El cobro espera la autenticación 3-D Secure del paciente (Stripe.js la completa con este secreto de un solo pago).
+  nextAction?: { type: "stripe_sdk"; clientSecret: string };
+}
+
+// Referencia de la tarjeta tokenizada por el proveedor. No hay importe: lo fija el backend con el precio de la cita.
+// Con Stripe basta `token` (pm_…, el PaymentMethod que crea Stripe.js).
+export interface CardPaymentInput {
+  token: string;
+}
+
+export function getPatientAppointment(id: string): Promise<PatientAppointment> {
+  return request(`/me/patient/appointments/${encodeURIComponent(id)}`);
+}
+
+export function payAppointment(
+  appointmentId: string,
+  idempotencyKey: string,
+  card: CardPaymentInput,
+): Promise<PatientPayment> {
+  return request(
+    `/me/patient/appointments/${encodeURIComponent(appointmentId)}/payment`,
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ token: card.token }),
+    },
+  );
+}
+
+export function syncAppointmentPayment(
+  paymentId: string,
+): Promise<PatientPayment> {
+  return request(`/me/patient/payments/${encodeURIComponent(paymentId)}/sync`, {
+    method: "POST",
+  });
+}
+
+// ── M08: reserva de consultas por el paciente (apps/backend/src/modules/appointments/presentation/
+//    appointments.controllers.ts). Mismos contratos que apps/mobile. Solo paciente: 401 sin sesión, 403 con otro rol.
+//   GET  /doctors/bookable                      → médicos que pueden operar y tienen horarios (CC-6)
+//   GET  /doctors/:doctorProfileId/slots?from&to → horarios libres (M07; máximo 31 días por consulta)
+//   POST /me/patient/appointments               → { doctorProfileId, startsAt, reason } → cita pending_payment con
+//                                                  retención de 5 minutos. El backend valida el horario (RB-1), la
+//                                                  retención única (RB-3), el registro y la identidad del paciente
+//                                                  (RegistrationIncompleteError), y toma el precio vigente.
+//   GET  /me/patient/appointments               → { appointments: AppointmentView[] } (sin nombre del médico)
+// La confirmación solo la hace el backend al confirmarse el pago (AP-16); la interfaz nunca la supone.
+
+export type AppointmentStatus =
+  | "pending_payment"
+  | "expired"
+  | "confirmed"
+  | "completed"
+  | "canceled"
+  | "no_show_patient"
+  | "no_show_doctor"
+  | "no_show_both"
+  | "rescheduled";
+
+export interface BookableDoctor {
+  doctorProfileId: string;
+  displayName: string;
+  specialty: { id: string; name: string };
+}
+
+export interface DoctorSlot {
+  startsAt: string;
+  endsAt: string;
+  // Fecha y horas civiles en la zona de la agenda (timeZone).
+  date: string;
+  start: string;
+  end: string;
+}
+
+export interface DoctorSlots {
+  timeZone: string;
+  doctorProfileId: string;
+  durationMinutes: number;
+  from: string;
+  to: string;
+  slots: DoctorSlot[];
+}
+
+export interface HoldInput {
+  doctorProfileId: string;
+  startsAt: string;
+  reason: string;
+}
+
+// AppointmentView de M08.
+export interface PatientAppointmentDetail {
+  id: string;
+  doctorProfileId: string;
+  patientProfileId: string;
+  status: AppointmentStatus;
+  scheduledAt: string;
+  reason: string;
+  price: string;
+  holdExpiresAt: string | null;
+  cancelledAt: string | null;
+  cancelledBy: string | null;
+}
+
+// Motivo de la consulta: de 1 a 500 caracteres tras recortar (MAX_REASON_LENGTH de M08).
+export const APPOINTMENT_REASON_MAX = 500;
+
+export async function getBookableDoctors(): Promise<BookableDoctor[]> {
+  const view = await request<{ timeZone: string; doctors: BookableDoctor[] }>(
+    "/doctors/bookable",
+  );
+  return view.doctors;
+}
+
+export function getDoctorSlots(
+  doctorProfileId: string,
+  from: string,
+  to: string,
+): Promise<DoctorSlots> {
+  const query = new URLSearchParams({ from, to }).toString();
+  return request(
+    `/doctors/${encodeURIComponent(doctorProfileId)}/slots?${query}`,
+  );
+}
+
+export function holdAppointment(
+  input: HoldInput,
+): Promise<PatientAppointmentDetail> {
+  return request("/me/patient/appointments", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function listPatientAppointments(): Promise<
+  PatientAppointmentDetail[]
+> {
+  return (
+    await request<{ appointments: PatientAppointmentDetail[] }>(
+      "/me/patient/appointments",
+    )
+  ).appointments;
+}

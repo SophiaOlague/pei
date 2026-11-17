@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Calendar,
   Pill,
   Microscope,
   Droplet,
@@ -16,6 +15,7 @@ import {
   Plus,
   ChevronRight,
 } from "lucide-react";
+import { NextAppointmentCard } from "@/features/booking/next-appointment-card";
 import { UserMenu } from "@/features/components/user-menu";
 
 export function LandingInicio() {
@@ -152,37 +152,7 @@ export function LandingInicio() {
 
             <div className="flex flex-col gap-6">
 
-              <div
-                className="w-full p-6 rounded-2xl flex-1"
-                style={{
-                  backgroundColor: "#7355F7",
-                  borderRadius: "12px",
-                }}
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <Calendar className="w-6 h-6 text-white" strokeWidth={1.5} />
-                  <h3 className="text-white text-[20px] font-regular">
-                    Mi próxima cita
-                  </h3>
-                </div>
-
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-white/70 text-[16px]">10 de Agosto</span>
-                  <span className="w-1 h-1 bg-white/70 rounded-full"></span>
-                  <span className="text-white/70 text-[16px]">05:30 p.m.</span>
-                </div>
-
-                <button
-                  onClick={() => router.push("/videollamada")}
-                  className="w-full h-[55px] text-[#7355F7] text-[20px] font-regular hover:opacity-90 transition-opacity cursor-pointer"
-                  style={{
-                    backgroundColor: "#FFFFFF",
-                    borderRadius: "10px",
-                  }}
-                >
-                  Unirme a la llamada
-                </button>
-              </div>
+              <NextAppointmentCard />
 
               <div
                 className="w-full p-6 rounded-2xl flex-1"

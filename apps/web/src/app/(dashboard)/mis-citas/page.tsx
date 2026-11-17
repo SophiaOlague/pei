@@ -1,5 +1,5 @@
-import { Landing } from "@/features/landing/pages/mis-citas";
+import { MyAppointments } from "@/features/booking/my-appointments";
 
 export default function Page() {
-  return <Landing />;
+  return <MyAppointments />;
 }
