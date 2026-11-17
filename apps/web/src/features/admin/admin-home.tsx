@@ -1,6 +1,10 @@
-import { BadgeDollarSign, UserCheck } from "lucide-react";
+import { BadgeDollarSign, IdCard, UserCheck } from "lucide-react";
 import Link from "next/link";
-import { ADMIN_CONSULTATION_PRICE_PATH, ADMIN_PROFESSIONALS_PATH } from "./paths";
+import {
+  ADMIN_CONSULTATION_PRICE_PATH,
+  ADMIN_PATIENT_IDENTITY_PATH,
+  ADMIN_PROFESSIONALS_PATH,
+} from "./paths";
 
 // Inicio del panel administrativo. Sin estadísticas: el backend aún no expone indicadores agregados.
 export function AdminHome() {
@@ -23,6 +27,18 @@ export function AdminHome() {
           </h2>
           <p className="text-[#6B6B6B] text-[14px] mt-1">
             Revisa la identidad y la cédula profesional de los médicos.
+          </p>
+        </Link>
+        <Link
+          href={ADMIN_PATIENT_IDENTITY_PATH}
+          className="block bg-white rounded-xl border border-gray-200 p-6 hover:border-[#684DDE] transition"
+        >
+          <IdCard size={28} className="text-[#684DDE]" aria-hidden="true" />
+          <h2 className="text-black text-[18px] font-medium mt-4">
+            Identidad de pacientes
+          </h2>
+          <p className="text-[#6B6B6B] text-[14px] mt-1">
+            Revisa el INE que envían los pacientes para poder reservar.
           </p>
         </Link>
         <Link

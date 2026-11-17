@@ -6,3 +6,7 @@ export const ADMIN_PROFESSIONALS_PATH = "/admin/profesionales";
 export const ADMIN_CONSULTATION_PRICE_PATH = "/admin/precio-consulta";
 export const adminDoctorPath = (doctorProfileId: string) =>
   `${ADMIN_PROFESSIONALS_PATH}/${encodeURIComponent(doctorProfileId)}`;
+// RF-07: verificación de identidad (INE) de pacientes.
+export const ADMIN_PATIENT_IDENTITY_PATH = "/admin/identidad-pacientes";
+export const adminPatientIdentityPath = (requestId: string) =>
+  `${ADMIN_PATIENT_IDENTITY_PATH}/${encodeURIComponent(requestId)}`;
