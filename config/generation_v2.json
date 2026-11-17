@@ -1,0 +1,30 @@
+{
+  "dataset_version": "v2",
+  "n_records": 10000,
+  "period_start": "2025-01-01T00:00:00Z",
+  "period_months": 12,
+  "seed": 20261116,
+  "n_patients": 1200,
+  "n_doctors": 60,
+  "specialty_codes": ["primary_care", "cardiology", "dermatology", "endocrinology", "gynecology", "mental_health", "nutrition", "pediatrics"],
+  "emergency_share": 0.08,
+  "prior_appointments_90d_definition": "other patient reservations with created_at in the previous 90 days and before prediction_at, excluding the current appointment; scheduled_at may be in the future",
+  "outcome_distribution": {
+    "attended": 0.70,
+    "patient_no_show": 0.12,
+    "doctor_no_show": 0.04,
+    "both_no_show": 0.01,
+    "canceled": 0.09,
+    "rescheduled": 0.04
+  },
+  "synthetic_timing_rules": {
+    "arrival_offset_min_minutes": -5,
+    "arrival_offset_max_minutes": 15,
+    "participant_arrival_max_minutes": 5,
+    "completed_duration_min_minutes": 20,
+    "completed_duration_max_minutes": 60,
+    "patient_tolerance_minutes": 15,
+    "doctor_wait_minutes": 30,
+    "cancellation_reschedule_transition": "uniformly sampled between created_at and scheduled_at"
+  }
+}

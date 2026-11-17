@@ -1,0 +1,49 @@
+{
+  "dataset_version": "v2",
+  "seed": 20261116,
+  "config": {
+    "dataset_version": "v2",
+    "n_records": 10000,
+    "period_start": "2025-01-01T00:00:00Z",
+    "period_months": 12,
+    "seed": 20261116,
+    "n_patients": 1200,
+    "n_doctors": 60,
+    "specialty_codes": [
+      "primary_care",
+      "cardiology",
+      "dermatology",
+      "endocrinology",
+      "gynecology",
+      "mental_health",
+      "nutrition",
+      "pediatrics"
+    ],
+    "emergency_share": 0.08,
+    "prior_appointments_90d_definition": "other patient reservations with created_at in the previous 90 days and before prediction_at, excluding the current appointment; scheduled_at may be in the future",
+    "outcome_distribution": {
+      "attended": 0.7,
+      "patient_no_show": 0.12,
+      "doctor_no_show": 0.04,
+      "both_no_show": 0.01,
+      "canceled": 0.09,
+      "rescheduled": 0.04
+    },
+    "synthetic_timing_rules": {
+      "arrival_offset_min_minutes": -5,
+      "arrival_offset_max_minutes": 15,
+      "participant_arrival_max_minutes": 5,
+      "completed_duration_min_minutes": 20,
+      "completed_duration_max_minutes": 60,
+      "patient_tolerance_minutes": 15,
+      "doctor_wait_minutes": 30,
+      "cancellation_reschedule_transition": "uniformly sampled between created_at and scheduled_at"
+    }
+  },
+  "config_sha256": "494df5cb1a44df719aa0e62e00ab6caad496a18b2390430e92cc6e083abcf310",
+  "files_sha256": {
+    "appointments_synthetic.csv": "2a27486df4d40de7985ea536802227bd7bd23cc3a7bf805b4a2b0f4b72528541",
+    "appointments_synthetic_audit.csv": "b369f90b87cbeb5fea447e34e61804018c3e5babc64c515c0e684c3b995bb6c0",
+    "summary.json": "1e0ff534ab01e637f5abdcbac37571aed7a32b38c7a7ea62e467067770593fd7"
+  }
+}

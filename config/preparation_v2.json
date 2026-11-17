@@ -1,0 +1,11 @@
+{
+  "dataset_version": "v2",
+  "train_fraction": 0.70,
+  "validation_fraction": 0.15,
+  "test_fraction": 0.15,
+  "numeric_imputation": "median",
+  "categorical_imputation": "most_frequent",
+  "scale_numeric": true,
+  "primary_target": "y_patient_absent_any",
+  "secondary_target": "y_patient_no_show"
+}

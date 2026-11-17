@@ -1,0 +1,26 @@
+{
+  "dataset_version": "v2",
+  "files_sha256": {
+    "manifest_test.csv": "35304fee4a2a51da9df6d7f75dccc9ffe17302dc5b6e2fd00f77ce80ff3494de",
+    "manifest_train.csv": "fae2525a40cd5bde3efd0677a1c3721e25f54b5ca233ec91f5d78cc3d4fafb63",
+    "manifest_validation.csv": "ad7568d517c170b515a878524fc5322ba936b3f1e41b85c1423d98b4a8abad1d",
+    "preprocessor.joblib": "9b62510e5730bca7f83908cdc5f0d8898622e78db42cce420b24d675f6d6251d",
+    "summary.json": "592505fc32d71f179f34f27c50c1d1e014020f19d9afde21fd29b08f5ef73302",
+    "X_test.csv": "75da03239ce62872be464923580b265a596b1cbd6a496646e6a27f3db7b07594",
+    "X_train.csv": "796df3239b917f5a2d0fa95382919265f090bd974d2d2b85955961dbe2978de6",
+    "X_validation.csv": "2cde624b0ea5afc5e1ed63518d3cf77370ee5d9603e9ba5e00aa903342b8e6da",
+    "y_test.csv": "8791b0116903ee124d20fcb50eee9da5749d72a6f1f1bc549db802347bb71dda",
+    "y_train.csv": "74970df07dff0ff0295c2f0ff66e39fdcd6bad2af9387c339bcb31a154edca62",
+    "y_validation.csv": "1b50ce0da052ec614c6c80d8920c7cb5ceabc02120e1818b4cd87fe92d8cce39"
+  },
+  "input_files_sha256": {
+    "appointments_synthetic.csv": "2a27486df4d40de7985ea536802227bd7bd23cc3a7bf805b4a2b0f4b72528541",
+    "appointments_synthetic_audit.csv": "b369f90b87cbeb5fea447e34e61804018c3e5babc64c515c0e684c3b995bb6c0",
+    "preparation_v2.json": "7a2f8ac61179cc53b8b0c6fa246835d99efa196d74d3fb47c0243d2652c7fb53"
+  },
+  "preprocessor_fit_scope": "train only",
+  "targets": [
+    "y_patient_absent_any",
+    "y_patient_no_show"
+  ]
+}

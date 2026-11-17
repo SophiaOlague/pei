@@ -1,0 +1,8 @@
+{
+  "train_fraction": 0.70,
+  "validation_fraction": 0.15,
+  "test_fraction": 0.15,
+  "numeric_imputation": "median",
+  "categorical_imputation": "most_frequent",
+  "scale_numeric": true
+}
