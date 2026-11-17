@@ -10,6 +10,7 @@ dist/
 # Configuración local de desarrollo
 .claude/launch.json
 .idea/
+.zed/
 
 # Python
 __pycache__/
