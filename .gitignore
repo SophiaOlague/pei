@@ -6,3 +6,14 @@ dist/
 .next/
 
 *.tsbuildinfo
+
+# Configuración local de desarrollo
+.claude/launch.json
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+
+# Archivos temporales de Microsoft Word
+~$*
