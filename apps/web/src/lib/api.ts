@@ -761,6 +761,94 @@ export function rejectDoctorLicenseReview(
   );
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Verificación de identidad de PACIENTES (RF-07; apps/backend/src/modules/identity/presentation/
+// admin-identity-verifications.controller.ts). Solo admin: 401 sin sesión, 403 con otro rol. Endpoints propios de
+// pacientes; nunca los de médicos. Ninguna respuesta incluye claves de objetos ni URLs.
+//   GET  /admin/identity-verifications?page&pageSize   (solo pendientes, en orden de llegada; pageSize 1–50)
+//   GET  /admin/identity-verifications/:id             (detalle con los datos del paciente, sin documentos)
+//   GET  /admin/identity-verifications/:id/documents/front|back   (imagen, no-store; solo mientras está pendiente)
+//   POST /admin/identity-verifications/:id/approve     POST …/:id/reject { reason } (10–500 caracteres)
+// Al resolver, el backend elimina los documentos (documentsDeleted).
+// ---------------------------------------------------------------------------------------------------------------
+
+export type PatientIdentityStatus = "pending" | "approved" | "rejected";
+
+export interface PatientIdentityRequestItem {
+  id: string;
+  attempt: number;
+  submittedAt: string;
+}
+
+export interface PatientIdentityRequestDetail {
+  id: string;
+  status: PatientIdentityStatus;
+  attempt: number;
+  submittedAt: string;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  patient: {
+    firstName: string;
+    lastName: string;
+    birthDate: string | null;
+    curp: string;
+  };
+}
+
+export interface PatientIdentityReviewResult {
+  submissionId: string;
+  status: "approved" | "rejected";
+  attempt: number;
+  documentsDeleted: boolean;
+}
+
+// El backend admite de 1 a 50 por página (ListPendingIdentityVerificationsQueryDto).
+export const PATIENT_IDENTITY_PAGE_SIZE_MAX = 50;
+
+export function listPendingPatientIdentityRequests(
+  query: PageQuery = {},
+): Promise<Page<PatientIdentityRequestItem>> {
+  return request(`/admin/identity-verifications${pageParams(query)}`);
+}
+
+export function getPatientIdentityRequest(
+  requestId: string,
+): Promise<PatientIdentityRequestDetail> {
+  return request(`/admin/identity-verifications/${segment(requestId)}`);
+}
+
+// Documento privado: se descarga con la sesión y sin caché. Quien cree un blob: URL debe liberarlo.
+export async function getPatientIdentityDocument(
+  requestId: string,
+  side: DocumentSide,
+): Promise<Blob> {
+  return (
+    await send(
+      `/admin/identity-verifications/${segment(requestId)}/documents/${side}`,
+      { cache: "no-store" },
+    )
+  ).blob();
+}
+
+export function approvePatientIdentityRequest(
+  requestId: string,
+): Promise<PatientIdentityReviewResult> {
+  return request(
+    `/admin/identity-verifications/${segment(requestId)}/approve`,
+    { method: "POST" },
+  );
+}
+
+export function rejectPatientIdentityRequest(
+  requestId: string,
+  reason: string,
+): Promise<PatientIdentityReviewResult> {
+  return request(`/admin/identity-verifications/${segment(requestId)}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
 // ── M07 Agenda médica (RF-10, RF-11). Todas las horas son del centro de México (America/Mexico_City). ──
 
 export const AGENDA_TIME_ZONE = "America/Mexico_City";
