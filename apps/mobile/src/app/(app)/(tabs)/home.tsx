@@ -14,11 +14,9 @@ import { router } from "expo-router";
 import { LineChart, BarChart } from "react-native-gifted-charts";
 import Svg, { Circle } from "react-native-svg";
 
-export default function HomeScreen() {
-  const goToNextAppointment = () => {
-    router.push("/(app)/joincall");
-  };
+import { NextAppointment } from "@/components/appointments/next-appointment";
 
+export default function HomeScreen() {
   const goToPorcentaje = () => {
     router.push("/displayresults");
   };
@@ -83,32 +81,7 @@ export default function HomeScreen() {
           resizeMode="contain"
         />
 
-        <Pressable
-          onPress={goToNextAppointment}
-          style={({ pressed }) => [
-            styles.nextAppointmentCard,
-            { opacity: pressed ? 0.9 : 1 },
-          ]}
-        >
-          <View style={styles.nextAppointmentHeader}>
-            <Text style={styles.nextAppointmentLabel}>Próxima Cita</Text>
-            <SymbolView
-              name={{ android: "arrow_outward", ios: "arrow.up.right" }}
-              size={18}
-              tintColor="#FFFFFF"
-              resizeMode="scaleAspectFit"
-            />
-          </View>
-
-          <View style={styles.nextAppointmentBody}>
-            <View style={styles.nextAppointmentInfo}>
-              <Text style={styles.doctorName}>Dra Andrea Castro</Text>
-              <Text style={styles.appointmentDate}>
-                20 de octubre 2026 · 14:00HRS
-              </Text>
-            </View>
-          </View>
-        </Pressable>
+        <NextAppointment />
 
         <Text style={styles.sectionTitle}>Niveles de salud</Text>
 
@@ -307,50 +280,6 @@ const styles = StyleSheet.create({
     height: 34,
     marginBottom: 20,
     marginTop: 8,
-  },
-
-  nextAppointmentCard: {
-    backgroundColor: "#7355F7",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 28,
-  },
-  nextAppointmentHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  nextAppointmentLabel: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  nextAppointmentBody: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  nextAppointmentInfo: {
-    flex: 1,
-  },
-
-  doctorAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#E5E7EB",
-  },
-  doctorName: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-    marginBottom: 2,
-  },
-  appointmentDate: {
-    color: "#FFFFFF75",
-    fontSize: 12,
-    fontWeight: "500",
   },
 
   sectionTitle: {

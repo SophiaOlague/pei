@@ -14,7 +14,8 @@ que aparenten guardar datos y sin cambios en el backend desde esta integración.
 | Dispositivo físico | Usar la IP de la red local del equipo; `localhost` apunta al teléfono. Emulador de Android: `10.0.2.2` |
 
 `EXPO_PUBLIC_*` se inserta en el bundle: nunca debe contener secretos.
-Las videollamadas (`(tabs)/index.tsx`, `(auth)/call.tsx`) siguen usando su servidor externo propio: no se tocaron.
+Las videollamadas ya no usan el servidor externo del prototipo (retirado el 2026-11-16): la videoconsulta parte de una
+cita real (Inicio → `joincall.tsx`) y la entrada a la sala depende del módulo de videoconsulta del backend, pendiente.
 
 ## Dependencias (versiones exactas)
 
@@ -529,3 +530,19 @@ tras un rechazo o una cancelación. El `client_secret` del reto solo vive en mem
   No se registraron aquí las tarjetas usadas ni el resultado del reto 3-D Secure, la cancelación o el rechazo; esos
   casos solo tienen cobertura automatizada (simulada).
 - Pendiente: prueba en iOS (no hay build de iOS).
+
+## Etapa 3: sala de espera de videoconsulta (2026-11-22)
+
+- `joincall.tsx` usa los endpoints reales de `modules/video`: entrar (`/session/enter`), latido cada 15 s
+  (`/session/presence`), salida voluntaria con confirmación (`/session/leave`) y credencial tras la admisión
+  (`/session/token`). Lógica en `src/hooks/use-video-session.ts`; mensajes en `src/components/video/waiting-room-status.tsx`.
+- Reconexión: sin red se muestra «Se perdió la conexión»; si el backend cerró la presencia (más de 45 s sin latido),
+  el siguiente latido vuelve a entrar.
+- `pendingResolution` se explica sin cerrar la cita. Las inasistencias registradas se informan y detienen los latidos.
+- Credencial: la llamada (`realtimekit-call.tsx`) solo se monta con un token real de proveedor `realtimekit`. Hoy el
+  backend responde 422 (proveedor sin configurar) y la app muestra ese mensaje, con «Reintentar».
+- Pruebas: `joincall.test.tsx` (fetch y WebRTC simulados). No probado en emulador ni contra el backend local.
+- Reaceptación legal (D-37, RN-140), resuelta el 2026-11-22: el backend añade `legal.reacceptanceRequired` a
+  `GET /me/registration-status` (perfil completo y alguna vez aceptado un régimen completo del paciente, según
+  `user_legal_acceptance`). Con ese indicador el gate muestra la app con un aviso «Revisar y aceptar»; sin él (o en falso)
+  conserva el bloqueo del registro inicial. Agendar lo sigue rechazando el backend y `seleccionfecha.tsx` lo explica.

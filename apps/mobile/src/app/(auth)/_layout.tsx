@@ -36,14 +36,6 @@ export default function RootLayout() {
           },
         }}
       />
-
-      <Stack.Screen
-        name="call"
-        options={{
-          animation: "fade",
-          presentation: "fullScreenModal",
-        }}
-      />
     </Stack>
   );
 }

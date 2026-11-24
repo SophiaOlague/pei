@@ -235,7 +235,7 @@ export default function RootLayout() {
                 backgroundColor: "#FFFFFF",
               },
               headerTintColor: "#000000",
-              title: "VIDEOLLAMADA",
+              title: "VIDEOCONSULTA",
             }}
           />
           <Stack.Screen
@@ -318,12 +318,6 @@ export default function RootLayout() {
               },
               headerTintColor: "#000000",
               title: "MI CARRITO",
-            }}
-          />
-          <Stack.Screen
-            name="call"
-            options={{
-              headerShown: false,
             }}
           />
         </Stack>

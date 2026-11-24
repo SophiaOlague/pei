@@ -400,3 +400,90 @@ describe("Recuperación (M-1, M-2)", () => {
     expect(mockSignOut).toHaveBeenCalledTimes(3);
   });
 });
+
+// D-37 / RN-140: la reaceptación de una versión nueva no bloquea la app; el primer registro sí.
+const BANNER = /Hay una nueva versión de los documentos legales/;
+const reacceptance = status({
+  legal: { accepted: false, pending: [PRIVACY], reacceptanceRequired: true },
+  missing: ["legal"],
+  profileCompleted: true,
+});
+
+describe("Reaceptación legal pendiente (D-37, RN-140)", () => {
+  it("[TC-MOB-REG-001] con registro ya completado y una versión nueva pendiente, muestra la app con el aviso", async () => {
+    mockGetStatus.mockResolvedValue(reacceptance);
+    await render(<App />);
+    expect(await screen.findByText("Contenido de la app")).toBeTruthy();
+    expect(screen.getByText(BANNER)).toBeTruthy();
+    expect(screen.queryByText("Completa tu registro")).toBeNull();
+  });
+
+  it.each([
+    [
+      "sin el indicador (backend anterior)",
+      { legal: { accepted: false, pending: [PRIVACY, TERMS] } },
+    ],
+    [
+      "indicador falso (primer registro)",
+      {
+        legal: {
+          accepted: false,
+          pending: [PRIVACY, TERMS],
+          reacceptanceRequired: false,
+        },
+      },
+    ],
+  ])(
+    "[TC-MOB-REG-002] %s: conserva el bloqueo del registro inicial",
+    async (_label, over) => {
+      mockGetStatus.mockResolvedValue(
+        status({ ...over, profileCompleted: true })
+      );
+      await render(<App />);
+      expect(await screen.findByText("Completa tu registro")).toBeTruthy();
+      expect(screen.queryByText("Contenido de la app")).toBeNull();
+    }
+  );
+
+  it("[TC-MOB-REG-003] sin perfil, el indicador no abre la app (el perfil se completa primero)", async () => {
+    mockGetStatus.mockResolvedValue(
+      status({
+        legal: {
+          accepted: false,
+          pending: [PRIVACY],
+          reacceptanceRequired: true,
+        },
+      })
+    );
+    await render(<App />);
+    expect(
+      await screen.findByPlaceholderText("Ingresa tus nombres")
+    ).toBeTruthy();
+    expect(screen.queryByText("Contenido de la app")).toBeNull();
+  });
+
+  it("[TC-MOB-REG-004] «Revisar y aceptar» abre los documentos con el mecanismo existente; «Ahora no» vuelve a la app; al aceptar desaparece el aviso", async () => {
+    mockGetStatus
+      .mockResolvedValueOnce(reacceptance)
+      .mockResolvedValueOnce(complete);
+    mockGetDocuments.mockResolvedValue(docs.slice(0, 1));
+    mockAccept.mockResolvedValue({ accepted: [] });
+    await render(<App />);
+    await screen.findByText(BANNER);
+    await fireEvent.press(screen.getByText("Revisar y aceptar"));
+    expect(await screen.findByText("Aceptar y continuar")).toBeTruthy();
+    await fireEvent.press(screen.getByText("Ahora no"));
+    expect(await screen.findByText("Contenido de la app")).toBeTruthy();
+
+    await fireEvent.press(screen.getByText("Revisar y aceptar"));
+    const boxes = await screen.findAllByRole("checkbox");
+    expect(boxes).toHaveLength(1);
+    await fireEvent.press(boxes[0]);
+    await fireEvent.press(screen.getByText("Aceptar y continuar"));
+    await waitFor(() =>
+      expect(mockAccept).toHaveBeenCalledWith([PRIVACY.documentId])
+    );
+    expect(await screen.findByText("Contenido de la app")).toBeTruthy();
+    expect(screen.queryByText(BANNER)).toBeNull();
+  });
+});

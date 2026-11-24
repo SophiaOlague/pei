@@ -9,13 +9,10 @@ import {
   RtkUIContext,
   RtkUIProvider,
 } from "@cloudflare/realtimekit-react-native-ui";
-import * as Clipboard from "expo-clipboard";
 import * as Device from "expo-device";
-import { router, useLocalSearchParams } from "expo-router";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   NativeModules,
   PermissionsAndroid,
   Platform,
@@ -27,7 +24,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ThemedText } from "@/components/themed-text";
 
-const API_URL = "https://telehealth-api.bayonaj368.workers.dev";
+// Interfaz de llamada con RealtimeKit. joincall.tsx la monta SOLO con una credencial real que emite el backend de PEI
+// para la cita (POST /me/patient/appointments/:id/session/token) y con proveedor «realtimekit». No obtiene el token
+// por su cuenta ni llama a ningún servidor externo. Hoy el backend no tiene adaptador del proveedor (responde 422), así
+// que esta interfaz no se llega a mostrar. El proveedor sigue sin confirmarse en el Maestro; si cambia, se sustituye.
+
+type RtkClient = NonNullable<ReturnType<typeof useRealtimeKitClient>[0]>;
 
 const RtkUIModule = NativeModules.CoreUiKit;
 
@@ -53,69 +55,53 @@ async function stopKeepAliveService() {
   await RtkUIModule.stopService();
 }
 
-function MeetingIdBadge({ meetingId }: { meetingId: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function handleCopy() {
-    await Clipboard.setStringAsync(meetingId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  return (
-    <Pressable onPress={handleCopy} style={styles.meetingIdBadge}>
-      <ThemedText style={styles.meetingIdLabel}>
-        {copied ? "Copied!" : `ID: ${meetingId.slice(0, 8)}…`}
-      </ThemedText>
-    </Pressable>
-  );
-}
-
-function CallControls({
-  meeting,
-}: {
-  meeting: ReturnType<typeof useRealtimeKitClient>[0];
-}) {
+function CallControls({ meeting }: { meeting: RtkClient }) {
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
 
-  function toggleMic() {
+  const toggleMic = useCallback(() => {
     if (micOn) {
-      meeting?.self.disableAudio();
+      meeting.self.disableAudio();
     } else {
-      meeting?.self.enableAudio();
+      meeting.self.enableAudio();
     }
-    setMicOn((v) => !v);
-  }
+    setMicOn(!micOn);
+  }, [meeting, micOn]);
 
-  function toggleCam() {
+  const toggleCam = useCallback(() => {
     if (camOn) {
-      meeting?.self.disableVideo();
+      meeting.self.disableVideo();
     } else {
-      meeting?.self.enableVideo();
+      meeting.self.enableVideo();
     }
-    setCamOn((v) => !v);
-  }
+    setCamOn(!camOn);
+  }, [meeting, camOn]);
 
-  function endCall() {
-    meeting?.leave();
-    router.back();
-  }
+  // Salir dispara roomLeft, que avisa a quien monta el componente (onLeft).
+  const leave = useCallback(() => {
+    meeting.leave();
+  }, [meeting]);
 
   return (
     <View style={styles.controls}>
       <Pressable
+        accessibilityLabel={micOn ? "Apagar micrófono" : "Encender micrófono"}
         onPress={toggleMic}
         style={[styles.controlBtn, !micOn && styles.controlBtnOff]}
       >
         <ThemedText style={styles.controlIcon}>{micOn ? "🎙️" : "🔇"}</ThemedText>
       </Pressable>
 
-      <Pressable onPress={endCall} style={styles.endBtn}>
+      <Pressable
+        accessibilityLabel="Salir de la llamada"
+        onPress={leave}
+        style={styles.endBtn}
+      >
         <ThemedText style={styles.controlIcon}>📵</ThemedText>
       </Pressable>
 
       <Pressable
+        accessibilityLabel={camOn ? "Apagar cámara" : "Encender cámara"}
         onPress={toggleCam}
         style={[styles.controlBtn, !camOn && styles.controlBtnOff]}
       >
@@ -129,10 +115,10 @@ function CallControls({
 
 function ActiveCall({
   meeting,
-  meetingId,
+  onLeft,
 }: {
-  meeting: ReturnType<typeof useRealtimeKitClient>[0];
-  meetingId: string;
+  meeting: RtkClient;
+  onLeft: () => void;
 }) {
   const { storeStates, setStates } = useContext(RtkUIContext);
   const storeStatesRef = useRef(storeStates);
@@ -145,46 +131,43 @@ function ActiveCall({
     };
     const onRoomLeft = () => {
       stopKeepAliveService();
-      router.back();
+      onLeft();
     };
 
-    meeting?.self.addListener("roomJoined", onRoomJoined);
-    meeting?.self.addListener("roomLeft", onRoomLeft);
+    meeting.self.addListener("roomJoined", onRoomJoined);
+    meeting.self.addListener("roomLeft", onRoomLeft);
 
     return () => {
-      meeting?.self.removeListener("roomJoined", onRoomJoined);
-      meeting?.self.removeListener("roomLeft", onRoomLeft);
+      meeting.self.removeListener("roomJoined", onRoomJoined);
+      meeting.self.removeListener("roomLeft", onRoomLeft);
     };
-  }, [meeting, setStates]);
+  }, [meeting, onLeft, setStates]);
 
-  // Explicitly join the meeting once the SDK is ready
   useEffect(() => {
-    meeting?.join();
+    meeting.join();
   }, [meeting]);
 
-  const currentState = storeStates.meeting;
-
-  if (currentState !== "joined") {
+  if (storeStates.meeting !== "joined") {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator color="#fff" size="large" />
-        <ThemedText style={styles.loadingText}>Connecting...</ThemedText>
-        <MeetingIdBadge meetingId={meetingId} />
+        <ThemedText style={styles.loadingText}>Conectando…</ThemedText>
       </View>
     );
   }
 
   return (
     <View style={styles.callContainer}>
-      <RtkGrid meeting={meeting} style={styles.grid} />
+      <View style={styles.grid}>
+        <RtkGrid meeting={meeting} />
+      </View>
 
       <SafeAreaView pointerEvents="box-none" style={styles.overlay}>
         <View style={styles.topRow}>
-          <MeetingIdBadge meetingId={meetingId} />
           <View style={styles.selfViewContainer}>
             <RtkParticipantTile
               meeting={meeting}
-              participant={meeting?.self}
+              participant={meeting.self}
               style={styles.selfView}
             />
           </View>
@@ -197,72 +180,56 @@ function ActiveCall({
   );
 }
 
-function CallScreen() {
-  const { meetingId, name } = useLocalSearchParams<{
-    meetingId: string;
-    name: string;
-  }>();
-  const [meet, initMeeting] = useRealtimeKitClient();
-  const [authToken, setAuthToken] = useState<string | null>(null);
-  const initialized = useRef(false);
+function CallSession({
+  authToken,
+  onLeft,
+}: {
+  authToken: string;
+  onLeft: () => void;
+}) {
+  const [meeting, initMeeting] = useRealtimeKitClient();
+  const initialized = useRef<boolean>(false);
 
   useEffect(() => {
     if (initialized.current) {
       return;
     }
     initialized.current = true;
+    initMeeting({
+      authToken,
+      defaults: { audio: true, video: Device.isDevice },
+    });
+  }, [authToken, initMeeting]);
 
-    async function bootstrap() {
-      try {
-        const res = await fetch(`${API_URL}/meetings/${meetingId}/join`, {
-          body: JSON.stringify({ name: name ?? "Guest" }),
-          headers: { "Content-Type": "application/json" },
-          method: "POST",
-        });
-
-        if (!res.ok) {
-          Alert.alert("Error", "Could not join the call.");
-          router.back();
-          return;
-        }
-
-        const { authToken: token } = await res.json<{ authToken: string }>();
-        setAuthToken(token);
-
-        initMeeting({
-          authToken: token,
-          defaults: { audio: true, video: Device.isDevice },
-        });
-      } catch {
-        Alert.alert("Error", "Something went wrong.");
-        router.back();
-      }
-    }
-
-    bootstrap();
-  }, [meetingId, name, initMeeting]);
-
-  if (!(meet && authToken)) {
+  if (!meeting) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator color="#fff" size="large" />
-        <ThemedText style={styles.loadingText}>Setting up call...</ThemedText>
+        <ThemedText style={styles.loadingText}>
+          Preparando la llamada…
+        </ThemedText>
       </View>
     );
   }
 
   return (
-    <RealtimeKitProvider value={meet}>
-      <ActiveCall meeting={meet} meetingId={meetingId} />
+    <RealtimeKitProvider value={meeting}>
+      <ActiveCall meeting={meeting} onLeft={onLeft} />
     </RealtimeKitProvider>
   );
 }
 
-export default function CallPage() {
+export function RealtimeKitCall({
+  authToken,
+  onLeft,
+}: {
+  authToken: string;
+  onLeft: () => void;
+}) {
   return (
     <View style={styles.page}>
       <RtkUIProvider>
-        <CallScreen />
+        <CallSession authToken={authToken} onLeft={onLeft} />
       </RtkUIProvider>
     </View>
   );
@@ -317,20 +284,8 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
   },
-  meetingIdBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  meetingIdLabel: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "600",
-  },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: "space-between",
   },
   page: {
@@ -353,7 +308,7 @@ const styles = StyleSheet.create({
   topRow: {
     alignItems: "flex-start",
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     padding: 16,
   },
 });

@@ -88,6 +88,9 @@ async function chooseSlotAndReason(): Promise<void> {
   );
 }
 
+const LEGAL_REQUIRED =
+  /Para agendar necesitas aceptar la versión vigente de los documentos legales/;
+
 describe("seleccionfecha.tsx · identidad pendiente (RegistrationIncompleteError)", () => {
   const incomplete = (missing: string[]) => ({
     body: {
@@ -143,13 +146,11 @@ describe("seleccionfecha.tsx · identidad pendiente (RegistrationIncompleteError
     });
   });
 
-  it("si lo que falta no es la identidad, no ofrece la verificación", async () => {
+  it("[RN-140] con la aceptación legal pendiente, explica que hay que aceptarla y no ofrece la verificación", async () => {
     replies[HOLD_KEY] = [incomplete(["legal"])];
     await chooseSlotAndReason();
     await act(async () => fireEvent.press(screen.getByText(RESERVE)));
-    expect(
-      screen.getByText("El registro del paciente está incompleto")
-    ).toBeTruthy();
+    expect(screen.getByText(LEGAL_REQUIRED)).toBeTruthy();
     expect(screen.queryByText("Verificar mi identidad")).toBeNull();
     expect(mockPush).not.toHaveBeenCalled();
   });
