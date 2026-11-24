@@ -50,13 +50,14 @@ Requerimientos, reglas de negocio y consideraciones normativas de **PEI**, la ap
 | C-23 | 2026-11-07 | 3.2 | RF-66: configuración del precio global de consulta (200.00 MXN inicial, versiones con vigencia inmediata, copia en la cita, auditoría) | Nuevo | CC-5; AP-1, AP-2, AP-9 | Implementado sin commit (backend y panel); carga inicial preparada, no ejecutada |
 | C-24 | 2026-11-07 | 7.1 | Aprobadas las estructuras propuestas `appointment.cancellation_policy_id` y `consultation_price_configuration`. Las aprobó la persona responsable del proyecto, que declaró tener esa autoridad; no se atribuye al líder técnico | Aclaración | CC-10; AP-3 | Ya existían en `0000`; M08 las usa |
 | C-25 | 2026-11-07 | 6.1 | Estado `rescheduled`: `confirmed → rescheduled`, terminal. La cita nueva conserva precio, política y pago (RN-018) | Nuevo | CC-3; AP-7 | Implementado (M08): 0013 aplicada en C2 y desarrollo; reagendamiento `b8673c6`, probado en C2 (`c2-20261110000243-57bd`) |
-| C-26 | 2026-11-07 | 3.3, 5.2 | RF-19, RF-20, RN-025, RN-026 y RN-030: espera protegida con límite total, gracia de reconexión, salida voluntaria y momentos de determinación de inasistencia (N8, N9, N10) | Aclaración | CC-2; AP-5, AP-6, AP-22, AP-24, AP-25 | Pendiente (videoconsulta); el límite y la gracia requieren M-1 |
+| C-26 | 2026-11-07 | 3.3, 5.2 | RF-19, RF-20, RN-025, RN-026 y RN-030: espera protegida con límite total, gracia de reconexión, salida voluntaria y momentos de determinación de inasistencia (N8, N9, N10) | Aclaración | CC-2; AP-5, AP-6, AP-22, AP-24, AP-25 | Implementado (`4e6ebe1`) en la primera entrega de videoconsulta (`modules/video`, 2026-11-22): espera protegida, gracia, salida voluntaria y N8–N10 según AP-25. Requiere 0019: aplicada en C2 (validada) y en desarrollo. Dos casos sin regla quedan pendientes (sección 10) |
 | C-27 | 2026-11-07 | 5.1 | RN-140: la cancelación protectora del médico (RN-013) no exige estar habilitado | Aclaración | CC-7; AP-13 | Implementado sin commit (M08) |
 | C-28 | 2026-11-07 | 3.2 | RF-12: listado de médicos reservables | Aclaración | CC-6; AP-12 | Implementado sin commit (M08) |
 | C-29 | 2026-11-07 | 5.2 | RN-141: reembolso automático de un pago que no puede confirmar la cita; `expired` no se reactiva | Nuevo | CC-4; AP-8 | Contrato en M08 sin commit; el reembolso lo ejecutará pagos |
-| C-30 | 2026-11-07 | 3.3 | RF-19: entrada a la sala 15 min antes, admisión por el médico (videoconsulta), resultado registrado en la cita | Aclaración | CC-9; AP-15 | Contrato en M08 sin commit; la sala está pendiente (videoconsulta) |
+| C-30 | 2026-11-07 | 3.3 | RF-19: entrada a la sala 15 min antes, admisión por el médico (videoconsulta), resultado registrado en la cita | Aclaración | CC-9; AP-15 | Implementado (`4e6ebe1`) (`modules/video`, 2026-11-22): entrada desde T0 − 15, admisión y resultado en M08. El aviso a ambos solo se muestra en pantalla hasta que exista el módulo de notificaciones. 0019 aplicada y validada en C2 |
 | C-31 | 2026-11-07 | 3.2 | La cancelación administrativa (RN-014) no tiene RF ni módulo; queda fuera de M08 | Pendiente de alcance | CC-8; AP-14 | Sin implementar |
 | C-32 | 2026-11-07 (precisado el 2026-11-08) | 3.2, 7.1 | RF-12: la cita conserva las referencias a las dos aceptaciones legales vigentes al reservar (privacidad y términos), sin duplicar datos de M02; inmutables desde la reserva y copiadas al reagendar | Nuevo | CC-1, opción C; AP-19, AP-26 | Implementado (M02 `2daebe7`, M08 `41e07a5`): 0014 aplicada en C2 y desarrollo; persistencia validada en C2 (`c2-20261109140840-9cd4`, `c2-20261109235307-6c1b`) y copia al reagendar (`c2-20261110000243-57bd`) |
+| C-33 | 2026-11-20 | 5.1 | RN-140: el médico que perdió su habilitación puede finalizar una videoconsulta suya que ya está en curso; no puede admitir, iniciar consultas ni obtener credenciales de la llamada | Aclaración | Diseño de videoconsulta, decisión 11 (`docs/arquitectura/Video-diseno.md` §9) | Implementado (`4e6ebe1`) (`modules/video`); pruebas TC-VID-140 a TC-VID-143, RT-VID-05 y TC-VID-304 (C2) |
 
 Las decisiones de la columna «Fuente» se detallan en `docs/arquitectura/M03-decisiones.md` (D-, N-, R-, Z-), en
 `docs/testing/trazabilidad/M02-identity.md` (DP-, DT-) y, para C-23 a C-32, en `docs/arquitectura/M08-diseno.md`
@@ -138,18 +139,23 @@ Siguen igual que en V2.2: RN-001, RN-002, RN-003, RN-005 y RN-006.
 | RN-004 | Un médico no atiende nuevas citas hasta ser aprobado por administración. **Está aprobado solo si su INE y su cédula están aprobadas y su registro está completo. Su estado se deriva de las revisiones vigentes: si alguna está pendiente, pending; si no, y alguna está rechazada, rejected. Una revisión pendiente que un cambio invalida pasa a superseded y conserva su historial. Mientras no está aprobado, el médico solo puede entrar y consultar su estado. Cambiar la INE, la cédula o la especialidad lo devuelve a pending. El médico no cambia su CURP ni su nombre legal (RN-138); su corrección es un flujo definido documentalmente (DP-CORR), pendiente de implementación; hoy no existe ninguna vía. El efecto sobre sus citas existentes corresponde a la gestión de citas.** | C-7, C-13, C-16 |
 | **RN-138** | **El paciente y el médico registran una CURP obligatoria, en mayúsculas, con el formato oficial y un dígito verificador válido. La CURP es única entre todos los usuarios, sin importar su rol. Ni el paciente ni el médico pueden editar desde su propia cuenta su CURP ni su nombre legal: se capturan al crear el perfil.** | C-1 (nuevo), C-16 |
 | **RN-139** | **Una persona no puede tener a la vez cuenta de paciente y de médico. No existe conversión de rol.** | C-2 (nuevo) |
-| **RN-140** | **La falta de aceptación de los documentos legales vigentes de su rol no impide la autenticación ni el acceso general a la cuenta: el usuario siempre puede consultar y aceptar sus documentos pendientes. Solo se rechazan, sin efectos secundarios, las operaciones que requieren expresamente esa aceptación: agendar, para el paciente; las operaciones que requieren un médico habilitado, para el médico. **Que el médico cancele sus propias citas confirmadas, con reembolso total al paciente (RN-013), no requiere que esté habilitado.** Toda operación de ese tipo comprueba, sea cual sea el módulo que la implemente, la aceptación legal vigente, la aprobación administrativa y los demás permisos y requisitos funcionales. El primer registro conserva su flujo de aceptación. La aceptación legal, la autenticación y la aprobación administrativa son condiciones independientes.** | C-22 (nuevo), C-27 |
+| **RN-140** | **La falta de aceptación de los documentos legales vigentes de su rol no impide la autenticación ni el acceso general a la cuenta: el usuario siempre puede consultar y aceptar sus documentos pendientes. Solo se rechazan, sin efectos secundarios, las operaciones que requieren expresamente esa aceptación: agendar, para el paciente; las operaciones que requieren un médico habilitado, para el médico. **Que el médico cancele sus propias citas confirmadas, con reembolso total al paciente (RN-013), no requiere que esté habilitado.** **Tampoco lo requiere que finalice una videoconsulta suya que ya está en curso; esa excepción no le permite admitir pacientes, iniciar consultas ni obtener credenciales de la llamada.** Toda operación de ese tipo comprueba, sea cual sea el módulo que la implemente, la aceptación legal vigente, la aprobación administrativa y los demás permisos y requisitos funcionales. El primer registro conserva su flujo de aceptación. La aceptación legal, la autenticación y la aprobación administrativa son condiciones independientes.** | C-22 (nuevo), C-27, C-33 |
 
 Notas de implementación (informativas):
+- **RN-140 en videoconsulta (C-33).** `modules/video` exige `canOperate` para entrar a la sala, enviar latidos, salir,
+  admitir y obtener credenciales. La única excepción es finalizar una consulta activa propia. Leer el estado no es una
+  operación protegida, igual que `GET /me/doctor/appointments`.
 - **RN-138.** El dígito verificador se valida en la aplicación, no en la BD.
 - **RN-138 (C-16).** Sustituye a D-28, que permitía al médico cambiar su CURP o su nombre legal. Esa vía
   (`PUT /me/doctor-profile/identity`) se retiró el 2026-10-28. El paciente ya tenía la restricción (DP-12). La
   corrección de un dato erróneo está pendiente (DP-CORR, sección 10).
-- **RN-140.** Sin implementar. M02 y M03 contienen los controles de identidad, registro y estado legal; la conexión de
+- **RN-140.** Implementación parcial. M02 y M03 contienen los controles de identidad, registro y estado legal; la conexión de
   las políticas corresponde a cada módulo que implemente una operación protegida: M08 para el agendamiento del paciente
-  y, para el médico habilitado, agenda (M07), citas (M08), videoconsulta (`video`), expediente clínico (`clinical-record`) y prescripciones (`prescriptions`). Hoy `RequireRegistration` (web) y
-  `registration-gate.tsx` (móvil) aplican restricciones globales que deberán ajustarse, y `GET /me/doctor/status` no
-  identifica los documentos pendientes.
+  y, para el médico habilitado, agenda (M07), citas (M08), videoconsulta (`video`), expediente clínico (`clinical-record`) y prescripciones (`prescriptions`). `GET /me/doctor/status` no
+  identifica los documentos pendientes. **Backend (`4e6ebe1`):** `GET /me/registration-status` informa
+  `legal.reacceptanceRequired`. **Móvil (`a5bd909`):** `registration-gate.tsx` ya no bloquea al paciente que solo tiene
+  una reaceptación pendiente; el registro inicial conserva su bloqueo y agendar sigue protegido en la API. **Web
+  (`f6b1134`):** `RequireRegistration` aplica el mismo criterio, con aviso, opción de posponer y mensaje al agendar.
 - **RN-138 y RN-139.** Se numeran a continuación del último RN de V2.2 (RN-137), pero pertenecen a la sección 5.1.
 
 ### 5.2 Citas y videoconsulta
@@ -213,7 +219,7 @@ Se añaden:
 | RF | RF-66 | RF-67 |
 | RNF | RNF-21 | RNF-22 |
 | RN | RN-141 | RN-142 |
-| Cambio | C-32 | C-33 (C-17 a C-21 están asignados en el Maestro V2.4) |
+| Cambio | C-33 | C-34 (C-17 a C-21 están asignados en el Maestro V2.4) |
 
 ## 10. Pendientes de decisión
 
@@ -223,8 +229,14 @@ Se añaden:
 | Esquema DBML | Publicar `schema_gestinovo_v2_3.dbml`, coherente con la sección 7 |
 | PDF V2.3 | Generarlo y aprobarlo; después, actualizar R-1 y las referencias de la trazabilidad |
 | DP-CORR | Corrección de una CURP o un nombre legal capturados con error. **Flujo definido documentalmente, pendiente de implementación** (`M03-decisiones.md`, sección 8): hoy no existe ninguna vía, ni para el propio usuario (RN-138) ni para el administrador. Cualquier vía futura debe conservar la unicidad entre roles (RN-138, RN-139), la auditoría y el efecto sobre la revisión de la INE (RN-004) |
-| RN-140 | Conectar las políticas en cada módulo con operaciones protegidas (agenda (M07), citas (M08), videoconsulta (`video`), expediente clínico (`clinical-record`) y prescripciones (`prescriptions`)), ajustar las restricciones globales de web y móvil e identificar los documentos pendientes del médico (`M03-decisiones.md`, D-37) |
+| RN-140 | Conectar las políticas en cada módulo con operaciones protegidas (agenda (M07), citas (M08), videoconsulta (`video`), expediente clínico (`clinical-record`) y prescripciones (`prescriptions`)) e identificar los documentos pendientes del médico (`M03-decisiones.md`, D-37) |
 | C-31 | Asignar la cancelación administrativa (RN-014) a un RF y a un módulo |
+| Videoconsulta: plazo de R5 | RN-033 (escenario N13) cuenta la ventana del médico desde su llegada. Falta definir si el límite total `T0 + L` la recorta. Mientras tanto, si ese plazo pasa de `T0 + L`, la cita queda pendiente sin resultado (`r5_beyond_total_limit`) |
+| Videoconsulta: paciente tardío | Dos casos sin regla: el paciente que se conecta después de su tolerancia y sale antes de que llegue el médico, y el paciente tardío presente al que el médico no admite. Quedan pendientes sin resultado (`late_patient_left_before_doctor`, `late_patient_not_admitted`); el médico todavía puede admitir |
+| Videoconsulta: consulta sin finalizar | Una consulta activa que el médico nunca finaliza no se cierra sola y no tiene plazo. El barrido `video-evaluate-sessions` la lista con su hora de inicio |
+| Videoconsulta: revocación de acceso | Al finalizar se revocan las credenciales de los participantes. Falta comprobar con una llamada real que eso expulsa a quien sigue conectado |
+| Videoconsulta: proveedor de video | RealtimeKit sigue sin confirmarse. Esta entrega usa un proveedor sin configurar que falla cerrado: la credencial de la llamada responde que no está disponible |
+| Videoconsulta: migración 0019 | Aplicada el 2026-11-22 con los ejecutores oficiales en C2 y en desarrollo. Queda pendiente para la futura producción |
 | M-1 | Autorizar la migración de C-25, C-26 y C-32 y de la integridad de las versiones (`M08-diseno.md`, A.11.4 y A.12) |
 | C-23 a C-32 en el DOCX | Consolidarlos en `PEI_Documento_Maestro_V2.4` (archivo binario; este documento vivo no lo modifica) |
 | Maestro V2.4 | `PEI_Documento_Maestro_V2.4_2026-10-20.docx` es anterior a C-16 y conserva el texto previo de RN-004 y RN-138: pendiente de consolidación |
