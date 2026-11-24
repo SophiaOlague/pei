@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PatientNav } from "@/features/components/patient-nav";
+import { REVIEW_LEGAL_PATH } from "@/features/components/require-registration";
 import {
   IDENTITY_REQUIREMENT_MESSAGE,
   IdentityRequirementNotice,
@@ -47,6 +48,8 @@ type Registration =
       kind: "known";
       canBook: boolean;
       requirement: IdentityRequirement | null;
+      // RN-140: falta aceptar la versión vigente de los documentos legales.
+      legalPending?: boolean;
     }
   // No se pudo consultar: no se supone ningún requisito; el backend decide al reservar.
   | { kind: "unknown" };
@@ -115,6 +118,7 @@ export function BookingFlow({
           kind: "known",
           canBook: status.canBookAppointments,
           requirement: identityRequirementIn(status.missing),
+          legalPending: status.missing.includes("legal"),
         });
       })
       .catch((error: unknown) => {
@@ -253,6 +257,21 @@ export function BookingFlow({
         );
         return;
       }
+      // RN-140: la API rechaza la reserva si falta la aceptación legal vigente (missing incluye legal).
+      if (
+        error instanceof ApiError &&
+        error.error === "RegistrationIncompleteError" &&
+        error.missing.includes("legal")
+      ) {
+        setHoldError(null);
+        setRegistration({
+          kind: "known",
+          canBook: false,
+          requirement: null,
+          legalPending: true,
+        });
+        return;
+      }
       if (!(error instanceof ApiError)) {
         setHoldError({
           kind: "message",
@@ -308,8 +327,20 @@ export function BookingFlow({
             role="alert"
             className="mt-6 bg-[#F5F5F5] rounded-2xl p-4 sm:p-6 text-[#535353] text-[16px]"
           >
-            Tu registro tiene requisitos pendientes; todavía no puedes agendar
-            consultas.
+            {registration.kind === "known" && registration.legalPending ? (
+              <>
+                Para agendar necesitas aceptar la versión vigente de los
+                documentos legales.{" "}
+                <Link
+                  href={REVIEW_LEGAL_PATH}
+                  className="text-[#7355F7] font-semibold"
+                >
+                  Revisar y aceptar
+                </Link>
+              </>
+            ) : (
+              "Tu registro tiene requisitos pendientes; todavía no puedes agendar consultas."
+            )}
           </p>
         )}
 

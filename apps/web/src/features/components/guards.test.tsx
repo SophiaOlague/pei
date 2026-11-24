@@ -6,13 +6,15 @@ import { meAs, mockFetch, ok, status } from "@/test/http";
 import {
   ADMIN_HOME_PATH,
   COMPLETE_REGISTRATION_PATH,
+  REVIEW_LEGAL_PATH,
   RequireRegistration,
 } from "./require-registration";
 import { RequireSession } from "./require-session";
 
 const replace = vi.fn();
+const push = vi.fn();
 // Como el de Next, el router es el mismo objeto en cada render.
-const router = { replace };
+const router = { replace, push };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 const session = vi.hoisted(() => ({
@@ -170,5 +172,75 @@ describe("/completar-registro", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith(ADMIN_HOME_PATH));
     expect(calls.map((c) => c.key)).toEqual(["GET /me"]);
     expect(screen.queryByLabelText("CURP")).not.toBeInTheDocument();
+  });
+});
+
+// D-37 / RN-140: la reaceptación de una versión legal nueva no bloquea el panel; el registro inicial, sí.
+describe("RequireRegistration · reaceptación legal (D-37, RN-140)", () => {
+  beforeEach(() => {
+    replace.mockReset();
+    push.mockReset();
+  });
+  const reacceptance = status({
+    legal: { accepted: false, pending: [], reacceptanceRequired: true },
+    missing: ["legal"],
+  });
+
+  it("[TC-WEB-REG-001] registro inicial incompleto: conserva el bloqueo (sin el indicador o con él en falso)", async () => {
+    for (const legal of [
+      { accepted: false, pending: [] },
+      { accepted: false, pending: [], reacceptanceRequired: false },
+    ]) {
+      replace.mockReset();
+      mockFetch({
+        "GET /me": ok(meAs("patient")),
+        "GET /me/registration-status": ok(
+          status({ legal, missing: ["legal"] }),
+        ),
+      });
+      const view = render(<RequireRegistration>panel</RequireRegistration>);
+      await waitFor(() =>
+        expect(replace).toHaveBeenCalledWith(COMPLETE_REGISTRATION_PATH),
+      );
+      expect(screen.queryByText("panel")).not.toBeInTheDocument();
+      view.unmount();
+    }
+  });
+
+  it("[TC-WEB-REG-001b] sin perfil, el indicador no abre el panel", async () => {
+    mockFetch({
+      "GET /me": ok(meAs("patient")),
+      "GET /me/registration-status": ok({
+        ...reacceptance,
+        profileCompleted: false,
+      }),
+    });
+    render(<RequireRegistration>panel</RequireRegistration>);
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(COMPLETE_REGISTRATION_PATH),
+    );
+  });
+
+  it("[TC-WEB-REG-002][TC-WEB-REG-003] reaceptación pendiente: muestra el panel (sus citas) con el aviso, se puede posponer y revisar", async () => {
+    mockFetch({
+      "GET /me": ok(meAs("patient")),
+      "GET /me/registration-status": ok(reacceptance),
+    });
+    render(<RequireRegistration>mis citas confirmadas</RequireRegistration>);
+    expect(
+      await screen.findByText("mis citas confirmadas"),
+    ).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Hay una nueva versión de los documentos legales",
+    );
+    screen.getByRole("button", { name: "Revisar y aceptar" }).click();
+    expect(push).toHaveBeenCalledWith(REVIEW_LEGAL_PATH);
+    expect(REVIEW_LEGAL_PATH).toBe("/completar-registro?revisar=1");
+    screen.getByRole("button", { name: "Ahora no" }).click();
+    await waitFor(() =>
+      expect(screen.queryByRole("status")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("mis citas confirmadas")).toBeInTheDocument();
   });
 });

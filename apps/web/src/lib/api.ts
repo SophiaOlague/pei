@@ -50,7 +50,13 @@ export type IdentityVerificationStatus =
 
 export interface RegistrationStatus {
   profileCompleted: boolean;
-  legal: { accepted: boolean; pending: PendingLegalDocument[] };
+  // reacceptanceRequired (D-37, RN-140): ya completó su registro y solo falta aceptar una versión nueva. Lo decide el
+  // backend con las aceptaciones guardadas; sin el campo se trata como registro inicial (bloquea).
+  legal: {
+    accepted: boolean;
+    pending: PendingLegalDocument[];
+    reacceptanceRequired?: boolean;
+  };
   identity: {
     status: IdentityVerificationStatus;
     rejectionReason: string | null;
@@ -165,6 +171,15 @@ export function acceptLegalDocuments(documentIds: string[]): Promise<{
     method: "POST",
     body: JSON.stringify({ documentIds }),
   });
+}
+
+// Reaceptación pendiente (D-37, RN-140): no bloquea el panel; el backend sigue impidiendo agendar.
+export function isReacceptancePending(status: RegistrationStatus): boolean {
+  return (
+    status.profileCompleted &&
+    !status.legal.accepted &&
+    status.legal.reacceptanceRequired === true
+  );
 }
 
 // Pasos que el panel exige antes de mostrarse. La verificación de identidad (INE) no bloquea el panel:
