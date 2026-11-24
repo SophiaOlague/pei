@@ -37,7 +37,10 @@ export interface RefundProviderPort {
   getRefund(providerPaymentId: string, providerRefundId: string): Promise<ProviderRefundSnapshot>;
 }
 
-export type RefundReason = 'patient_cancellation' | 'doctor_cancellation' | 'admin_cancellation' | 'exceptional_refund' | 'payment_error' | 'other';
+export type RefundReason = 'patient_cancellation' | 'doctor_cancellation' | 'admin_cancellation' | 'exceptional_refund' | 'payment_error' | 'other'
+  // 0019: reembolso total por inasistencia del médico o de ambos (videoconsulta).
+  | 'no_show_doctor'
+  | 'no_show_both';
 export type RefundRequesterType = 'patient' | 'doctor' | 'admin' | 'system';
 
 // Fila de `refund`. Sin datos de tarjeta.

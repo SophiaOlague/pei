@@ -44,6 +44,8 @@ import { refreshPaymentFromProvider } from './provider-snapshot-sync';
 export const REFUND_CREATE_SCOPE = 'refund.create';
 export const REFUND_CANCELLATION_SCOPE = 'refund.appointment_canceled';
 export const REFUND_PAYMENT_ERROR_SCOPE = 'refund.payment_error';
+// Videoconsulta: reembolso total por no_show_doctor o no_show_both, idempotente por pago (key = payment.id).
+export const REFUND_NO_SHOW_SCOPE = 'refund.appointment_no_show';
 // Mercado Pago conserva la idempotencia 24 h. Margen: solo se reenvía un pending sin respuesta dentro de 20 h.
 export const REFUND_RESUBMIT_WINDOW_MS = 20 * 3_600_000;
 // La recuperación no toca reembolsos con actividad más reciente que esto (otro proceso puede estar en curso).

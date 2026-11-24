@@ -89,7 +89,7 @@ describe('Fin del bloque de agenda (DA-3, AP-23) y parámetros de espera (AP-22)
     env.world.seedAppointment({ id, patientId: randomUUID(), doctorId: env.doctorId, scheduledAt: new Date(S1), cancellationPolicyId: applied.id, agendaBlockEndsAt: new Date(S2) });
     // Una versión posterior no cambia las ventanas de la cita.
     await env.policies.publish(env.admin, { ...INITIAL_POLICY, maxProtectedWaitMinutes: 120 });
-    const session = await new AppointmentSessionService(env.uow, env.world, env.world, env.world.policies).getForSession(id);
+    const session = await new AppointmentSessionService(env.uow, env.world, env.world, env.world.policies, env.clock, env.uow.events).getForSession(id);
     expect(session).toMatchObject({ doctorWaitMinutes: 30, patientToleranceMinutes: 15, maxProtectedWaitMinutes: 75, reconnectGraceMinutes: 4 });
     expect(Object.keys(session)).not.toContain('agendaBlockEndsAt');
   });

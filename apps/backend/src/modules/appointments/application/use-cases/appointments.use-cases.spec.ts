@@ -46,7 +46,7 @@ function setup() {
     cancelPatient: new CancelByPatientUseCase(uow, world, world, world.policies, clock, uow.events),
     cancelDoctor: new CancelByDoctorUseCase(uow, world, world, world, clock, uow.events),
     confirmation: new AppointmentConfirmationService(uow, world, world, clock, uow.events),
-    session: new AppointmentSessionService(uow, world, world, world.policies),
+    session: new AppointmentSessionService(uow, world, world, world.policies, clock, uow.events),
     listDoctors: new ListBookableDoctorsUseCase(world, world, slots, clock),
     doctorSlots: new GetDoctorSlotsForPatientUseCase(slots, world),
   };
@@ -401,6 +401,41 @@ describe('M08 casos de uso de citas', () => {
       await env.session.markNoShow(id, 'doctor');
       await expect(env.session.markCompleted(id)).rejects.toThrow(InvalidAppointmentStateError);
       expect(env.world.state.appointments[0].status).toBe('no_show_doctor');
+    });
+
+    it('[TC-VID-100][decisión 10] registrar un resultado publica AppointmentOutcomeRecorded después del COMMIT, una sola vez', async () => {
+      const env = setup();
+      await configured(env);
+      const { id } = await confirmedAppointment(env);
+      env.uow.published.length = 0;
+      await env.session.markNoShow(id, 'both');
+      await env.session.markNoShow(id, 'both'); // idempotente: no vuelve a publicar
+      expect(env.uow.published).toEqual([expect.objectContaining({ type: 'AppointmentOutcomeRecorded', appointmentId: id, status: 'no_show_both', refundOutcome: 'full_refund' })]);
+    });
+
+    it.each([
+      ['doctor', 'no_show_doctor', 'full_refund'],
+      ['both', 'no_show_both', 'full_refund'],
+      ['patient', 'no_show_patient', 'no_refund'],
+    ] as const)('[TC-VID-101][RN-025][RN-030][RN-033] la inasistencia %s audita %s con refundOutcome %s', async (kind, status, refundOutcome) => {
+      const env = setup();
+      await configured(env);
+      const { id } = await confirmedAppointment(env);
+      await env.session.markNoShow(id, kind);
+      const audited = env.world.state.audit.find((e) => e.action === APPOINTMENT_AUDIT_ACTIONS.outcomeRecorded);
+      expect(audited?.metadata).toMatchObject({ status, refundOutcome });
+    });
+
+    it('[TC-VID-102] completed audita no_refund; si la transacción falla no se publica nada', async () => {
+      const env = setup();
+      await configured(env);
+      const { id } = await confirmedAppointment(env);
+      env.uow.published.length = 0;
+      env.world.failAuditOnce = true;
+      await expect(env.session.markCompleted(id)).rejects.toThrow();
+      expect(env.uow.published).toEqual([]);
+      await env.session.markCompleted(id);
+      expect(env.uow.published).toEqual([expect.objectContaining({ type: 'AppointmentOutcomeRecorded', status: 'completed', refundOutcome: 'no_refund' })]);
     });
   });
 

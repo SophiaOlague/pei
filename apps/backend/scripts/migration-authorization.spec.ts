@@ -162,7 +162,7 @@ describe('R-1 · autorización de sesión (authorizeProtectedMigration)', () => 
   });
 
   it('el valor de la variable es exactamente el de la migración protegida', () => {
-    expect(PROTECTED_MIGRATIONS).toEqual({ '0017_payments_f1': '0017', '0018_payments_stripe_provider': '0018' });
+    expect(PROTECTED_MIGRATIONS).toEqual({ '0017_payments_f1': '0017', '0018_payments_stripe_provider': '0018', '0019_video_v1': '0019' });
     expect(SET).toBe(`SET ${AUTHORIZATION_SETTING} = '0017'`);
     expect(() => sqlSetAuthorization("0017'; drop table x; --")).toThrow(MigrationAuthorizationError);
   });
@@ -251,9 +251,9 @@ describe('R-1 · ejecutores controlados', () => {
     expect(ddl).toBe("alter type payment_provider_enum add value 'stripe';");
   });
 
-  it('ninguna migración posterior a 0018 está autorizada en ningún ejecutor', () => {
+  it('después de 0018 solo 0019 está autorizada (C2 y desarrollo, 2026-11-22), con el SHA-256 de su SQL', () => {
     for (const list of [AUTHORIZED_MIGRATIONS, DEV_AUTHORIZED_MIGRATIONS] as unknown as (readonly MigrationEntry[])[]) {
-      expect(list.filter((m) => m.idx > 18)).toEqual([]);
+      expect(list.filter((m) => m.idx > 18)).toEqual([{ idx: 19, tag: '0019_video_v1', sha256: sha256(read('src/db/migrations/0019_video_v1.sql')) }]);
     }
   });
 

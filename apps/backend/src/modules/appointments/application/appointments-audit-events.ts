@@ -33,8 +33,9 @@ export const AppointmentAuditEvents = {
   // DA-6: se registra sobre la cita nueva; n = número de reagendamientos de la cadena tras esta operación.
   rescheduled: (actor: AuditActor, m: { fromId: string; toId: string; rootId: string; n: number }) =>
     AuditEvent.create({ actor, action: APPOINTMENT_AUDIT_ACTIONS.rescheduled, entity: appt(m.toId), metadata: m }),
-  outcomeRecorded: (actor: AuditActor, id: string, status: string) =>
-    AuditEvent.create({ actor, action: APPOINTMENT_AUDIT_ACTIONS.outcomeRecorded, entity: appt(id), metadata: { status } }),
+  // refundOutcome: consecuencia decidida por M08 (outcome-rules.ts); la consulta duradera de resultados la verifica.
+  outcomeRecorded: (actor: AuditActor, id: string, status: string, refundOutcome: string) =>
+    AuditEvent.create({ actor, action: APPOINTMENT_AUDIT_ACTIONS.outcomeRecorded, entity: appt(id), metadata: { status, refundOutcome } }),
   pricePublished: (actor: AuditActor, id: string, m: { previousVersionId: string | null; previousPrice: string | null; newPrice: string; currency: string; effectiveFrom: string; source: 'admin_panel' | 'initial_setup' }) =>
     AuditEvent.create({ actor, action: APPOINTMENT_AUDIT_ACTIONS.pricePublished, entity: { type: 'consultation_price_configuration', id }, metadata: m }),
   policyPublished: (actor: AuditActor, id: string, m: { previousVersionId: string | null; previous: Record<string, number> | null; next: Record<string, number>; effectiveFrom: string; source: 'admin_panel' | 'initial_setup' }) =>

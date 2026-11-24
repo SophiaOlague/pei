@@ -91,7 +91,8 @@ describe('Payments F1 · migración 0017 registrada', () => {
     const journal = JSON.parse(read(join(MIGRATIONS, 'meta', '_journal.json'))) as { entries: { idx: number; tag: string; when: number }[] };
     expect(journal.entries[18]).toMatchObject({ idx: 18, tag: '0018_payments_stripe_provider' });
     expect(journal.entries[18].when).toBeGreaterThan(journal.entries[17].when);
-    expect(journal.entries).toHaveLength(19);
+    // 0019 (videoconsulta) va después: aquí solo importa que 0018 siga siendo la entrada 18.
+    expect(journal.entries.length).toBeGreaterThanOrEqual(19);
     type Snapshot = { id: string; prevId: string; enums: Record<string, { values: string[] }> } & Record<string, unknown>;
     const s17 = JSON.parse(read(join(MIGRATIONS, 'meta', '0017_snapshot.json'))) as Snapshot;
     const s18 = JSON.parse(read(join(MIGRATIONS, 'meta', '0018_snapshot.json'))) as Snapshot;

@@ -35,7 +35,7 @@ describe('CLI payments-retry-webhooks', () => {
 
   it('[H6-CLI-02] los CLI de pagos desactivan el worker antes de crear su contexto', () => {
     const { readFileSync } = require('fs') as typeof import('fs');
-    for (const file of ['payments-retry-webhooks.ts', 'payments-recover-refunds.ts', 'payments-reconcile-cancellations.ts', 'payments-reconcile-fees.ts']) {
+    for (const file of ['payments-retry-webhooks.ts', 'payments-recover-refunds.ts', 'payments-reconcile-cancellations.ts', 'payments-reconcile-fees.ts', 'payments-reconcile-no-shows.ts']) {
       const source = readFileSync(require('path').join(__dirname, file), 'utf8') as string;
       const disable = source.indexOf('disablePeriodicWebhookWorker();');
       const context = source.indexOf('NestFactory.createApplicationContext(PaymentsCliModule');

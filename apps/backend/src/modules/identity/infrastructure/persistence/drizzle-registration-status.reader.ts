@@ -4,12 +4,14 @@ import { getDbContext } from '../../../../db/transaction-context';
 import type { Role } from '../../../../common/domain/role';
 import type { RegistrationStatusReader } from '../../application/ports/registration-status-reader';
 import type { CurrentLegalDocument, RegistrationSnapshot } from '../../domain/registration-status';
+import type { LegalDocumentType } from '../../domain/legal-requirements';
 
 type SnapshotRow = {
   role: Role | null;
   has_patient_profile: boolean;
   legal: CurrentLegalDocument[] | null;
   identity: { status: 'pending' | 'approved' | 'rejected'; rejectionReason: string | null } | null;
+  ever_accepted_types: LegalDocumentType[] | null;
 };
 
 // DP-8: una sola consulta, sin caché. Las versiones legales vigentes se calculan con la hora de la BD.
@@ -46,7 +48,12 @@ export class DrizzleRegistrationStatusReader implements RegistrationStatusReader
            from patient_identity_verification v
           where v.patient_id = (select patient_profile_id from profile)
           order by v.attempt desc
-          limit 1) as identity
+          limit 1) as identity,
+        -- D-37: tipos aceptados alguna vez (cualquier versión), para distinguir la reaceptación del primer registro.
+        (select json_agg(distinct d.type)
+           from user_legal_acceptance a
+           join legal_document d on d.id = a.legal_document_id
+          where a.user_profile_id = (select user_profile_id from profile)) as ever_accepted_types
     `);
     const row = rows[0];
     return {
@@ -54,6 +61,7 @@ export class DrizzleRegistrationStatusReader implements RegistrationStatusReader
       hasPatientProfile: row?.has_patient_profile === true,
       currentLegalDocuments: row?.legal ?? [],
       latestIdentityVerification: row?.identity ?? null,
+      everAcceptedLegalTypes: row?.ever_accepted_types ?? [],
     };
   }
 }

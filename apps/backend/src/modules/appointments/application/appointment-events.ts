@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { AFTER_COMMIT, type AfterCommit } from '../../../common/application/ports/after-commit';
 import type { RefundOutcome } from '../domain/cancellation-rules';
+import type { OutcomeStatus } from '../domain/outcome-rules';
 
 // M08 RF-51 (A.3): eventos de dominio de la cita para módulos posteriores (notificaciones). Representan transiciones
 // ya confirmadas: se publican DESPUÉS del COMMIT de la transacción que las produce (AFTER_COMMIT) y se descartan si
@@ -49,7 +50,15 @@ export interface AppointmentExpired extends AppointmentEventBase {
   cause: 'timeout' | 'payment_failed' | 'released';
 }
 
-export type AppointmentDomainEvent = AppointmentConfirmed | AppointmentCanceled | AppointmentRescheduled | AppointmentExpired;
+// confirmed → completed o una inasistencia, registrado por videoconsulta (CC-9). refundOutcome lo decide M08
+// (outcome-rules.ts). Una sola emisión por cita: solo la transición efectiva, bajo el candado de la cita.
+export interface AppointmentOutcomeRecorded extends AppointmentEventBase {
+  type: 'AppointmentOutcomeRecorded';
+  status: OutcomeStatus;
+  refundOutcome: RefundOutcome;
+}
+
+export type AppointmentDomainEvent = AppointmentConfirmed | AppointmentCanceled | AppointmentRescheduled | AppointmentExpired | AppointmentOutcomeRecorded;
 export type AppointmentEventHandler = (event: AppointmentDomainEvent) => void | Promise<void>;
 
 // Publicación de eventos desde los casos de uso de M08.

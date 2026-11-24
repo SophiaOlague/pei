@@ -12,6 +12,7 @@ import { DoctorsModule } from './modules/doctors/doctors.module';
 import { AgendaModule } from './modules/agenda/agenda.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { VideoModule } from './modules/video/video.module';
 import { captureStripeRawBody } from './modules/payments/presentation/stripe-webhook.controller';
 
 
@@ -30,7 +31,9 @@ import { captureStripeRawBody } from './modules/payments/presentation/stripe-web
     AgendaModule,
     AppointmentsModule,
     // Payments: sin variables de Stripe arranca con UnconfiguredPaymentProvider (todo cobro falla de forma cerrada).
-    PaymentsModule],
+    PaymentsModule,
+    // Videoconsulta (RF-18 a RF-22): sin proveedor de video configurado, solo la credencial de la llamada falla cerrado.
+    VideoModule],
   controllers: [AppController],
   providers: [AppService],
 })

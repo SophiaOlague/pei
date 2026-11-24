@@ -36,6 +36,9 @@ export const AUTHORIZED_MIGRATIONS = Object.freeze([
   // Stripe como proveedor (solo amplía payment_provider_enum): autorizada para C2 el 2026-11-15, con una autorización
   // propia e independiente de la de desarrollo (Payments-decisiones.md §8.2). Protegida (R-1), igual que 0017.
   Object.freeze({ idx: 18, tag: '0018_payments_stripe_provider', sha256: 'f15b342a27a8367b94b1be5dc62a550096891e6e9b8d8e786ab2dda25029be56' }),
+  // Videoconsulta, primera entrega: autorizada SOLO para C2 el 2026-11-22 por la responsable del proyecto
+  // (Video-diseno.md §8). Protegida (R-1). No está autorizada para desarrollo.
+  Object.freeze({ idx: 19, tag: '0019_video_v1', sha256: '6ed7d1486c155e1548b18cc902c3d32cc2b0bcb5a0c442c18915354fbecad398' }),
 ]);
 
 export class C2MigrateError extends Error {

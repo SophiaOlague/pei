@@ -6,6 +6,7 @@ import { ACTOR_PROFILE_READER } from '../../auth/ports/actor-profile-reader';
 import { SESSION_PROVIDER } from '../../auth/ports/session-provider';
 import { AppointmentConfirmationService } from '../appointments/application/integration/appointment-integration.services';
 import { AppointmentsModule } from '../appointments/appointments.module';
+import { OutcomeRecordedFeedService } from '../appointments/application/integration/outcome-recorded-feed';
 import { AppointmentEventSubscribers } from '../appointments/application/appointment-events';
 import { CanceledAppointmentFeedService } from '../appointments/application/integration/canceled-appointment-feed';
 import { ReconcileCanceledAppointmentRefundsUseCase } from './application/use-cases/reconcile-canceled-appointment-refunds.use-case';
@@ -84,8 +85,10 @@ class FakeCommonModule {}
     AppointmentEventSubscribers,
     // A.25: consulta duradera de cancelaciones (doble).
     { provide: CanceledAppointmentFeedService, useValue: { listCanceled: jest.fn() } },
+    // Videoconsulta: consulta duradera de resultados (doble).
+    { provide: OutcomeRecordedFeedService, useValue: { listOutcomes: jest.fn() } },
   ],
-  exports: [AppointmentConfirmationService, AppointmentChainService, AppointmentEventSubscribers, CanceledAppointmentFeedService],
+  exports: [AppointmentConfirmationService, AppointmentChainService, AppointmentEventSubscribers, CanceledAppointmentFeedService, OutcomeRecordedFeedService],
 })
 class FakeAppointmentsModule {}
 

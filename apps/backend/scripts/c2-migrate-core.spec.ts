@@ -55,7 +55,7 @@ function deps(overrides: Partial<C2MigrateDeps> = {}, conn: { identity?: Runtime
 }
 
 describe('c2-migrate: ejecutor exclusivo de migraciones de C2', () => {
-  it('[TC-M08-320][M-1c][Payments F1] las migraciones autorizadas en C2 son 0015, 0016, 0017 y 0018, con el SHA-256 de su SQL del repositorio', () => {
+  it('[TC-M08-320][M-1c][Payments F1] las migraciones autorizadas en C2 son 0015 a 0019, con el SHA-256 de su SQL del repositorio', () => {
     // 0017_payments_f1: autorizada SOLO para C2 el 2026-11-15 (Payments-decisiones.md §7.4).
     expect(AUTHORIZED_MIGRATIONS).toEqual([
       { idx: 15, tag: '0015_m08_m1c_agenda_block_not_null', sha256: '7652c22e8ea4598ca290338ad030fec40170da46c985591bdc85874d7909ef8d' },
@@ -63,6 +63,8 @@ describe('c2-migrate: ejecutor exclusivo de migraciones de C2', () => {
       { idx: 17, tag: '0017_payments_f1', sha256: '5593858840293a7d46866dbd37ada7345c5616cda84db1c566a37b8f840944b1' },
       // 0018_payments_stripe_provider: autorizada para C2 el 2026-11-15 (Payments-decisiones.md §8.2).
       { idx: 18, tag: '0018_payments_stripe_provider', sha256: 'f15b342a27a8367b94b1be5dc62a550096891e6e9b8d8e786ab2dda25029be56' },
+      // 0019_video_v1: autorizada SOLO para C2 el 2026-11-22 (Video-diseno.md §8).
+      { idx: 19, tag: '0019_video_v1', sha256: '6ed7d1486c155e1548b18cc902c3d32cc2b0bcb5a0c442c18915354fbecad398' },
     ]);
     for (const m of AUTHORIZED_MIGRATIONS) expect(sha256(repoSql(m.tag))).toBe(m.sha256);
     // Los requisitos previos son 0013 y 0014 tal como se aplicaron en C2: sus archivos siguen con el mismo hash.
