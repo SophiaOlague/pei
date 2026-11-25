@@ -9,12 +9,12 @@ import { PatientSessionUseCases } from './application/use-cases/patient-session.
 import { SessionAccess } from './application/use-cases/session-access';
 import { PolicyDoctorOperationalCheck, RandomUuidGenerator } from './infrastructure/doctor-operational.adapter';
 import { DrizzleMeetingRepository } from './infrastructure/persistence/drizzle-meeting.repository';
-import { UnconfiguredVideoProvider } from './infrastructure/provider/unconfigured-video-provider';
+import { createVideoProvider } from './infrastructure/provider/video-provider.factory';
 import { DoctorSessionController, DoctorSessionsListController, PatientSessionController } from './presentation/video.controllers';
 
-// Videoconsulta (RF-18 a RF-22), primera entrega: sala de espera de PEI, presencia, admisión, finalización, duración
-// real e inasistencias. De M08 usa solo AppointmentSessionService (getForSession, markCompleted, markNoShow); de M03, solo
-// DoctorOperationalPolicy. El proveedor de video queda sin configurar (decisión 13): falla cerrado.
+// Videoconsulta (RF-18 a RF-22): sala de espera de PEI, presencia, admisión, finalización, duración real e
+// inasistencias. De M08 usa solo AppointmentSessionService (getForSession, markCompleted, markNoShow); de M03, solo
+// DoctorOperationalPolicy. Proveedor de video: RealtimeKit (infrastructure/provider) si está configurado; si no, falla cerrado.
 @Module({
   imports: [AppointmentsModule, DoctorsModule],
   controllers: [PatientSessionController, DoctorSessionController, DoctorSessionsListController],
@@ -25,7 +25,7 @@ import { DoctorSessionController, DoctorSessionsListController, PatientSessionCo
     DoctorSessionUseCases,
     EvaluateSessionsUseCase,
     { provide: MEETING_REPOSITORY, useClass: DrizzleMeetingRepository },
-    { provide: VIDEO_PROVIDER, useClass: UnconfiguredVideoProvider },
+    { provide: VIDEO_PROVIDER, useFactory: createVideoProvider },
     { provide: DOCTOR_OPERATIONAL_CHECK, useClass: PolicyDoctorOperationalCheck },
     { provide: VIDEO_ID_GENERATOR, useClass: RandomUuidGenerator },
   ],

@@ -36,8 +36,18 @@ describe('Arquitectura de videoconsulta', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('[RT-VID-03] videoconsulta no importa pagos ni el SDK de ningún proveedor de video', () => {
-    const offenders = video.filter((f) => f.imports.some((spec) => /(^|\/)payments\/|realtimekit|@cloudflare/.test(spec))).map((f) => f.path);
+  it('[RT-VID-03] videoconsulta no importa pagos ni el SDK de ningún proveedor de video (usa la API REST)', () => {
+    const offenders = video
+      .filter((f) => f.imports.some((spec) => /(^|\/)payments\//.test(spec) || (!spec.startsWith('.') && /realtimekit|@cloudflare/.test(spec))))
+      .map((f) => f.path);
+    expect(offenders).toEqual([]);
+  });
+
+  it('[RT-VID-03b] solo infrastructure/provider conoce RealtimeKit; la aplicación y el dominio usan el puerto VideoProvider', () => {
+    const offenders = video
+      .filter((f) => !f.path.startsWith('modules/video/infrastructure/provider/'))
+      .filter((f) => f.imports.some((spec) => /realtimekit/i.test(spec)) || /cloudflare/i.test(f.text))
+      .map((f) => f.path);
     expect(offenders).toEqual([]);
   });
 
