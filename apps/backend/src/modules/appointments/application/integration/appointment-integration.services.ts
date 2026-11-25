@@ -4,6 +4,7 @@ import { UNIT_OF_WORK, type UnitOfWork } from '../../../../common/application/po
 import { AUDIT_TRAIL, type AuditTrail } from '../../../audit/application/ports/audit-trail';
 import { AppointmentNotFoundError, CancellationPolicyNotConfiguredError, InvalidAppointmentStateError } from '../../domain/appointments.errors';
 import { assertTransition, NO_SHOW_STATUS, type AppointmentStatus, type NoShowKind } from '../../domain/appointment-status';
+import { outcomeRefund, type OutcomeStatus } from '../../domain/outcome-rules';
 import { isHoldActive } from '../../domain/hold';
 import { AppointmentAuditEvents } from '../appointments-audit-events';
 import { APPOINTMENT_EVENT_PUBLISHER, type AppointmentEventPublisher } from '../appointment-events';
@@ -102,6 +103,8 @@ export interface SessionView {
 }
 
 // CC-9 (AP-15): videoconsulta consulta la cita y registra el resultado final; M08 conserva el estado y su historial.
+// Al registrar un resultado publica AppointmentOutcomeRecorded después del COMMIT (pagos reembolsa las inasistencias del
+// médico y de ambos); la auditoría guarda el mismo refundOutcome para la consulta duradera (OutcomeRecordedFeedService).
 @Injectable()
 export class AppointmentSessionService {
   constructor(
@@ -109,6 +112,8 @@ export class AppointmentSessionService {
     @Inject(AUDIT_TRAIL) private readonly audit: AuditTrail,
     @Inject(APPOINTMENT_REPOSITORY) private readonly appointments: AppointmentRepository,
     @Inject(CANCELLATION_POLICY_REPOSITORY) private readonly policies: CancellationPolicyRepository,
+    @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(APPOINTMENT_EVENT_PUBLISHER) private readonly events: AppointmentEventPublisher,
   ) {}
 
   async getForSession(appointmentId: string): Promise<SessionView> {
@@ -128,11 +133,11 @@ export class AppointmentSessionService {
   }
 
   async markNoShow(appointmentId: string, kind: NoShowKind): Promise<void> {
-    await this.recordOutcome(appointmentId, NO_SHOW_STATUS[kind]);
+    await this.recordOutcome(appointmentId, NO_SHOW_STATUS[kind] as OutcomeStatus);
   }
 
   // Idempotente ante el mismo resultado; 409 ante uno distinto o desde un estado que no es confirmed.
-  private async recordOutcome(appointmentId: string, status: AppointmentStatus): Promise<void> {
+  private async recordOutcome(appointmentId: string, status: OutcomeStatus): Promise<void> {
     await this.uow.runInTransaction(async () => {
       const existing = await this.appointments.findById(appointmentId);
       if (!existing) throw new AppointmentNotFoundError();
@@ -142,8 +147,13 @@ export class AppointmentSessionService {
       if (a.status === status) return;
       if (a.status !== 'confirmed') throw new InvalidAppointmentStateError(a.status);
       assertTransition(a.status, status);
+      const refundOutcome = outcomeRefund(status);
       await this.appointments.changeStatus(a.id, { status, actorType: 'system', actorUserProfileId: null, reason: null });
-      await this.audit.record(AppointmentAuditEvents.outcomeRecorded(systemActor(SYSTEM_PROCESS.videoconsultation), a.id, status));
+      await this.audit.record(AppointmentAuditEvents.outcomeRecorded(systemActor(SYSTEM_PROCESS.videoconsultation), a.id, status, refundOutcome));
+      this.events.publish({
+        type: 'AppointmentOutcomeRecorded', appointmentId: a.id, patientProfileId: a.patientId, doctorProfileId: a.doctorId,
+        occurredAt: this.clock.now().toISOString(), status, refundOutcome,
+      });
     });
   }
 }

@@ -35,9 +35,10 @@ describe('Arquitectura de M08 (citas)', () => {
   });
 
   it('[RT-M08-02] ningún módulo de M00 a M07 importa M08 (sin dependencias circulares)', () => {
-    // Módulos posteriores a M08 que consumen sus contratos de integración (A.4): pagos (F3.1). Cualquier otro módulo de
-    // modules/ (M00 a M07 y los que se agreguen) sigue sin poder importar M08; la dirección inversa la impide RT-M08-03.
-    const LATER_CONSUMERS = ['modules/payments/'];
+    // Módulos posteriores a M08 que consumen sus contratos de integración (A.4): pagos (F3.1) y videoconsulta (CC-9; qué
+    // puede usar de M08 lo limita test/video-architecture.spec.ts). Cualquier otro módulo de modules/ (M00 a M07 y los
+    // que se agreguen) sigue sin poder importar M08; la dirección inversa la impide RT-M08-03.
+    const LATER_CONSUMERS = ['modules/payments/', 'modules/video/'];
     const offenders = files
       .filter((f) => f.path.startsWith('modules/') && !f.path.startsWith('modules/appointments/'))
       .filter((f) => !LATER_CONSUMERS.some((prefix) => f.path.startsWith(prefix)))

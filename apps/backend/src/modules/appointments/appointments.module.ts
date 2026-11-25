@@ -6,6 +6,8 @@ import { AppointmentConfirmationService, AppointmentSessionService } from './app
 import { AppointmentChainService } from './application/integration/appointment-chain.services';
 import { CANCELED_APPOINTMENT_AUDIT_READER, CanceledAppointmentFeedService } from './application/integration/canceled-appointment-feed';
 import { DrizzleCanceledAppointmentAuditReader } from './infrastructure/persistence/drizzle-canceled-appointment-audit.reader';
+import { OUTCOME_RECORDED_AUDIT_READER, OutcomeRecordedFeedService } from './application/integration/outcome-recorded-feed';
+import { DrizzleOutcomeRecordedAuditReader } from './infrastructure/persistence/drizzle-outcome-recorded-audit.reader';
 import { AfterCommitAppointmentEventPublisher, APPOINTMENT_EVENT_PUBLISHER, AppointmentEventSubscribers } from './application/appointment-events';
 import {
   DoctorAppointmentsQuery, DoctorOccupancyService, GetDoctorSlotsForPatientUseCase, HoldSlotUseCase, ListBookableDoctorsUseCase, PatientAppointmentsQuery,
@@ -52,6 +54,9 @@ import {
     // A.25: consulta duradera de cancelaciones para pagos (solo lectura, sin ruta HTTP).
     CanceledAppointmentFeedService,
     { provide: CANCELED_APPOINTMENT_AUDIT_READER, useClass: DrizzleCanceledAppointmentAuditReader },
+    // Videoconsulta (decisión 10): consulta duradera de resultados para pagos (solo lectura, sin ruta HTTP).
+    OutcomeRecordedFeedService,
+    { provide: OUTCOME_RECORDED_AUDIT_READER, useClass: DrizzleOutcomeRecordedAuditReader },
     AppointmentEventSubscribers,
     { provide: APPOINTMENT_EVENT_PUBLISHER, useClass: AfterCommitAppointmentEventPublisher },
     { provide: APPOINTMENT_REPOSITORY, useClass: DrizzleAppointmentRepository },
@@ -63,7 +68,7 @@ import {
     { provide: BOOKING_LEGAL_ACCEPTANCES, useClass: ReaderBookingLegalAcceptances },
   ],
   exports: [
-    AppointmentConfirmationService, AppointmentSessionService, AppointmentChainService, CanceledAppointmentFeedService, AppointmentEventSubscribers, ConsultationPriceService,
+    AppointmentConfirmationService, AppointmentSessionService, AppointmentChainService, CanceledAppointmentFeedService, OutcomeRecordedFeedService, AppointmentEventSubscribers, ConsultationPriceService,
     CancellationPolicyService,
   ],
 })

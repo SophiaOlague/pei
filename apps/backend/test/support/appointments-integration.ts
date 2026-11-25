@@ -60,7 +60,7 @@ export function appointmentsUseCases(clock: FixedClock) {
     // DA-6: los mismos adaptadores reales; la reserva queda activada con ENABLED, como en hold.
     reschedule: new RescheduleByPatientUseCase(uow, audit, repo, policies, eligibility, ENABLED, slots, clock, events),
     confirmation: new AppointmentConfirmationService(uow, audit, repo, clock, events),
-    session: new AppointmentSessionService(uow, audit, repo, policies),
+    session: new AppointmentSessionService(uow, audit, repo, policies, clock, events),
     listDoctors: new ListBookableDoctorsUseCase(new DrizzleBookableDoctorsReader(), eligibility, slots, clock),
     doctorSlots: new GetDoctorSlotsForPatientUseCase(slots, eligibility),
   };

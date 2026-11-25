@@ -134,6 +134,13 @@
       "when": 1794789319985,
       "tag": "0018_payments_stripe_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795392322460,
+      "tag": "0019_video_v1",
+      "breakpoints": true
     }
   ]
 }

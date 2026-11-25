@@ -81,7 +81,8 @@ export const meetingStatusEnum = pgEnum('meeting_status_enum', ['scheduled', 'ac
 
 export const meetingParticipantEnum = pgEnum('meeting_participant_enum', ['patient', 'doctor']);
 
-export const meetingSessionEventTypeEnum = pgEnum('meeting_session_event_type_enum', ['joined', 'left']);
+// left_voluntarily (0019): la acción «Salir de la sala» (RN-026, C-26); `left` es la desconexión involuntaria.
+export const meetingSessionEventTypeEnum = pgEnum('meeting_session_event_type_enum', ['joined', 'left', 'left_voluntarily']);
 
 // ============================================================
 // Recetas e inventario
@@ -187,6 +188,9 @@ export const refundReasonEnum = pgEnum('refund_reason_enum', [
   'pickup_expired',
   'payment_error',
   'other',
+  // 0019: reembolso total por inasistencia del médico o de ambos (RN-025, RN-030).
+  'no_show_doctor',
+  'no_show_both',
 ]);
 
 export const payoutFrequencyEnum = pgEnum('payout_frequency_enum', ['weekly', 'biweekly', 'monthly']);

@@ -27,7 +27,11 @@ import {
   ProfileSection,
   StatusSection,
 } from "./doctor-sections";
-import { PROFESSIONAL_ACCESS_PATH, PROFESSIONAL_AGENDA_PATH } from "./paths";
+import {
+  PROFESSIONAL_ACCESS_PATH,
+  PROFESSIONAL_AGENDA_PATH,
+  PROFESSIONAL_CONSULTATIONS_PATH,
+} from "./paths";
 import { PROFESSIONAL_PANEL } from "./professional-access";
 
 type View =
@@ -203,6 +207,12 @@ function DoctorDashboard({ onSignOut }: { onSignOut: () => void }) {
               className="text-[#684DDE] text-[15px] hover:underline self-start"
             >
               Gestionar mi agenda
+            </a>
+            <a
+              href={PROFESSIONAL_CONSULTATIONS_PATH}
+              className="text-[#684DDE] text-[15px] hover:underline self-start"
+            >
+              Mis consultas
             </a>
             <DoctorLegalSection
               pending={status.missing.includes("legal")}

@@ -81,21 +81,28 @@ export const appointmentStatusHistory = pgTable(
 );
 
 // patient_joined_at y doctor_joined_at determinan la inasistencia.
+// 0019 (videoconsulta): la sala de espera es de PEI, así que la fila nace al entrar el primer participante, antes de que
+// exista la sala del proveedor (room_id admite nulos y conserva la unicidad). last_seen_at: último latido de presencia.
+// provider_participant_id: participante del proveedor, para revocar su acceso al finalizar.
 export const meeting = pgTable('meeting', {
   id: uuid('id').primaryKey().defaultRandom(),
   appointmentId: uuid('appointment_id').notNull().unique().references(() => appointment.id),
-  roomId: varchar('room_id').notNull().unique(),
+  roomId: varchar('room_id').unique(),
   status: meetingStatusEnum('status').notNull().default('scheduled'),
   startedAt: timestamp('started_at', { withTimezone: true }),
   endedAt: timestamp('ended_at', { withTimezone: true }),
   patientJoinedAt: timestamp('patient_joined_at', { withTimezone: true }),
   doctorJoinedAt: timestamp('doctor_joined_at', { withTimezone: true }),
   recordingUrl: text('recording_url'),
+  patientLastSeenAt: timestamp('patient_last_seen_at', { withTimezone: true }),
+  doctorLastSeenAt: timestamp('doctor_last_seen_at', { withTimezone: true }),
+  patientProviderParticipantId: varchar('patient_provider_participant_id'),
+  doctorProviderParticipantId: varchar('doctor_provider_participant_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// [PROPUESTO] Estructura pendiente de aprobación del líder técnico.
-// Eventos de conexión y desconexión; se conservan para auditoría.
+// Eventos de conexión y desconexión; se conservan para auditoría (RN-031). Aprobada en el diseño de videoconsulta
+// (decisión 8); 0019 la hace de solo inserción.
 export const meetingSessionEvent = pgTable(
   'meeting_session_event',
   {

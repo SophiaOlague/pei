@@ -12,6 +12,7 @@ import { CompleteRegistration } from "@/components/registration/complete-registr
 import {
   ApiError,
   getRegistrationStatus,
+  isReacceptancePending,
   pendingRegistrationStep,
   type RegistrationStatus,
 } from "@/lib/api";
@@ -24,10 +25,13 @@ type GateState =
 
 // Con sesión, nada de la app se muestra hasta que el backend confirma que el perfil y los legales están
 // completos (GET /me/registration-status). Es solo interfaz: la autorización real la hace el backend.
+// Excepción (D-37, RN-140): si el backend indica una reaceptación pendiente (registro ya completado y una versión
+// legal nueva sin aceptar), la app se muestra con un aviso para revisarla. Agendar lo sigue rechazando el backend.
 // El estado vive en este componente, que se desmonta al cerrar sesión: no pasa de una cuenta a otra.
 export function RegistrationGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<GateState>({ kind: "loading" });
   const [reloadKey, setReloadKey] = useState(0);
+  const [reviewing, setReviewing] = useState(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey es el disparador de la recarga
   useEffect(() => {
@@ -66,9 +70,12 @@ export function RegistrationGate({ children }: { children: ReactNode }) {
   }, [reloadKey]);
 
   const reload = useCallback(() => {
+    setReviewing(false);
     setState({ kind: "loading" });
     setReloadKey((key) => key + 1);
   }, []);
+  const review = useCallback(() => setReviewing(true), []);
+  const notNow = useCallback(() => setReviewing(false), []);
 
   if (state.kind === "loading") {
     return (
@@ -94,6 +101,39 @@ export function RegistrationGate({ children }: { children: ReactNode }) {
   }
 
   const step = pendingRegistrationStep(state.status);
+  if (step === "legal" && isReacceptancePending(state.status)) {
+    if (reviewing) {
+      return (
+        <View style={styles.flex}>
+          <CompleteRegistration
+            onChanged={reload}
+            status={state.status}
+            step="legal"
+          />
+          <SafeAreaView edges={["bottom"]} style={styles.notNowBar}>
+            <Pressable accessibilityRole="button" onPress={notNow}>
+              <Text style={styles.notNowText}>Ahora no</Text>
+            </Pressable>
+          </SafeAreaView>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.flex}>
+        <SafeAreaView edges={["top"]} style={styles.banner}>
+          <Text style={styles.bannerText}>
+            Hay una nueva versión de los documentos legales. Puedes seguir
+            usando la app y entrar a tus citas confirmadas; para agendar nuevas
+            citas necesitas aceptarla.
+          </Text>
+          <Pressable accessibilityRole="button" onPress={review}>
+            <Text style={styles.bannerAction}>Revisar y aceptar</Text>
+          </Pressable>
+        </SafeAreaView>
+        <View style={styles.flex}>{children}</View>
+      </View>
+    );
+  }
   if (step) {
     return (
       <CompleteRegistration
@@ -156,6 +196,21 @@ function SignOutButton() {
 }
 
 const styles = StyleSheet.create({
+  banner: {
+    backgroundColor: "#FEF3C7",
+    gap: 6,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+  },
+  bannerAction: { color: "#7355F7", fontSize: 14, fontWeight: "600" },
+  bannerText: { color: "#78350F", fontSize: 13, lineHeight: 18 },
+  flex: { flex: 1 },
+  notNowBar: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 12,
+  },
+  notNowText: { color: "#616161", fontSize: 15, fontWeight: "500" },
   button: {
     alignItems: "center",
     backgroundColor: "#7355F7",

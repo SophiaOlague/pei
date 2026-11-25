@@ -1,141 +1,458 @@
-import React, { useState } from "react";
+import { RTCView } from "@cloudflare/react-native-webrtc";
+import { router, useLocalSearchParams } from "expo-router";
+import { SymbolView } from "expo-symbols";
+import { useCallback, useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { SymbolView } from "expo-symbols";
-import { router, useLocalSearchParams } from "expo-router";
 
-export default function CitaEmergenciaScreen() {
-  const params = useLocalSearchParams<{
-    doctorName?: string;
-    doctorSpecialty?: string;
-    fecha?: string;
-    hora?: string;
-    motivo?: string;
-  }>();
+import { RealtimeKitCall } from "@/components/video/realtimekit-call";
+import { WaitingRoomStatus } from "@/components/video/waiting-room-status";
+import { useLocalMediaPreview } from "@/hooks/use-local-media-preview";
+import { useVideoSession } from "@/hooks/use-video-session";
+import {
+  ApiError,
+  getPatientAppointment,
+  type PatientAppointment,
+} from "@/lib/api";
+import {
+  formatAppointmentDate,
+  formatAppointmentTime,
+  waitingRoomAccess,
+} from "@/lib/next-appointment";
 
-  const [micOn, setMicOn] = useState(true);
-  const [cameraOn, setCameraOn] = useState(true);
+// Videoconsulta de una cita real (GET /me/patient/appointments/:id): vista previa local, sala de espera del backend
+// (entrada, latidos, salida voluntaria, reconexión, casos pendientes) y credencial de la llamada tras la admisión.
+// La llamada solo se abre con una credencial real del proveedor. Si el backend no puede emitirla (hoy responde 422: el
+// proveedor de video no está configurado), se muestra el mensaje tal cual y no se simula ninguna llamada.
 
-  const doctorName = params.doctorName || "Carlos Zuñiga";
-  const doctorSpecialty = params.doctorSpecialty || "Médico General";
-  const fecha = params.fecha || "3 de agosto de 2026";
-  const hora = params.hora || "3:30 PM";
-  const motivo = params.motivo || "Motivo 1";
+type Load =
+  | { kind: "loading" }
+  | { kind: "error"; message: string }
+  | { kind: "ready"; appointment: PatientAppointment };
 
-  const handleUnirse = () => {
-    //console.log("Unirse a la videollamada");
-    router.push("/call");
-  };
+// Por qué la cita no admite todavía la preparación; null si la admite.
+function unavailableReason(
+  appointment: PatientAppointment,
+  now: Date
+): string | null {
+  if (appointment.status !== "confirmed") {
+    return "Esta cita no está disponible para videoconsulta.";
+  }
+  const access = waitingRoomAccess(appointment.scheduledAt, now);
+  if (!access) {
+    return "No se pudo leer la fecha de tu cita.";
+  }
+  if (!access.open) {
+    return `Podrás entrar a la sala desde las ${formatAppointmentTime(access.opensAt)} h.`;
+  }
+  return null;
+}
 
-  const handleCancelar = () => {
-    router.back();
-  };
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+}
+
+function MediaPreview() {
+  const { cameraOn, micOn, retry, state, toggleCamera, toggleMic } =
+    useLocalMediaPreview(true);
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom", "left", "right"]}>
-      <StatusBar barStyle="dark-content"/>
+    <>
+      <View style={styles.preview}>
+        {state.kind === "starting" ? (
+          <ActivityIndicator accessibilityLabel="Abriendo la cámara" />
+        ) : null}
+        {state.kind === "error" ? (
+          <>
+            <Text accessibilityRole="alert" style={styles.previewText}>
+              No se pudo acceder a la cámara o al micrófono. Revisa los permisos
+              de la aplicación.
+            </Text>
+            <Pressable accessibilityRole="button" onPress={retry}>
+              <Text style={styles.previewRetry}>Reintentar</Text>
+            </Pressable>
+          </>
+        ) : null}
+        {state.kind === "ready" && cameraOn ? (
+          <RTCView
+            mirror
+            objectFit="cover"
+            streamURL={state.streamURL}
+            style={styles.previewVideo}
+          />
+        ) : null}
+        {state.kind === "ready" && !cameraOn ? (
+          <Text style={styles.previewText}>Cámara apagada</Text>
+        ) : null}
+      </View>
+
+      <View style={styles.controlsRow}>
+        <Pressable
+          accessibilityLabel={micOn ? "Apagar micrófono" : "Encender micrófono"}
+          accessibilityRole="button"
+          disabled={state.kind !== "ready"}
+          onPress={toggleMic}
+          style={[styles.controlButton, !micOn && styles.controlButtonOff]}
+        >
+          <SymbolView
+            name={{
+              android: micOn ? "mic" : "mic_off",
+              ios: micOn ? "mic.fill" : "mic.slash.fill",
+            }}
+            resizeMode="scaleAspectFit"
+            size={22}
+            tintColor="#616161"
+          />
+        </Pressable>
+
+        <Pressable
+          accessibilityLabel={cameraOn ? "Apagar cámara" : "Encender cámara"}
+          accessibilityRole="button"
+          disabled={state.kind !== "ready"}
+          onPress={toggleCamera}
+          style={[styles.controlButton, !cameraOn && styles.controlButtonOff]}
+        >
+          <SymbolView
+            name={{
+              android: cameraOn ? "videocam" : "videocam_off",
+              ios: cameraOn ? "video.fill" : "video.slash.fill",
+            }}
+            resizeMode="scaleAspectFit"
+            size={22}
+            tintColor="#616161"
+          />
+        </Pressable>
+      </View>
+    </>
+  );
+}
+
+// Estado de la credencial de la llamada tras la admisión. El error del backend se muestra tal cual (no se oculta el 422).
+function CallTokenNotice({
+  token,
+  callLeft,
+  onRetry,
+  onRejoin,
+}: {
+  token: ReturnType<typeof useVideoSession>["token"];
+  callLeft: boolean;
+  onRetry: () => void;
+  onRejoin: () => void;
+}) {
+  if (callLeft) {
+    return (
+      <View style={styles.callNotice}>
+        <Text style={styles.notice}>
+          Saliste de la videollamada. La consulta sigue en curso.
+        </Text>
+        <Pressable accessibilityRole="button" onPress={onRejoin}>
+          <Text style={styles.previewRetry}>Volver a la videollamada</Text>
+        </Pressable>
+      </View>
+    );
+  }
+  if (token.kind === "unavailable") {
+    return (
+      <View style={styles.callNotice}>
+        <Text accessibilityRole="alert" style={styles.notice}>
+          El médico te admitió, pero la videollamada no se pudo iniciar:{" "}
+          {token.message}
+        </Text>
+        <Pressable accessibilityRole="button" onPress={onRetry}>
+          <Text style={styles.previewRetry}>Reintentar</Text>
+        </Pressable>
+      </View>
+    );
+  }
+  if (token.kind === "ready" && token.token.provider !== "realtimekit") {
+    return (
+      <Text accessibilityRole="alert" style={styles.notice}>
+        Esta versión de la app no admite el proveedor de video «
+        {token.token.provider}».
+      </Text>
+    );
+  }
+  return (
+    <View style={styles.callNotice}>
+      <Text style={styles.notice}>
+        El médico te admitió. Preparando la videollamada…
+      </Text>
+      <ActivityIndicator accessibilityLabel="Preparando la videollamada" />
+    </View>
+  );
+}
+
+function useAppointment(appointmentId: string | undefined): Load {
+  const [load, setLoad] = useState<Load>({ kind: "loading" });
+  useEffect(() => {
+    if (!appointmentId) {
+      setLoad({ kind: "error", message: "No se indicó la cita." });
+      return;
+    }
+    let cancelled = false;
+    getPatientAppointment(appointmentId)
+      .then((appointment) => {
+        if (!cancelled) {
+          setLoad({ appointment, kind: "ready" });
+        }
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setLoad({
+            kind: "error",
+            message:
+              e instanceof ApiError ? e.message : "No se pudo cargar la cita.",
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [appointmentId]);
+  return load;
+}
+
+type Room = ReturnType<typeof useVideoSession>["room"];
+
+function roomFlags(room: Room) {
+  const session =
+    room.kind === "inside" || room.kind === "left" ? room.session : null;
+  const live =
+    room.kind === "inside" &&
+    (room.session.phase === "waiting" || room.session.phase === "active");
+  const active = room.kind === "inside" && room.session.phase === "active";
+  return { active, inRoom: live, session };
+}
+
+function RoomButton({
+  room,
+  inRoom,
+  canEnter,
+  onEnter,
+  onLeave,
+}: {
+  room: Room;
+  inRoom: boolean;
+  canEnter: boolean;
+  onEnter: () => void;
+  onLeave: () => void;
+}) {
+  if (inRoom) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        onPress={onLeave}
+        style={styles.cancelButton}
+      >
+        <Text style={styles.cancelButtonText}>Salir de la sala</Text>
+      </Pressable>
+    );
+  }
+  const label =
+    room.kind === "left" ? "Volver a la sala" : "Entrar a la sala de espera";
+  return (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !canEnter }}
+      disabled={!canEnter}
+      onPress={onEnter}
+      style={[styles.joinButton, !canEnter && styles.joinButtonDisabled]}
+    >
+      {room.kind === "entering" ? (
+        <ActivityIndicator color="#FFFFFF" />
+      ) : (
+        <Text style={styles.joinButtonText}>{label}</Text>
+      )}
+    </Pressable>
+  );
+}
+
+const previewAllowed = (session: ReturnType<typeof roomFlags>["session"]) =>
+  !session || session.phase === "waiting";
+
+const realtimeKitToken = (
+  token: ReturnType<typeof useVideoSession>["token"]
+) =>
+  token.kind === "ready" && token.token.provider === "realtimekit"
+    ? token.token.authToken
+    : null;
+
+function AppointmentInfo({
+  appointment,
+  doctorName,
+}: {
+  appointment: PatientAppointment;
+  doctorName?: string;
+}) {
+  const scheduledAt = new Date(appointment.scheduledAt);
+  return (
+    <>
+      <Text style={styles.sectionTitle}>Información de la cita</Text>
+      {doctorName ? <InfoRow label="Médico:" value={doctorName} /> : null}
+      {Number.isNaN(scheduledAt.getTime()) ? null : (
+        <>
+          <InfoRow label="Fecha:" value={formatAppointmentDate(scheduledAt)} />
+          <InfoRow
+            label="Hora:"
+            value={`${formatAppointmentTime(scheduledAt)} h`}
+          />
+        </>
+      )}
+      <InfoRow label="Motivo:" value={appointment.reason} />
+    </>
+  );
+}
+
+// Consulta terminada según el backend (finalizada por el médico o cerrada con un resultado): no se vuelve a entrar.
+const isFinished = (session: ReturnType<typeof roomFlags>["session"]) =>
+  session?.phase === "ended" || session?.phase === "closed";
+
+const canEnterRoom = (room: Room) =>
+  (room.kind === "outside" || room.kind === "error" || room.kind === "left") &&
+  !isFinished(roomFlags(room).session);
+
+export default function JoinCallScreen() {
+  const { appointmentId, doctorName } = useLocalSearchParams<{
+    appointmentId?: string;
+    doctorName?: string;
+  }>();
+  const load = useAppointment(appointmentId);
+  const video = useVideoSession(appointmentId);
+  const [callLeft, setCallLeft] = useState(false);
+
+  const goBack = useCallback(() => {
+    router.back();
+  }, []);
+
+  const unavailable =
+    load.kind === "ready"
+      ? unavailableReason(load.appointment, new Date())
+      : null;
+
+  const { room, token, enter, leave, refresh, requestToken } = video;
+  const { session, inRoom, active } = roomFlags(room);
+  const finished = isFinished(session);
+  const canEnter = load.kind === "ready" && !unavailable && canEnterRoom(room);
+  const showPreview =
+    load.kind === "ready" && !unavailable && !active && previewAllowed(session);
+
+  const confirmLeave = useCallback(() => {
+    Alert.alert(
+      "Salir de la sala",
+      "Tu cita no se cancela. Podrás volver a entrar.",
+      [
+        { style: "cancel", text: "Seguir en la sala" },
+        { onPress: () => leave(), style: "destructive", text: "Salir" },
+      ]
+    );
+  }, [leave]);
+
+  // La llamada se cortó (salida, expulsión del médico, red): se consulta la sala para saber si la consulta terminó.
+  const onCallLeft = useCallback(() => {
+    setCallLeft(true);
+    refresh();
+  }, [refresh]);
+  const rejoinCall = useCallback(() => {
+    setCallLeft(false);
+    requestToken();
+  }, [requestToken]);
+
+  // La llamada solo se monta con una credencial real de un proveedor que esta versión conoce.
+  const callToken = active && !callLeft ? realtimeKitToken(token) : null;
+  if (callToken) {
+    return <RealtimeKitCall authToken={callToken} onLeft={onCallLeft} />;
+  }
+
+  return (
+    <SafeAreaView edges={["bottom", "left", "right"]} style={styles.container}>
+      <StatusBar barStyle="dark-content" />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {load.kind === "loading" ? (
+          <ActivityIndicator accessibilityLabel="Cargando la cita" />
+        ) : null}
+        {load.kind === "error" ? (
+          <Text accessibilityRole="alert" style={styles.notice}>
+            {load.message}
+          </Text>
+        ) : null}
+        {load.kind === "ready" && unavailable ? (
+          <Text accessibilityRole="alert" style={styles.notice}>
+            {unavailable}
+          </Text>
+        ) : null}
+        {session ? (
+          <WaitingRoomStatus
+            connectionLost={
+              room.kind === "inside" && room.connection === "lost"
+            }
+            session={session}
+          />
+        ) : null}
+        {room.kind === "left" && !finished ? (
+          <Text style={styles.notice}>
+            Saliste de la sala. Tu cita sigue confirmada; puedes volver a
+            entrar.
+          </Text>
+        ) : null}
+        {room.kind === "error" ? (
+          <Text accessibilityRole="alert" style={styles.notice}>
+            {room.message}
+          </Text>
+        ) : null}
+        {active ? (
+          <CallTokenNotice
+            callLeft={callLeft}
+            onRejoin={rejoinCall}
+            onRetry={requestToken}
+            token={token}
+          />
+        ) : null}
+        {showPreview ? <MediaPreview /> : null}
 
-        <View style={styles.cameraPlaceholder} />
-
-        <View style={styles.controlsRow}>
-          <Pressable
-            onPress={() => setMicOn(!micOn)}
-            style={({ pressed }) => [
-              styles.controlButton,
-              !micOn && styles.controlButtonOff,
-              { transform: [{ scale: pressed ? 0.95 : 1 }] },
-            ]}
-          >
-            <SymbolView
-              name={{
-                android: micOn ? "mic" : "mic_off",
-                ios: micOn ? "mic.fill" : "mic.slash.fill",
-              }}
-              size={22}
-              tintColor="#616161"
-              resizeMode="scaleAspectFit"
-            />
-          </Pressable>
-
-          <Pressable
-            onPress={() => setCameraOn(!cameraOn)}
-            style={({ pressed }) => [
-              styles.controlButton,
-              !cameraOn && styles.controlButtonOff,
-              { transform: [{ scale: pressed ? 0.95 : 1 }] },
-            ]}
-          >
-            <SymbolView
-              name={{
-                android: cameraOn ? "videocam" : "videocam_off",
-                ios: cameraOn ? "video.fill" : "video.slash.fill",
-              }}
-              size={22}
-              tintColor="#616161"
-              resizeMode="scaleAspectFit"
-            />
-          </Pressable>
-        </View>
-
-        <Text style={styles.sectionTitle}>Información de la reunión</Text>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Doctor:</Text>
-          <Text style={styles.infoValue}>{doctorName}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Especialidad:</Text>
-          <Text style={styles.infoValue}>{doctorSpecialty}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Fecha:</Text>
-          <Text style={styles.infoValue}>{fecha}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Hora:</Text>
-          <Text style={styles.infoValue}>{hora}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Motivo:</Text>
-          <Text style={styles.infoValue}>{motivo}</Text>
-        </View>
+        {load.kind === "ready" ? (
+          <AppointmentInfo
+            appointment={load.appointment}
+            doctorName={doctorName}
+          />
+        ) : null}
       </ScrollView>
 
       <View style={styles.bottomContainer}>
-        <Pressable
-          onPress={handleUnirse}
-          style={({ pressed }) => [
-            styles.joinButton,
-            { transform: [{ scale: pressed ? 0.97 : 1 }] },
-          ]}
-        >
-          <Text style={styles.joinButtonText}>Unirse a videollamada</Text>
-        </Pressable>
+        {finished ? null : (
+          <RoomButton
+            canEnter={canEnter}
+            inRoom={inRoom}
+            onEnter={enter}
+            onLeave={confirmLeave}
+            room={room}
+          />
+        )}
 
         <Pressable
-          onPress={handleCancelar}
-          style={({ pressed }) => [
-            styles.cancelButton,
-            { transform: [{ scale: pressed ? 0.97 : 1 }] },
-          ]}
+          accessibilityRole="button"
+          onPress={goBack}
+          style={styles.cancelButton}
         >
-          <Text style={styles.cancelButtonText}>Cancelar</Text>
+          <Text style={styles.cancelButtonText}>Volver</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -143,97 +460,121 @@ export default function CitaEmergenciaScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
+  bottomContainer: {
+    gap: 10,
     paddingBottom: 20,
+    paddingHorizontal: 24,
+    paddingTop: 12,
   },
-
-
-  cameraPlaceholder: {
-    width: "100%",
-    height: 200,
-    borderRadius: 20,
-    backgroundColor: "#E9E4FF",
+  callNotice: {
+    gap: 8,
     marginBottom: 20,
   },
-
-  controlsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 16,
-    marginBottom: 32,
+  cancelButton: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: "#9A9A9A",
+    borderRadius: 50,
+    borderWidth: 1,
+    paddingVertical: 16,
+  },
+  cancelButtonText: {
+    color: "#616161",
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  container: {
+    backgroundColor: "#FFFFFF",
+    flex: 1,
   },
   controlButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#F3F4F6",
-    justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 26,
+    height: 52,
+    justifyContent: "center",
+    width: 52,
   },
   controlButtonOff: {
     backgroundColor: "#FEE2E2",
   },
-
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
-    marginBottom: 16,
-  },
-
-  infoRow: {
+  controlsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 10,
+    gap: 16,
+    justifyContent: "center",
+    marginBottom: 32,
   },
   infoLabel: {
-    fontSize: 14,
     color: "#616161",
     flex: 1,
+    fontSize: 14,
+  },
+  infoRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
   },
   infoValue: {
-    fontSize: 14,
     color: "#000000",
-    fontWeight: "600",
     flex: 1.5,
+    fontSize: 14,
+    fontWeight: "600",
     textAlign: "right",
   },
-
-  bottomContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 20,
-    gap: 10,
-  },
   joinButton: {
-    backgroundColor: "#7355F7",
-    paddingVertical: 16,
-    borderRadius: 50,
     alignItems: "center",
+    backgroundColor: "#7355F7",
+    borderRadius: 50,
+    paddingVertical: 16,
+  },
+  joinButtonDisabled: {
+    opacity: 0.4,
   },
   joinButtonText: {
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "500",
   },
-  cancelButton: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 16,
-    borderRadius: 50,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#9A9A9A",
+  notice: {
+    color: "#111827",
+    fontSize: 14,
+    marginBottom: 20,
   },
-  cancelButtonText: {
-    color: "#616161",
+  preview: {
+    alignItems: "center",
+    backgroundColor: "#E9E4FF",
+    borderRadius: 20,
+    height: 200,
+    justifyContent: "center",
+    marginBottom: 20,
+    overflow: "hidden",
+    padding: 16,
+    width: "100%",
+  },
+  previewRetry: {
+    color: "#7355F7",
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 8,
+  },
+  previewText: {
+    color: "#111827",
+    fontSize: 14,
+    textAlign: "center",
+  },
+  previewVideo: {
+    ...StyleSheet.absoluteFill,
+  },
+  scrollContent: {
+    paddingBottom: 20,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
+  sectionTitle: {
+    color: "#111827",
     fontSize: 15,
-    fontWeight: "500",
+    fontWeight: "600",
+    marginBottom: 16,
   },
 });

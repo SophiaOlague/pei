@@ -105,6 +105,20 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="detallecita"
+            options={{
+              contentStyle: {
+                backgroundColor: "#ffffff",
+              },
+              headerShadowVisible: false,
+              headerStyle: {
+                backgroundColor: "#ffffff",
+              },
+              headerTintColor: "#000000",
+              title: "DETALLE DE LA CITA",
+            }}
+          />
+          <Stack.Screen
             name="resultadoslab"
             options={{
               contentStyle: {
@@ -122,24 +136,24 @@ export default function RootLayout() {
             name="logout"
             options={{
               contentStyle: { backgroundColor: "#FFFFFF" },
-              presentation: "formSheet",
               headerShown: false,
-              sheetGrabberVisible: true,
+              presentation: "formSheet",
               sheetAllowedDetents: [0.4, 0.4],
-              sheetInitialDetentIndex: 0,
               sheetCornerRadius: 28,
+              sheetGrabberVisible: true,
+              sheetInitialDetentIndex: 0,
             }}
           />
           <Stack.Screen
             name="deleteaccount"
             options={{
               contentStyle: { backgroundColor: "#FFFFFF" },
-              presentation: "formSheet",
               headerShown: false,
-              sheetGrabberVisible: true,
+              presentation: "formSheet",
               sheetAllowedDetents: [0.7, 0.7],
-              sheetInitialDetentIndex: 0,
               sheetCornerRadius: 28,
+              sheetGrabberVisible: true,
+              sheetInitialDetentIndex: 0,
             }}
           />
           <Stack.Screen
@@ -235,7 +249,7 @@ export default function RootLayout() {
                 backgroundColor: "#FFFFFF",
               },
               headerTintColor: "#000000",
-              title: "VIDEOLLAMADA",
+              title: "VIDEOCONSULTA",
             }}
           />
           <Stack.Screen
@@ -250,18 +264,6 @@ export default function RootLayout() {
               },
               headerTintColor: "#000000",
               title: "CALIFICA TU EXPERIENCIA",
-            }}
-          />
-          <Stack.Screen
-            name="detailscall"
-            options={{
-              contentStyle: { backgroundColor: "#FFFFFF" },
-              headerShown: false,
-              presentation: "formSheet",
-              sheetAllowedDetents: [0.6, 0.6],
-              sheetCornerRadius: 28,
-              sheetGrabberVisible: true,
-              sheetInitialDetentIndex: 0,
             }}
           />
           <Stack.Screen
@@ -318,12 +320,6 @@ export default function RootLayout() {
               },
               headerTintColor: "#000000",
               title: "MI CARRITO",
-            }}
-          />
-          <Stack.Screen
-            name="call"
-            options={{
-              headerShown: false,
             }}
           />
         </Stack>

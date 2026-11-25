@@ -52,6 +52,9 @@ export const DEV_AUTHORIZED_MIGRATIONS = Object.freeze([
   // el SQL con este SHA-256 (Payments-decisiones.md §8.3). Protegida (R-1): exige la huella de desarrollo. La
   // autorización de C2 (§8.2) es independiente y vive solo en c2-migrate-core.ts.
   Object.freeze({ idx: 18, tag: '0018_payments_stripe_provider', sha256: 'f15b342a27a8367b94b1be5dc62a550096891e6e9b8d8e786ab2dda25029be56' }),
+  // 0019_video_v1 (videoconsulta): autorización expresa del 2026-11-22 para esta rama de desarrollo y SOLO para el SQL
+  // con este SHA-256 (Video-diseno.md §8), para la Etapa 3 móvil. Protegida (R-1). La de C2 es independiente.
+  Object.freeze({ idx: 19, tag: '0019_video_v1', sha256: '6ed7d1486c155e1548b18cc902c3d32cc2b0bcb5a0c442c18915354fbecad398' }),
 ]);
 
 export class DevMigrateError extends Error {

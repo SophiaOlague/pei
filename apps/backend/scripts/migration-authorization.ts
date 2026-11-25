@@ -1,4 +1,5 @@
-// Autorización de migraciones protegidas (R-1). Hoy: 0017_payments_f1 y 0018_payments_stripe_provider; cada una exige
+// Autorización de migraciones protegidas (R-1). Hoy: 0017_payments_f1, 0018_payments_stripe_provider y 0019_video_v1
+// (videoconsulta, escrita y sin autorizar en ningún ejecutor); cada una exige
 // en su propia sesión current_setting('pei.migration_authorized', true) = su número (precondición de su SQL).
 //
 // La variable SOLO la establece un ejecutor controlado (c2-migrate, dev-migrate o el spec de integración de F1), y SOLO
@@ -26,6 +27,7 @@ export const AUTHORIZATION_SETTING = 'pei.migration_authorized';
 export const PROTECTED_MIGRATIONS: Readonly<Record<string, string>> = Object.freeze({
   '0017_payments_f1': '0017',
   '0018_payments_stripe_provider': '0018',
+  '0019_video_v1': '0019',
 });
 
 export const SQL_READ_AUTHORIZATION = `SELECT current_setting('${AUTHORIZATION_SETTING}', true) AS v`;

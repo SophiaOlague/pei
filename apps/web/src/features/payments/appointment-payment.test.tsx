@@ -6,6 +6,7 @@ import { mockFetch } from "@/test/http";
 import {
   AppointmentPayment,
   idempotencyStorageKey,
+  lastPaymentStorageKey,
   paymentMessage,
 } from "./appointment-payment";
 import {
@@ -230,7 +231,7 @@ describe("Checkout web · envío a PEI", () => {
     });
     await renderPayment();
     await pay();
-    await screen.findByText("Pago aprobado: tu consulta está confirmada");
+    await screen.findByRole("heading", { name: "¡Pago exitoso!" });
     expect(calls.find((c) => c.key === PAY)?.body).toEqual({
       token: PAYMENT_METHOD,
     });
@@ -265,7 +266,7 @@ describe("Checkout web · envío a PEI", () => {
     await waitFor(() => expect(stripe.cards).toHaveLength(2));
     await fillCard();
     await pay();
-    await screen.findByText("Pago aprobado: tu consulta está confirmada");
+    await screen.findByRole("heading", { name: "¡Pago exitoso!" });
     expect(keys).toHaveLength(2);
     expect(keys[0]).toBe(keys[1]);
     expect(sessionStorage.getItem(idempotencyStorageKey(APPOINTMENT_ID))).toBe(
@@ -304,7 +305,7 @@ describe("Checkout web · envío a PEI", () => {
     await fillCard();
     await pay();
     expect(
-      await screen.findByText("Pago aprobado: tu consulta está confirmada"),
+      await screen.findByRole("heading", { name: "¡Pago exitoso!" }),
     ).toBeInTheDocument();
     expect(keys[0]).not.toBe(keys[1]);
   });
@@ -320,7 +321,7 @@ describe("Checkout web · autenticación 3-D Secure", () => {
     await renderPayment();
     await pay();
     expect(
-      await screen.findByText("Pago aprobado: tu consulta está confirmada"),
+      await screen.findByRole("heading", { name: "¡Pago exitoso!" }),
     ).toBeInTheDocument();
     expect(stripe.handleNextAction).toHaveBeenCalledWith({
       clientSecret: CLIENT_SECRET,
@@ -394,7 +395,7 @@ describe("Checkout web · autenticación 3-D Secure", () => {
       screen.getByRole("button", { name: "Consultar estado del pago" }),
     );
     expect(
-      await screen.findByText("Pago aprobado: tu consulta está confirmada"),
+      await screen.findByRole("heading", { name: "¡Pago exitoso!" }),
     ).toBeInTheDocument();
   });
 });
@@ -408,7 +409,7 @@ describe("Checkout web · estados para el paciente", () => {
     await renderPayment();
     await pay();
     expect(
-      await screen.findByText("Pago aprobado: tu consulta está confirmada"),
+      await screen.findByRole("heading", { name: "¡Pago exitoso!" }),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("stripe-card-element")).toBeNull();
   });
@@ -448,7 +449,7 @@ describe("Checkout web · estados para el paciente", () => {
       screen.getByRole("button", { name: "Consultar estado del pago" }),
     );
     expect(
-      await screen.findByText("Pago aprobado: tu consulta está confirmada"),
+      await screen.findByRole("heading", { name: "¡Pago exitoso!" }),
     ).toBeInTheDocument();
     expect(calls.filter((c) => c.key === SYNC)).toHaveLength(2);
     expect(calls.filter((c) => c.key === PAY)).toHaveLength(1);
@@ -474,7 +475,7 @@ describe("Checkout web · estados para el paciente", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/NO está confirmada/)).toBeInTheDocument();
     expect(
-      screen.queryByText("Pago aprobado: tu consulta está confirmada"),
+      screen.queryByRole("heading", { name: "¡Pago exitoso!" }),
     ).toBeNull();
   });
 
@@ -546,7 +547,7 @@ describe("Checkout web · sin datos sensibles", () => {
     });
     await renderPayment();
     await pay();
-    await screen.findByText("Pago aprobado: tu consulta está confirmada");
+    await screen.findByRole("heading", { name: "¡Pago exitoso!" });
     const storage =
       Object.keys(sessionStorage)
         .map((k) => `${k}=${sessionStorage.getItem(k)}`)
@@ -584,5 +585,167 @@ describe("Checkout web · SDK de Stripe", () => {
     await expect(a).resolves.toBe(window.Stripe);
     await expect(b).resolves.toBe(window.Stripe);
     spy.mockRestore();
+  });
+});
+
+describe("Checkout web · finalización del pago y de la cita", () => {
+  const DOCTOR_ID = "33333333-3333-4333-8333-333333333333";
+  const BOOKABLE = "GET /doctors/bookable";
+  const WITH_DOCTOR = { ...APPOINTMENT, doctorProfileId: DOCTOR_ID };
+  const DOCTORS = {
+    timeZone: "America/Mexico_City",
+    doctors: [
+      {
+        doctorProfileId: DOCTOR_ID,
+        displayName: "Dra. Ana Real",
+        specialty: { id: "s", name: "Medicina general" },
+      },
+    ],
+  };
+  const processing = payment({
+    status: "processing",
+    appointmentConfirmed: false,
+    confirmation: { result: "not_requested" },
+  });
+  const heading = () =>
+    screen.findByRole("heading", { name: "¡Pago exitoso!" });
+
+  it("[TC-WEB-PAY-001] aprobado y confirmado: confirmación con fecha, hora, médico y botones a «Mis citas» e inicio", async () => {
+    mockFetch({
+      [GET]: { status: 200, body: WITH_DOCTOR },
+      [BOOKABLE]: { status: 200, body: DOCTORS },
+      [PAY]: { status: 200, body: payment({}) },
+    });
+    await renderPayment();
+    await pay();
+    expect(await heading()).toBeInTheDocument();
+    expect(screen.getByText("Tu cita quedó confirmada")).toBeInTheDocument();
+    expect(screen.getByText(/20 de noviembre de 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/10:00/)).toBeInTheDocument();
+    expect(await screen.findByText("Dra. Ana Real")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver mis citas" })).toHaveAttribute(
+      "href",
+      `/mis-citas?cita=${APPOINTMENT_ID}`,
+    );
+    expect(
+      screen.getByRole("link", { name: "Volver al inicio" }),
+    ).toHaveAttribute("href", "/landing-inicio");
+    expect(screen.queryByTestId("stripe-card-element")).toBeNull();
+  });
+
+  it("[TC-WEB-PAY-002] pendiente: espera amigable y consulta el backend hasta la confirmación definitiva", async () => {
+    const { calls } = mockFetch({
+      [GET]: { status: 200, body: APPOINTMENT },
+      [PAY]: { status: 200, body: processing },
+      [SYNC]: [
+        { status: 200, body: processing },
+        { status: 200, body: payment({}) },
+      ],
+    });
+    render(<AppointmentPayment appointmentId={APPOINTMENT_ID} pollMs={20} />);
+    await fillCard();
+    await pay();
+    expect(
+      await screen.findByText("Tu pago se está procesando"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/consultando el estado automáticamente/),
+    ).toBeInTheDocument();
+    expect(await heading()).toBeInTheDocument();
+    expect(calls.filter((c) => c.key === SYNC).length).toBeGreaterThanOrEqual(
+      2,
+    );
+    expect(calls.filter((c) => c.key === PAY)).toHaveLength(1);
+  });
+
+  it("[TC-WEB-PAY-003] rechazado: mensaje claro y el formulario para volver a intentar", async () => {
+    mockFetch({
+      [GET]: { status: 200, body: APPOINTMENT },
+      [PAY]: {
+        status: 200,
+        body: payment({
+          status: "failed",
+          appointmentConfirmed: false,
+          confirmation: { result: "not_requested" },
+        }),
+      },
+    });
+    await renderPayment();
+    await pay();
+    expect(
+      await screen.findByText("Tu pago fue rechazado"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "¡Pago exitoso!" }),
+    ).toBeNull();
+    await fillCard();
+    expect(screen.getByRole("button", { name: "Pagar" })).toBeEnabled();
+  });
+
+  it("[TC-WEB-PAY-004] aprobado pero la cita aún no se refleja: sin confirmación falsa, con actualización", async () => {
+    const notYet = payment({
+      appointmentConfirmed: false,
+      confirmation: { result: "confirmation_failed" },
+    });
+    mockFetch({
+      [GET]: { status: 200, body: APPOINTMENT },
+      [PAY]: { status: 200, body: notYet },
+      [SYNC]: { status: 200, body: notYet },
+    });
+    render(<AppointmentPayment appointmentId={APPOINTMENT_ID} pollMs={20} />);
+    await fillCard();
+    await pay();
+    expect(
+      await screen.findByText(
+        "Recibimos tu pago; estamos confirmando tu consulta",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Consultar estado del pago" }),
+    ).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 120));
+    expect(
+      screen.queryByRole("heading", { name: "¡Pago exitoso!" }),
+    ).toBeNull();
+  });
+
+  it("[TC-WEB-PAY-005] recargar con la cita ya confirmada muestra la confirmación sin volver a cobrar", async () => {
+    const { calls } = mockFetch({
+      [GET]: {
+        status: 200,
+        body: { ...APPOINTMENT, status: "confirmed", holdExpiresAt: null },
+      },
+    });
+    render(<AppointmentPayment appointmentId={APPOINTMENT_ID} />);
+    expect(await heading()).toBeInTheDocument();
+    expect(calls.some((c) => c.key === PAY)).toBe(false);
+    expect(stripe.cards).toEqual([]);
+  });
+
+  it("[TC-WEB-PAY-006] recargar con un pago en curso retoma su estado con el backend (sync) y no crea otro cobro", async () => {
+    sessionStorage.setItem(lastPaymentStorageKey(APPOINTMENT_ID), PAYMENT_ID);
+    const { calls } = mockFetch({
+      [GET]: { status: 200, body: APPOINTMENT },
+      [SYNC]: { status: 200, body: payment({}) },
+    });
+    render(<AppointmentPayment appointmentId={APPOINTMENT_ID} />);
+    expect(await heading()).toBeInTheDocument();
+    expect(calls.filter((c) => c.key === SYNC)).toHaveLength(1);
+    expect(calls.some((c) => c.key === PAY)).toBe(false);
+  });
+
+  it("[TC-WEB-PAY-007] el id del pago se guarda sin datos de la tarjeta para poder retomarlo", async () => {
+    mockFetch({
+      [GET]: { status: 200, body: APPOINTMENT },
+      [PAY]: { status: 200, body: processing },
+      [SYNC]: { status: 200, body: processing },
+    });
+    await renderPayment();
+    await pay();
+    await screen.findByText("Tu pago se está procesando");
+    expect(sessionStorage.getItem(lastPaymentStorageKey(APPOINTMENT_ID))).toBe(
+      PAYMENT_ID,
+    );
+    expect(JSON.stringify({ ...sessionStorage })).not.toContain(PAYMENT_METHOD);
   });
 });

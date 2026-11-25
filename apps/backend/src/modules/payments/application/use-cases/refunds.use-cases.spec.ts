@@ -13,6 +13,9 @@ import { PaymentNotRefundableError, RefundApprovalError, RefundExceedsAvailableE
 import { AppointmentCanceledRefundHandler, noticeFromCanceledEvent } from './appointment-canceled-refund.handler';
 import { auditedHoursBefore, CanceledAppointmentFeedService, type CanceledAppointmentAuditRow } from '../../../appointments/application/integration/canceled-appointment-feed';
 import { CancellationFeedStalledError, ReconcileCanceledAppointmentRefundsUseCase } from './reconcile-canceled-appointment-refunds.use-case';
+import { AppointmentNoShowRefundHandler, noticeFromOutcomeEvent, noticeFromOutcomeFeed } from './appointment-no-show-refund.handler';
+import { ReconcileNoShowRefundsUseCase } from './reconcile-no-show-refunds.use-case';
+import type { OutcomeRecordedNotice } from '../../../appointments/application/integration/outcome-recorded-feed';
 import { confirmCapturedPayment } from './payment-appointment-identity';
 import {
   REFUND_CREATE_SCOPE,
@@ -926,5 +929,80 @@ describe('A.25 · barrido duradero de cancelaciones', () => {
     const m08 = new M08Sim();
     [1, 2, 3].forEach((n) => m08.cancel(addPayment(w, n).appointmentId));
     expect(await sweep(w, m08).reconcile.execute({ pageSize: 1, maxPages: 2 })).toMatchObject({ complete: false, pages: 2 });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Videoconsulta (decisión 10): reembolso por inasistencia, con los mismos dobles. El flujo de cancelaciones no cambia.
+
+type OutcomeStatusT = OutcomeRecordedNotice['status'];
+const REFUND_BY_STATUS: Record<OutcomeStatusT, 'full_refund' | 'no_refund'> = { completed: 'no_refund', no_show_patient: 'no_refund', no_show_doctor: 'full_refund', no_show_both: 'full_refund' };
+const outcomeEvent = (status: OutcomeStatusT = 'no_show_doctor', appointmentId = 'apt-1') => noticeFromOutcomeEvent({
+  type: 'AppointmentOutcomeRecorded', appointmentId, patientProfileId: 'pat-1', doctorProfileId: 'doc-1', occurredAt: T0.toISOString(), status, refundOutcome: REFUND_BY_STATUS[status],
+});
+const outcomeNotice = (status: OutcomeStatusT = 'no_show_doctor', appointmentId = 'apt-1'): OutcomeRecordedNotice => ({
+  version: 1, eventId: `appointment-outcome:${appointmentId}`, appointmentId, rootAppointmentId: 'apt-1', status, refundOutcome: REFUND_BY_STATUS[status], occurredAt: T0.toISOString(),
+});
+function noShowHandlerFor(w: World) {
+  return new AppointmentNoShowRefundHandler({
+    ledger: { paymentForAppointment: async () => ({ paymentId: PAYMENT_ID, rootAppointmentId: 'apt-1' }) }, rootPayments: { paymentForRootAppointment: capturedLookup(w) },
+    payments: w.paymentsRepo, refunds: w.useCases, warn: (m) => w.warnings.push(m),
+  });
+}
+const feedOf = (notices: OutcomeRecordedNotice[]) => ({ listOutcomes: async () => ({ items: notices, anomalies: [], next: null }) });
+
+describe('Videoconsulta · reembolso por inasistencia (RN-025, RN-030)', () => {
+  it.each(['no_show_doctor', 'no_show_both'] as const)('[TC-VID-170] %s: reembolso total del pago de la raíz, solicitado por el sistema', async (status) => {
+    const w = new World();
+    const r = await noShowHandlerFor(w).handle(outcomeEvent(status));
+    expect(r).toMatchObject({ outcome: 'requested', action: 'submitted', refund: { status: 'succeeded', amount: '650.00', reason: status } });
+    expect(w.list()[0]).toMatchObject({ requestedByType: 'system', requestedByUserProfileId: null });
+  });
+
+  it.each(['completed', 'no_show_patient'] as const)('[TC-VID-171] %s: sin reembolso', async (status) => {
+    const w = new World();
+    expect(await noShowHandlerFor(w).handle(outcomeEvent(status))).toEqual({ outcome: 'no_refund' });
+    expect(w.list()).toEqual([]);
+  });
+
+  it('[TC-VID-172] el evento y el barrido simultáneos producen UN solo reembolso (misma clave y mismo hash)', async () => {
+    const w = new World();
+    const handler = noShowHandlerFor(w);
+    const sweep = new ReconcileNoShowRefundsUseCase({ feed: feedOf([outcomeNotice()]), handler });
+    const [event, summary] = await Promise.all([handler.handle(outcomeEvent()), sweep.execute()]);
+    expect(w.list()).toHaveLength(1);
+    expect(w.succeededCents()).toBe(65_000);
+    expect(w.createCalls).toHaveLength(1);
+    expect([event.outcome, Object.keys(summary.byOutcome)[0]].sort()).toEqual(['existing', 'requested']);
+    // Repetir el barrido no hace nada más.
+    expect((await sweep.execute()).byOutcome).toEqual({ already_covered: 1 });
+    expect(w.list()).toHaveLength(1);
+  });
+
+  it('[TC-VID-173] un pago ya reembolsado por cancelación no se reembolsa otra vez por inasistencia', async () => {
+    const w = new World();
+    await handlerFor(w).handle(canceled({ canceledBy: 'doctor' }));
+    expect(await noShowHandlerFor(w).handle(outcomeEvent('no_show_doctor'))).toEqual({ outcome: 'already_covered' });
+    expect(w.list()).toHaveLength(1);
+    expect(w.succeededCents()).toBe(65_000);
+  });
+
+  it('[TC-VID-174] con un parcial previo, el saldo queda pendiente de aprobación (PAY-17), igual que en cancelaciones', async () => {
+    const w = new World();
+    await w.useCases.requestRefund(partial(10_000, 'admin-req-0090'));
+    expect(await noShowHandlerFor(w).handle(outcomeEvent('no_show_both'))).toMatchObject({ outcome: 'requested', action: 'awaiting_approval', refund: { amount: '550.00', reason: 'no_show_both' } });
+  });
+
+  it('[TC-VID-175] el barrido cuenta no_refund sin llamar al manejador y no se detiene por un error', async () => {
+    const w = new World();
+    const handled: string[] = [];
+    const sweep = new ReconcileNoShowRefundsUseCase({
+      feed: feedOf([outcomeNotice('completed', 'apt-a'), outcomeNotice('no_show_doctor', 'apt-b'), outcomeNotice('no_show_both', 'apt-c')]),
+      handler: { handle: async (n) => (handled.push(n.appointmentId), n.appointmentId === 'apt-b' ? Promise.reject(new TypeError('x')) : noShowHandlerFor(w).handle(n)) },
+    });
+    const s = await sweep.execute();
+    expect(handled).toEqual(['apt-b', 'apt-c']);
+    expect(s).toMatchObject({ examined: 3, complete: true, byOutcome: { no_refund: 1, error: 1, requested: 1 } });
+    expect(noticeFromOutcomeFeed(outcomeNotice()).source).toBe('feed');
   });
 });

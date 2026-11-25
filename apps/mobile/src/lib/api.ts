@@ -46,7 +46,13 @@ export type IdentityVerificationStatus =
 
 export type RegistrationStatus = {
   profileCompleted: boolean;
-  legal: { accepted: boolean; pending: PendingLegalDocument[] };
+  // reacceptanceRequired (D-37, RN-140): ya completó su registro y solo falta aceptar una versión nueva. Lo decide el
+  // backend con las aceptaciones guardadas; un backend que no lo envíe se trata como primer registro (bloquea).
+  legal: {
+    accepted: boolean;
+    pending: PendingLegalDocument[];
+    reacceptanceRequired?: boolean;
+  };
   identity: {
     status: IdentityVerificationStatus;
     rejectionReason: string | null;
@@ -284,6 +290,15 @@ export function legalFullName(
   return name || null;
 }
 
+// Reaceptación pendiente (D-37, RN-140): no bloquea la app; el backend sigue impidiendo agendar.
+export function isReacceptancePending(status: RegistrationStatus): boolean {
+  return (
+    status.profileCompleted &&
+    !status.legal.accepted &&
+    status.legal.reacceptanceRequired === true
+  );
+}
+
 // Pasos que se exigen antes de mostrar la app. La verificación de identidad (INE) no bloquea: el backend la
 // exige en las operaciones que la requieren (canBookAppointments). Mismo criterio que apps/web.
 export function pendingRegistrationStep(
@@ -370,11 +385,22 @@ export function identityRequirementOf(
 
 export type PatientAppointment = {
   id: string;
+  doctorProfileId: string;
   status: string;
   scheduledAt: string;
+  reason: string;
   price: string;
   holdExpiresAt: string | null;
 };
+
+// Citas del paciente (M08): GET /me/patient/appointments → { appointments }. Incluye todos los estados; quien la usa
+// decide cuáles mostrar.
+export async function listPatientAppointments(): Promise<PatientAppointment[]> {
+  const view = await request<{ appointments: PatientAppointment[] }>(
+    "/me/patient/appointments"
+  );
+  return view.appointments;
+}
 
 export type PaymentStatus =
   | "pending"
@@ -498,4 +524,84 @@ export async function getBookableDoctors(): Promise<BookableDoctor[]> {
     "/doctors/bookable"
   );
   return view.doctors;
+}
+
+// Videoconsulta (backend modules/video). La hora es la del servidor; el cliente no envía cuerpo ni horas.
+//   GET  /me/patient/appointments/:id/session            estado (también evalúa inasistencias)
+//   POST /me/patient/appointments/:id/session/enter      entrar a la sala desde T0 − 15 (también reconecta)
+//   POST /me/patient/appointments/:id/session/presence   latido cada 15 s; nunca reabre una presencia cerrada
+//   POST /me/patient/appointments/:id/session/leave      salida voluntaria (no cancela la cita)
+//   POST /me/patient/appointments/:id/session/token      credencial del proveedor, solo con la consulta activa
+export const VIDEO_HEARTBEAT_MS = 15_000;
+
+export type VideoSessionPhase =
+  | "not_open"
+  | "waiting"
+  | "active"
+  | "ended"
+  | "closed";
+
+export type VideoPendingResolution =
+  | "r5_beyond_total_limit"
+  | "late_patient_left_before_doctor"
+  | "late_patient_not_admitted"
+  | "no_rule";
+
+export type VideoSessionState = {
+  appointmentId: string;
+  appointmentStatus: string;
+  phase: VideoSessionPhase;
+  serverTime: string;
+  scheduledAt: string;
+  opensAt: string;
+  patient: { present: boolean; joinedAt: string | null };
+  doctor: {
+    present: boolean;
+    joinedAt: string | null;
+    busyWithAnotherConsultation: boolean;
+  };
+  deadlines: {
+    patientToleranceEndsAt: string;
+    doctorDeadlineAt: string;
+    reconnectGraceEndsAt: string | null;
+  };
+  startedAt: string | null;
+  endedAt: string | null;
+  durationSeconds: number | null;
+  pendingResolution: VideoPendingResolution | null;
+};
+
+export type VideoCallToken = { provider: string; authToken: string };
+
+const sessionPath = (appointmentId: string, action?: string) =>
+  `/me/patient/appointments/${encodeURIComponent(appointmentId)}/session${action ? `/${action}` : ""}`;
+
+export function getVideoSession(
+  appointmentId: string
+): Promise<VideoSessionState> {
+  return request(sessionPath(appointmentId));
+}
+
+export function enterVideoSession(
+  appointmentId: string
+): Promise<VideoSessionState> {
+  return request(sessionPath(appointmentId, "enter"), { method: "POST" });
+}
+
+export function sendVideoPresence(
+  appointmentId: string
+): Promise<VideoSessionState> {
+  return request(sessionPath(appointmentId, "presence"), { method: "POST" });
+}
+
+export function leaveVideoSession(
+  appointmentId: string
+): Promise<VideoSessionState> {
+  return request(sessionPath(appointmentId, "leave"), { method: "POST" });
+}
+
+export function getVideoCallToken(
+  appointmentId: string
+): Promise<VideoCallToken> {
+  return request(sessionPath(appointmentId, "token"), { method: "POST" });
 }

@@ -71,6 +71,10 @@ import { RefundsUseCases } from './application/use-cases/refunds.use-cases';
 import { AppointmentCanceledRefundHandler } from './application/use-cases/appointment-canceled-refund.handler';
 import { DrizzleRefundRepository } from './infrastructure/persistence/drizzle-refunds.repository';
 import { AppointmentCanceledRefundListener } from './infrastructure/appointment-canceled-refund.listener';
+import { AppointmentNoShowRefundHandler } from './application/use-cases/appointment-no-show-refund.handler';
+import { ReconcileNoShowRefundsUseCase } from './application/use-cases/reconcile-no-show-refunds.use-case';
+import { AppointmentNoShowRefundListener } from './infrastructure/appointment-no-show-refund.listener';
+import { OutcomeRecordedFeedService } from '../appointments/application/integration/outcome-recorded-feed';
 import { AppointmentEventSubscribers } from '../appointments/application/appointment-events';
 import type { PaymentLedgerPort } from '../appointments/application/integration/appointment-chain.services';
 import { CanceledAppointmentFeedService } from '../appointments/application/integration/canceled-appointment-feed';
@@ -292,6 +296,26 @@ export function webhookAuthenticatorFactory(settings: StripeWebhookSettings | nu
       provide: AppointmentCanceledRefundListener,
       inject: [AppointmentEventSubscribers, AppointmentCanceledRefundHandler],
       useFactory: (subscribers: AppointmentEventSubscribers, handler: AppointmentCanceledRefundHandler) => new AppointmentCanceledRefundListener(subscribers, handler),
+    },
+    // Videoconsulta: reembolso total por no_show_doctor y no_show_both (evento en memoria + barrido duradero). No cambia
+    // el flujo de cancelaciones de arriba.
+    {
+      provide: AppointmentNoShowRefundHandler,
+      inject: [PAYMENT_LEDGER, ROOT_PAYMENT_LOOKUP, PAYMENT_REPOSITORY, RefundsUseCases],
+      useFactory: (ledger: PaymentLedgerPort, rootPayments: RootPaymentLookup, payments: PaymentRepository, refunds: RefundsUseCases) => {
+        const logger = new Logger('PaymentsRefunds');
+        return new AppointmentNoShowRefundHandler({ ledger, rootPayments, payments, refunds, warn: (m) => logger.warn(m) });
+      },
+    },
+    {
+      provide: ReconcileNoShowRefundsUseCase,
+      inject: [OutcomeRecordedFeedService, AppointmentNoShowRefundHandler],
+      useFactory: (feed: OutcomeRecordedFeedService, handler: AppointmentNoShowRefundHandler) => new ReconcileNoShowRefundsUseCase({ feed, handler }),
+    },
+    {
+      provide: AppointmentNoShowRefundListener,
+      inject: [AppointmentEventSubscribers, AppointmentNoShowRefundHandler],
+      useFactory: (subscribers: AppointmentEventSubscribers, handler: AppointmentNoShowRefundHandler) => new AppointmentNoShowRefundListener(subscribers, handler),
     },
     { provide: ROOT_PAYMENT_LOOKUP, useClass: DrizzleRootPaymentLookup },
     { provide: PATIENT_PROFILE_READER, useClass: DrizzlePatientProfileReader },

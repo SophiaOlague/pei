@@ -1,5 +1,5 @@
 import type { Role } from '../../../common/domain/role';
-import { evaluateLegalAcceptance, type CurrentLegalDocument, type PendingLegalDocument } from './legal-requirements';
+import { evaluateLegalAcceptance, LEGAL_REGIMES_BY_AUDIENCE, type CurrentLegalDocument, type LegalDocumentType, type PendingLegalDocument } from './legal-requirements';
 
 export type { CurrentLegalDocument, PendingLegalDocument } from './legal-requirements';
 
@@ -22,11 +22,17 @@ export interface RegistrationSnapshot {
   hasPatientProfile: boolean;
   currentLegalDocuments: CurrentLegalDocument[];
   latestIdentityVerification: { status: Exclude<IdentityStatus, 'not_submitted'>; rejectionReason: string | null } | null;
+  // Tipos de documento legal que el usuario aceptó alguna vez, en cualquier versión (user_legal_acceptance). Sin el
+  // dato, se toma como vacío: falla cerrado (se trata como primer registro).
+  everAcceptedLegalTypes?: readonly LegalDocumentType[];
 }
 
 export interface RegistrationStatus {
   profileCompleted: boolean;
-  legal: { accepted: boolean; pending: PendingLegalDocument[] };
+  // reacceptanceRequired (D-37, RN-140): el paciente ya completó su registro inicial (perfil y, alguna vez, todos los
+  // documentos de un régimen del paciente) y solo le falta aceptar una versión nueva. No impide el acceso a la cuenta;
+  // sigue impidiendo agendar (accepted y canBookAppointments no cambian).
+  legal: { accepted: boolean; pending: PendingLegalDocument[]; reacceptanceRequired: boolean };
   identity: { status: IdentityStatus; rejectionReason: string | null };
   registrationComplete: boolean;
   canBookAppointments: boolean;
@@ -52,9 +58,15 @@ export function computeRegistrationStatus(snapshot: RegistrationSnapshot): Regis
 
   const registrationComplete = profileCompleted && legalAccepted && identityStatus === 'approved';
 
+  // Registro inicial completado: aceptó alguna vez TODOS los tipos de algún régimen del paciente (el vigente o el de
+  // legado). Reutiliza los regímenes de legal-requirements.ts; no crea requisitos.
+  const everAccepted = new Set(snapshot.everAcceptedLegalTypes ?? []);
+  const initialAcceptanceCompleted = LEGAL_REGIMES_BY_AUDIENCE.patient.some((regime) => regime.every((type) => everAccepted.has(type)));
+  const reacceptanceRequired = profileCompleted && !legalAccepted && pending.length > 0 && initialAcceptanceCompleted;
+
   return {
     profileCompleted,
-    legal: { accepted: legalAccepted, pending },
+    legal: { accepted: legalAccepted, pending, reacceptanceRequired },
     identity: { status: identityStatus, rejectionReason },
     registrationComplete,
     canBookAppointments: registrationComplete && snapshot.role === 'patient',

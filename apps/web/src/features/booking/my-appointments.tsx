@@ -46,6 +46,12 @@ export function MyAppointments() {
   const router = useRouter();
   const [tab, setTab] = useState<"proximas" | "pasadas">("proximas");
   const [state, setState] = useState<State>({ kind: "loading" });
+  // Cita recién pagada (?cita=<id>, desde la confirmación del pago): se resalta en la lista. Se lee en el cliente.
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("cita");
+    if (id) setHighlightId(id);
+  }, []);
 
   const load = useCallback(async () => {
     setState({ kind: "loading" });
@@ -155,10 +161,12 @@ export function MyAppointments() {
               const { date, time } = formatAppointmentDate(a.scheduledAt);
               const name = state.names.get(a.doctorProfileId);
               const payable = holdActive(a, now);
+              const isNew = a.id === highlightId;
               return (
                 <li
                   key={a.id}
-                  className="bg-[#E3DDFD] rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center gap-5"
+                  aria-current={isNew ? "true" : undefined}
+                  className={`bg-[#E3DDFD] rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center gap-5 ${isNew ? "ring-2 ring-[#7355F7]" : ""}`}
                 >
                   <UserCircle
                     className="w-[72px] h-[72px] text-[#AB99FA] flex-shrink-0"
@@ -166,6 +174,11 @@ export function MyAppointments() {
                     aria-hidden="true"
                   />
                   <div className="flex-1 min-w-0">
+                    {isNew && (
+                      <span className="inline-block mb-1 px-3 py-0.5 rounded-full bg-[#7355F7] text-white text-[13px]">
+                        Recién agendada
+                      </span>
+                    )}
                     <h2 className="text-[#7355F7] text-[20px] sm:text-[24px] font-medium">
                       {name ?? "Consulta médica"}
                     </h2>

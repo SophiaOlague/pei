@@ -50,7 +50,13 @@ export type IdentityVerificationStatus =
 
 export interface RegistrationStatus {
   profileCompleted: boolean;
-  legal: { accepted: boolean; pending: PendingLegalDocument[] };
+  // reacceptanceRequired (D-37, RN-140): ya completó su registro y solo falta aceptar una versión nueva. Lo decide el
+  // backend con las aceptaciones guardadas; sin el campo se trata como registro inicial (bloquea).
+  legal: {
+    accepted: boolean;
+    pending: PendingLegalDocument[];
+    reacceptanceRequired?: boolean;
+  };
   identity: {
     status: IdentityVerificationStatus;
     rejectionReason: string | null;
@@ -165,6 +171,15 @@ export function acceptLegalDocuments(documentIds: string[]): Promise<{
     method: "POST",
     body: JSON.stringify({ documentIds }),
   });
+}
+
+// Reaceptación pendiente (D-37, RN-140): no bloquea el panel; el backend sigue impidiendo agendar.
+export function isReacceptancePending(status: RegistrationStatus): boolean {
+  return (
+    status.profileCompleted &&
+    !status.legal.accepted &&
+    status.legal.reacceptanceRequired === true
+  );
 }
 
 // Pasos que el panel exige antes de mostrarse. La verificación de identidad (INE) no bloquea el panel:
@@ -991,6 +1006,9 @@ export interface PatientAppointment {
   scheduledAt: string;
   price: string;
   holdExpiresAt: string | null;
+  // El backend ya los envía (AppointmentView); opcionales para no exigirlos a los dobles de prueba existentes.
+  doctorProfileId?: string;
+  reason?: string;
 }
 
 export type PaymentStatus =
@@ -1160,4 +1178,107 @@ export async function listPatientAppointments(): Promise<
       "/me/patient/appointments",
     )
   ).appointments;
+}
+
+// Videoconsulta del médico (RF-18 a RF-22). La sala, la presencia y las inasistencias son de PEI; el proveedor de
+// video solo transporta audio y video después de la admisión. Ninguna llamada envía horas: manda el servidor.
+export type SessionPhase =
+  | "not_open"
+  | "waiting"
+  | "active"
+  | "ended"
+  | "closed";
+export type PendingResolution =
+  | "r5_beyond_total_limit"
+  | "late_patient_left_before_doctor"
+  | "late_patient_not_admitted"
+  | "no_rule";
+
+export interface SessionState {
+  appointmentId: string;
+  appointmentStatus: string;
+  phase: SessionPhase;
+  serverTime: string;
+  scheduledAt: string;
+  opensAt: string;
+  patient: { present: boolean; joinedAt: string | null };
+  doctor: {
+    present: boolean;
+    joinedAt: string | null;
+    busyWithAnotherConsultation: boolean;
+  };
+  deadlines: {
+    patientToleranceEndsAt: string;
+    doctorDeadlineAt: string;
+    reconnectGraceEndsAt: string | null;
+  };
+  startedAt: string | null;
+  endedAt: string | null;
+  durationSeconds: number | null;
+  pendingResolution: PendingResolution | null;
+}
+
+export interface DoctorSessionSummary {
+  appointmentId: string;
+  scheduledAt: string;
+  phase: "waiting" | "active";
+  patientPresent: boolean;
+  startedAt: string | null;
+}
+
+export interface DoctorAppointmentItem {
+  id: string;
+  status: string;
+  scheduledAt: string;
+  reason: string;
+}
+
+// Credencial del participante para el SDK del proveedor. Es individual y de este médico: nunca es la de la API.
+export interface CallCredential {
+  provider: string;
+  authToken: string;
+}
+
+const doctorSession = (id: string) =>
+  `/me/doctor/appointments/${encodeURIComponent(id)}/session`;
+
+export async function listDoctorSessions(): Promise<DoctorSessionSummary[]> {
+  return (
+    await request<{ sessions: DoctorSessionSummary[] }>("/me/doctor/sessions")
+  ).sessions;
+}
+
+export async function listDoctorAppointments(
+  from: Date,
+  to: Date,
+): Promise<DoctorAppointmentItem[]> {
+  const query = new URLSearchParams({
+    from: from.toISOString(),
+    to: to.toISOString(),
+  });
+  return (
+    await request<{ appointments: DoctorAppointmentItem[] }>(
+      `/me/doctor/appointments?${query}`,
+    )
+  ).appointments;
+}
+
+export function getDoctorSession(id: string): Promise<SessionState> {
+  return request(doctorSession(id));
+}
+
+const sessionAction = (
+  id: string,
+  action: "enter" | "presence" | "leave" | "admit" | "end",
+) =>
+  request<SessionState>(`${doctorSession(id)}/${action}`, { method: "POST" });
+
+export const enterDoctorSession = (id: string) => sessionAction(id, "enter");
+export const sendDoctorPresence = (id: string) => sessionAction(id, "presence");
+export const leaveDoctorSession = (id: string) => sessionAction(id, "leave");
+export const admitPatient = (id: string) => sessionAction(id, "admit");
+export const endConsultation = (id: string) => sessionAction(id, "end");
+
+export function getDoctorCallCredential(id: string): Promise<CallCredential> {
+  return request(`${doctorSession(id)}/token`, { method: "POST" });
 }

@@ -52,7 +52,7 @@ function deps(overrides: Partial<DevMigrateDeps> = {}, conn: { identity?: Runtim
 }
 
 describe('dev-migrate: ejecutor exclusivo de migraciones de desarrollo', () => {
-  it('[TC-DEV-001] autoriza 0014, 0015, 0016, 0017 y 0018 por índice, tag y SHA-256 del SQL del repositorio', () => {
+  it('[TC-DEV-001] autoriza 0014 a 0019 por índice, tag y SHA-256 del SQL del repositorio', () => {
     expect(DEV_AUTHORIZED_MIGRATIONS).toEqual([
       { idx: 14, tag: '0014_m08_m1_legal_acceptance', sha256: '72af287cf7336d6f56942b35576b89c9cf0e1e3566b42f41ab62145ab440e24c' },
       { idx: 15, tag: '0015_m08_m1c_agenda_block_not_null', sha256: '7652c22e8ea4598ca290338ad030fec40170da46c985591bdc85874d7909ef8d' },
@@ -60,6 +60,8 @@ describe('dev-migrate: ejecutor exclusivo de migraciones de desarrollo', () => {
       { idx: 17, tag: '0017_payments_f1', sha256: '5593858840293a7d46866dbd37ada7345c5616cda84db1c566a37b8f840944b1' },
       // 0018_payments_stripe_provider: autorizada para desarrollo el 2026-11-15 (Payments-decisiones.md §8.3).
       { idx: 18, tag: '0018_payments_stripe_provider', sha256: 'f15b342a27a8367b94b1be5dc62a550096891e6e9b8d8e786ab2dda25029be56' },
+      // 0019_video_v1: autorizada para desarrollo el 2026-11-22 (Video-diseno.md §8).
+      { idx: 19, tag: '0019_video_v1', sha256: '6ed7d1486c155e1548b18cc902c3d32cc2b0bcb5a0c442c18915354fbecad398' },
     ]);
     for (const m of DEV_AUTHORIZED_MIGRATIONS) expect(sha256(repoSql(m.tag))).toBe(m.sha256);
     // Requisito previo: 0013 con el hash registrado en desarrollo (A.16).
@@ -276,12 +278,14 @@ describe('dev-migrate · 0017 (Payments F1) autorizada en desarrollo con sus pro
     expect(t.log).not.toContain(SET);
   });
 
-  it('[TC-DEV-018] una migración posterior no autorizada (0019) sigue bloqueada, y el idx 18 solo admite la 0018 real', () => {
+  it('[TC-DEV-018] una migración posterior no autorizada (0020) sigue bloqueada; los idx 18 y 19 solo admiten la migración real', () => {
     const TAG18 = '0018_payments_stripe_provider';
-    const sql18 = (tag: string) => (tag === TAG18 ? repoSql(TAG18) : readSql17(tag));
-    const j19 = [...journal17, { idx: 18, tag: TAG18, when: 3000 }, { idx: 19, tag: '0019_x', when: 4000 }];
-    expect(() => planNextDevMigration(j19, sql18, [...upTo(17), record17])).toThrow(/0019_x \(idx 19\) no está autorizada para desarrollo/);
-    expect(() => planNextDevMigration(j19, sql18, upTo(17))).toThrow(/0019_x \(idx 19\) no está autorizada para desarrollo/);
+    const TAG19 = '0019_video_v1';
+    const sql18 = (tag: string) => (tag === TAG18 || tag === TAG19 ? repoSql(tag) : readSql17(tag));
+    const j20 = [...journal17, { idx: 18, tag: TAG18, when: 3000 }, { idx: 19, tag: TAG19, when: 4000 }, { idx: 20, tag: '0020_x', when: 5000 }];
+    expect(() => planNextDevMigration(j20, sql18, [...upTo(17), record17])).toThrow(/0020_x \(idx 20\) no está autorizada para desarrollo/);
+    const other19 = [...journal17, { idx: 18, tag: TAG18, when: 3000 }, { idx: 19, tag: '0019_x', when: 4000 }];
+    expect(() => planNextDevMigration(other19, sql18, [...upTo(17), record17])).toThrow(/la entrada 19 del journal es 0019_x/);
     const other18 = [...journal17, { idx: 18, tag: '0018_x', when: 3000 }];
     expect(() => planNextDevMigration(other18, readSql17, [...upTo(17), record17])).toThrow(/la entrada 18 del journal es 0018_x/);
   });

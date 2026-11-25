@@ -3,7 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthShell, btnCls, inputCls } from "@/features/components/auth-shell";
-import { ADMIN_HOME_PATH } from "@/features/components/require-registration";
+import {
+  ADMIN_HOME_PATH,
+  REVIEW_LEGAL_PARAM,
+} from "@/features/components/require-registration";
 import { PROFESSIONAL_PORTAL_PATH } from "@/features/professionals/paths";
 import {
   ApiError,
@@ -12,6 +15,7 @@ import {
   getCurrentLegalDocuments,
   getMe,
   getRegistrationStatus,
+  isReacceptancePending,
   type LegalDocument,
   type LegalDocumentType,
   pendingRegistrationStep,
@@ -49,6 +53,13 @@ function errorMessage(error: unknown): string {
     : "No se pudo completar la operación. Inténtalo de nuevo.";
 }
 
+// El parámetro solo elige qué pantalla mostrar; si hay reaceptación lo decide el backend (reacceptanceRequired).
+function explicitLegalReview(): boolean {
+  return (
+    new URLSearchParams(window.location.search).get(REVIEW_LEGAL_PARAM) === "1"
+  );
+}
+
 export function CompleteRegistration() {
   const router = useRouter();
   const [status, setStatus] = useState<RegistrationStatus | null>(null);
@@ -83,6 +94,12 @@ export function CompleteRegistration() {
         router.replace(REGISTRATION_DONE_PATH);
         return;
       }
+      // D-37 / RN-140: con solo una reaceptación pendiente, el paso legal se muestra únicamente si el paciente lo pidió
+      // («Revisar y aceptar»). Al llegar de otro lado (inicio de sesión) va al panel, que muestra el aviso.
+      if (isReacceptancePending(next) && !explicitLegalReview()) {
+        router.replace(REGISTRATION_DONE_PATH);
+        return;
+      }
       setStatus(next);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -111,16 +128,29 @@ export function CompleteRegistration() {
 
   if (!status) return null;
 
+  // D-37 / RN-140: con una reaceptación pendiente, la aceptación se puede posponer (el panel sigue accesible).
+  const reacceptance = isReacceptancePending(status);
   return (
     <AuthShell>
       <h2 className="text-black text-[26px] sm:text-[40px] font-medium">
-        Completa tu registro
+        {reacceptance
+          ? "Nueva versión de los documentos legales"
+          : "Completa tu registro"}
       </h2>
       {pendingRegistrationStep(status) === "profile" ? (
         <ProfileStep onDone={refresh} />
       ) : (
         <LegalStep status={status} onDone={refresh} />
       )}
+      {reacceptance ? (
+        <button
+          type="button"
+          onClick={() => router.replace(REGISTRATION_DONE_PATH)}
+          className="mt-4 text-[#616161] text-[16px] underline"
+        >
+          Ahora no
+        </button>
+      ) : null}
     </AuthShell>
   );
 }

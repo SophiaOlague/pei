@@ -442,3 +442,111 @@ describe("CompleteRegistration: rol antes del registro", () => {
     expect(calls.map((c) => c.key)).toEqual(["GET /me", "GET /me"]);
   });
 });
+
+// D-37 / RN-140: la reaceptación se puede posponer; el registro inicial, no.
+describe("CompleteRegistration: reaceptación legal (D-37, RN-140)", () => {
+  beforeEach(() => {
+    replace.mockReset();
+    window.history.replaceState(null, "", "/completar-registro");
+  });
+  // «Revisar y aceptar» abre la página con ?revisar=1 (REVIEW_LEGAL_PATH).
+  const openedFromReview = () =>
+    window.history.replaceState(null, "", "/completar-registro?revisar=1");
+  const reacceptance = status({
+    legal: {
+      accepted: false,
+      pending: [pendingOf(terms)],
+      reacceptanceRequired: true,
+    },
+    missing: ["legal"],
+  });
+
+  it("[TC-WEB-REG-006] permite posponer («Ahora no») y vuelve al panel sin aceptar nada", async () => {
+    const { calls } = mockFetch({
+      "GET /me": ok(meAs("patient")),
+      "GET /me/registration-status": ok(reacceptance),
+      "GET /legal-documents/current": ok([terms]),
+    });
+    openedFromReview();
+    render(<CompleteRegistration />);
+    expect(
+      await screen.findByRole("heading", {
+        name: "Nueva versión de los documentos legales",
+      }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Ahora no" }));
+    expect(replace).toHaveBeenCalledWith(REGISTRATION_DONE_PATH);
+    expect(calls.some((c) => c.key === "POST /me/legal-acceptances")).toBe(
+      false,
+    );
+  });
+
+  it("[TC-WEB-REG-007] al aceptar con el mecanismo existente recupera el acceso normal", async () => {
+    const { calls } = mockFetch({
+      "GET /me": ok(meAs("patient")),
+      "GET /me/registration-status": [
+        ok(reacceptance),
+        ok(status({ canBookAppointments: true, missing: [] })),
+      ],
+      "GET /legal-documents/current": ok([terms]),
+      "POST /me/legal-acceptances": ok({ accepted: [] }),
+    });
+    openedFromReview();
+    render(<CompleteRegistration />);
+    await userEvent.click(await screen.findByLabelText(TERMS_LABEL));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Aceptar y continuar" }),
+    );
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(REGISTRATION_DONE_PATH),
+    );
+    expect(
+      calls.filter((c) => c.key === "POST /me/legal-acceptances")[0].body,
+    ).toEqual({ documentIds: [terms.id] });
+  });
+
+  it("[TC-WEB-REG-008] el registro inicial no ofrece posponer", async () => {
+    mockFetch({
+      "GET /me": ok(meAs("patient")),
+      "GET /me/registration-status": ok(legalPending(terms, privacy)),
+      "GET /legal-documents/current": ok([terms, privacy]),
+    });
+    render(<CompleteRegistration />);
+    expect(
+      await screen.findByRole("heading", { name: "Completa tu registro" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ahora no" })).toBeNull();
+  });
+
+  it("[TC-WEB-REG-009] al llegar desde el inicio de sesión (sin ?revisar=1) con reaceptación pendiente, va al panel sin mostrar el paso legal", async () => {
+    const { calls } = mockFetch({
+      "GET /me": ok(meAs("patient")),
+      "GET /me/registration-status": ok(reacceptance),
+      "GET /legal-documents/current": ok([terms]),
+    });
+    render(<CompleteRegistration />);
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(REGISTRATION_DONE_PATH),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Aceptar y continuar" }),
+    ).toBeNull();
+    expect(calls.some((c) => c.key === "POST /me/legal-acceptances")).toBe(
+      false,
+    );
+  });
+
+  it("[TC-WEB-REG-010] el registro inicial muestra su paso legal aunque la URL traiga ?revisar=1 (no lo salta)", async () => {
+    openedFromReview();
+    mockFetch({
+      "GET /me": ok(meAs("patient")),
+      "GET /me/registration-status": ok(legalPending(terms, privacy)),
+      "GET /legal-documents/current": ok([terms, privacy]),
+    });
+    render(<CompleteRegistration />);
+    expect(
+      await screen.findByRole("heading", { name: "Completa tu registro" }),
+    ).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+  });
+});

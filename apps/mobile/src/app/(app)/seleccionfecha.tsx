@@ -74,6 +74,17 @@ export function slotRange(today: Date = new Date()): {
   return { from: localDate(today), to: localDate(to) };
 }
 
+// Mensaje de una reserva rechazada que no es por identidad. RN-140: con una versión legal pendiente, el backend rechaza
+// la reserva (missing incluye legal).
+function holdErrorMessage(e: unknown): string {
+  if (e instanceof ApiError && e.missing.includes("legal")) {
+    return "Para agendar necesitas aceptar la versión vigente de los documentos legales. Revísalos en el aviso de la parte superior.";
+  }
+  return e instanceof ApiError
+    ? e.message
+    : "No se pudo reservar el horario. Inténtalo de nuevo.";
+}
+
 export default function ResumenCitaScreen() {
   const { doctorProfileId, doctorName, doctorSpecialty, doctorAvatar } =
     useLocalSearchParams<{
@@ -172,11 +183,7 @@ export default function ResumenCitaScreen() {
         setHoldError(IDENTITY_MESSAGE[requirement]);
         return;
       }
-      setHoldError(
-        e instanceof ApiError
-          ? e.message
-          : "No se pudo reservar el horario. Inténtalo de nuevo."
-      );
+      setHoldError(holdErrorMessage(e));
     } finally {
       inFlight.current = false;
       setHolding(false);

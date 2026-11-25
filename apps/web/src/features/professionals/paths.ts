@@ -2,3 +2,6 @@
 export const PROFESSIONAL_ACCESS_PATH = "/profesionales";
 export const PROFESSIONAL_PORTAL_PATH = "/profesionales/registro";
 export const PROFESSIONAL_AGENDA_PATH = "/profesionales/agenda";
+export const PROFESSIONAL_CONSULTATIONS_PATH = "/profesionales/consultas";
+export const consultationPath = (appointmentId: string) =>
+  `${PROFESSIONAL_CONSULTATIONS_PATH}/${encodeURIComponent(appointmentId)}`;

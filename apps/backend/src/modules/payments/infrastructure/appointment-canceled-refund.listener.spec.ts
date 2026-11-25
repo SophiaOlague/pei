@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { AppointmentEventSubscribers } from '../../appointments/application/appointment-events';
 import type { AppointmentCanceledRefundHandler } from '../application/use-cases/appointment-canceled-refund.handler';
 import { AppointmentCanceledRefundListener } from './appointment-canceled-refund.listener';
+import { AppointmentNoShowRefundListener } from './appointment-no-show-refund.listener';
 
 // Suscripción real de AppointmentEventSubscribers (en memoria) con un manejador doble.
 const CANCELED = {
@@ -41,5 +42,23 @@ describe('AppointmentCanceledRefundListener', () => {
     await expect(subscribers.dispatch(CANCELED)).resolves.toBeUndefined();
     expect(logs).toEqual(['AppointmentCanceled apt-1: no se pudo registrar el reembolso (TypeError)']);
     expect(logs.join()).not.toMatch(/motivo privado|detalle interno/);
+  });
+});
+
+describe('Listeners de cancelación e inasistencia conviven sin cruzarse', () => {
+  it('[TC-VID-176] cada listener solo reacciona a su tipo de evento', async () => {
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const subscribers = new AppointmentEventSubscribers();
+    const canceledSeen: unknown[] = [];
+    const noShowSeen: unknown[] = [];
+    const canceledListener = new AppointmentCanceledRefundListener(subscribers, { handle: async (n: unknown) => (canceledSeen.push(n), { outcome: 'no_refund' as const }) } as unknown as AppointmentCanceledRefundHandler);
+    const noShowListener = new AppointmentNoShowRefundListener(subscribers, { handle: async (n: unknown) => (noShowSeen.push(n), { outcome: 'no_refund' as const }) } as never);
+    canceledListener.onModuleInit();
+    noShowListener.onModuleInit();
+    await subscribers.dispatch(CANCELED);
+    await subscribers.dispatch({ type: 'AppointmentOutcomeRecorded', appointmentId: 'apt-2', patientProfileId: 'p', doctorProfileId: 'd', occurredAt: '', status: 'no_show_both', refundOutcome: 'full_refund' });
+    expect(canceledSeen).toHaveLength(1);
+    expect(noShowSeen).toEqual([{ eventId: 'appointment-outcome:apt-2', appointmentId: 'apt-2', rootAppointmentId: null, status: 'no_show_both', refundOutcome: 'full_refund', occurredAt: '', source: 'event' }]);
+    jest.restoreAllMocks();
   });
 });

@@ -1,0 +1,331 @@
+import {
+  RealtimeKitProvider,
+  useRealtimeKitClient,
+} from "@cloudflare/realtimekit-react-native";
+import {
+  RtkDialogManager,
+  RtkGrid,
+  RtkParticipantTile,
+  RtkUIContext,
+  RtkUIProvider,
+} from "@cloudflare/realtimekit-react-native-ui";
+import * as Device from "expo-device";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  PermissionsAndroid,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { ThemedText } from "@/components/themed-text";
+
+// Interfaz de llamada con RealtimeKit. joincall.tsx la monta SOLO con una credencial real que emite el backend de PEI
+// para la cita (POST /me/patient/appointments/:id/session/token) y con proveedor «realtimekit». No obtiene el token
+// por su cuenta ni llama a ningún servidor externo. La sala, la admisión y la finalización son de PEI.
+
+type RtkClient = NonNullable<ReturnType<typeof useRealtimeKitClient>[0]>;
+
+// Por qué terminó la llamada, según `roomLeft` del SDK (p. ej., "left", "kicked", "ended", "disconnected"), o "failed"
+// si no se pudo unir. joincall.tsx consulta entonces el estado de la sala en PEI: la llamada no decide si la consulta
+// terminó.
+export type CallLeftReason = string;
+
+// Ninguna operación del SDK al salir debe dejar una promesa rechazada sin manejar: la sala ya puede estar cerrada o el
+// recurso ya liberado (por ejemplo, tras la expulsión del médico).
+function settle(action: () => Promise<unknown> | undefined) {
+  try {
+    action()?.catch(() => undefined);
+  } catch {
+    // El SDK puede fallar de forma síncrona si la sala ya se liberó.
+  }
+}
+
+// El servicio en primer plano de Android lo arranca y detiene el propio SDK (RTKHelper, @cloudflare/realtimekit-react-
+// native 2.x). En la versión 2.0 de la UI, el módulo nativo CoreUiKit ya no tiene startService/stopService: llamarlos
+// lanzaba TypeError dentro de una promesa sin manejar al salir. Aquí solo se pide el permiso de notificaciones que usa
+// ese servicio; si se rechaza, la llamada sigue.
+function requestNotificationPermission() {
+  if (Platform.OS !== "android" || (Platform.Version as number) < 33) {
+    return;
+  }
+  settle(() =>
+    PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+    )
+  );
+}
+
+function CallControls({ meeting }: { meeting: RtkClient }) {
+  const [micOn, setMicOn] = useState(true);
+  const [camOn, setCamOn] = useState(true);
+
+  const toggleMic = useCallback(() => {
+    if (micOn) {
+      meeting.self.disableAudio();
+    } else {
+      meeting.self.enableAudio();
+    }
+    setMicOn(!micOn);
+  }, [meeting, micOn]);
+
+  const toggleCam = useCallback(() => {
+    if (camOn) {
+      meeting.self.disableVideo();
+    } else {
+      meeting.self.enableVideo();
+    }
+    setCamOn(!camOn);
+  }, [meeting, camOn]);
+
+  // Salir dispara roomLeft, que avisa a quien monta el componente (onLeft).
+  const leave = useCallback(() => {
+    settle(() => meeting.leave());
+  }, [meeting]);
+
+  return (
+    <View style={styles.controls}>
+      <Pressable
+        accessibilityLabel={micOn ? "Apagar micrófono" : "Encender micrófono"}
+        onPress={toggleMic}
+        style={[styles.controlBtn, !micOn && styles.controlBtnOff]}
+      >
+        <ThemedText style={styles.controlIcon}>{micOn ? "🎙️" : "🔇"}</ThemedText>
+      </Pressable>
+
+      <Pressable
+        accessibilityLabel="Salir de la llamada"
+        onPress={leave}
+        style={styles.endBtn}
+      >
+        <ThemedText style={styles.controlIcon}>📵</ThemedText>
+      </Pressable>
+
+      <Pressable
+        accessibilityLabel={camOn ? "Apagar cámara" : "Encender cámara"}
+        onPress={toggleCam}
+        style={[styles.controlBtn, !camOn && styles.controlBtnOff]}
+      >
+        <ThemedText style={styles.controlIcon}>
+          {camOn ? "📷" : "🚫"}
+        </ThemedText>
+      </Pressable>
+    </View>
+  );
+}
+
+function ActiveCall({
+  meeting,
+  onLeft,
+}: {
+  meeting: RtkClient;
+  onLeft: (reason: CallLeftReason) => void;
+}) {
+  const { storeStates, setStates } = useContext(RtkUIContext);
+  const storeStatesRef = useRef(storeStates);
+  storeStatesRef.current = storeStates;
+  // La llamada sigue abierta en el SDK: al desmontar (navegación o fin de la consulta) se abandona una sola vez.
+  const inCall = useRef<boolean>(false);
+
+  useEffect(() => {
+    const onRoomJoined = () => {
+      inCall.current = true;
+      requestNotificationPermission();
+      setStates({ ...storeStatesRef.current, meeting: "joined" });
+    };
+    const onRoomLeft = (payload?: { state?: string }) => {
+      inCall.current = false;
+      onLeft(payload?.state ?? "left");
+    };
+    meeting.self.addListener("roomJoined", onRoomJoined);
+    meeting.self.addListener("roomLeft", onRoomLeft);
+    return () => {
+      meeting.self.removeListener("roomJoined", onRoomJoined);
+      meeting.self.removeListener("roomLeft", onRoomLeft);
+    };
+  }, [meeting, onLeft, setStates]);
+
+  useEffect(() => {
+    let mounted = true;
+    meeting.join().catch(() => {
+      if (mounted) {
+        onLeft("failed");
+      }
+    });
+    return () => {
+      mounted = false;
+      if (inCall.current) {
+        inCall.current = false;
+        settle(() => meeting.leave());
+      }
+    };
+  }, [meeting, onLeft]);
+
+  if (storeStates.meeting !== "joined") {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color="#fff" size="large" />
+        <ThemedText style={styles.loadingText}>Conectando…</ThemedText>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.callContainer}>
+      <View style={styles.grid}>
+        <RtkGrid meeting={meeting} />
+      </View>
+
+      <SafeAreaView pointerEvents="box-none" style={styles.overlay}>
+        <View style={styles.topRow}>
+          <View style={styles.selfViewContainer}>
+            <RtkParticipantTile
+              meeting={meeting}
+              participant={meeting.self}
+              style={styles.selfView}
+            />
+          </View>
+        </View>
+        <CallControls meeting={meeting} />
+      </SafeAreaView>
+
+      <RtkDialogManager meeting={meeting} />
+    </View>
+  );
+}
+
+function CallSession({
+  authToken,
+  onLeft,
+}: {
+  authToken: string;
+  onLeft: (reason: CallLeftReason) => void;
+}) {
+  const [meeting, initMeeting] = useRealtimeKitClient();
+  const initialized = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (initialized.current) {
+      return;
+    }
+    initialized.current = true;
+    initMeeting({
+      authToken,
+      defaults: { audio: true, video: Device.isDevice },
+    }).catch(() => onLeft("failed"));
+  }, [authToken, initMeeting, onLeft]);
+
+  if (!meeting) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color="#fff" size="large" />
+        <ThemedText style={styles.loadingText}>
+          Preparando la llamada…
+        </ThemedText>
+      </View>
+    );
+  }
+
+  return (
+    <RealtimeKitProvider value={meeting}>
+      <ActiveCall meeting={meeting} onLeft={onLeft} />
+    </RealtimeKitProvider>
+  );
+}
+
+export function RealtimeKitCall({
+  authToken,
+  onLeft,
+}: {
+  authToken: string;
+  onLeft: (reason: CallLeftReason) => void;
+}) {
+  return (
+    <View style={styles.page}>
+      <RtkUIProvider>
+        <CallSession authToken={authToken} onLeft={onLeft} />
+      </RtkUIProvider>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  callContainer: {
+    backgroundColor: "#000",
+    flex: 1,
+  },
+  controlBtn: {
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 30,
+    height: 60,
+    justifyContent: "center",
+    width: 60,
+  },
+  controlBtnOff: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  controlIcon: {
+    fontSize: 24,
+  },
+  controls: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 20,
+    justifyContent: "center",
+    paddingBottom: 16,
+    paddingHorizontal: 32,
+  },
+  endBtn: {
+    alignItems: "center",
+    backgroundColor: "#FF3B30",
+    borderRadius: 35,
+    height: 70,
+    justifyContent: "center",
+    width: 70,
+  },
+  grid: {
+    flex: 1,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    backgroundColor: "#000",
+    flex: 1,
+    gap: 16,
+    justifyContent: "center",
+  },
+  loadingText: {
+    color: "#fff",
+    fontSize: 16,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: "space-between",
+  },
+  page: {
+    backgroundColor: "#000",
+    flex: 1,
+  },
+  selfView: {
+    height: 140,
+    width: 100,
+  },
+  selfViewContainer: {
+    borderRadius: 16,
+    elevation: 8,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { height: 4, width: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+  },
+  topRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    padding: 16,
+  },
+});

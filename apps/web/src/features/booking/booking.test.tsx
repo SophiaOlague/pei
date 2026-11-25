@@ -2,8 +2,9 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { RequireRegistration } from "@/features/components/require-registration";
 import type { CardPaymentInput, PatientPayment } from "@/lib/api";
-import { mockFetch, ok, status } from "@/test/http";
+import { meAs, mockFetch, ok, status } from "@/test/http";
 import { BookingFlow } from "./booking-flow";
 import { MyAppointments } from "./my-appointments";
 import { NextAppointmentCard } from "./next-appointment-card";
@@ -512,6 +513,47 @@ describe("/agendar-cita: identidad pendiente, rechazada y aprobada", () => {
     expect(screen.queryByRole("link", { name: /identidad|INE/ })).toBeNull();
     expect(push).not.toHaveBeenCalled();
   });
+
+  it("[TC-WEB-REG-004][RN-140] con una reaceptación pendiente el registro ya avisa que no se puede agendar y enlaza a aceptarla", async () => {
+    mockFetch({
+      [STATUS_KEY]: ok(
+        status({
+          canBookAppointments: false,
+          identity: { status: "approved", rejectionReason: null },
+          legal: { accepted: false, pending: [], reacceptanceRequired: true },
+          missing: ["legal"],
+        }),
+      ),
+      [BOOKABLE_KEY]: ok(DOCTORS),
+      [SLOTS_KEY]: slotsView(),
+    });
+    render(<BookingFlow />);
+    const notice = await screen.findByText(
+      /Para agendar necesitas aceptar la versión vigente/,
+    );
+    expect(
+      within(notice).getByRole("link", { name: "Revisar y aceptar" }),
+    ).toHaveAttribute("href", "/completar-registro?revisar=1");
+  });
+
+  it("[TC-WEB-REG-005][RN-140] si la API rechaza la reserva por la aceptación legal, no va al pago y lo explica", async () => {
+    const { calls } = mockFetch({
+      [STATUS_KEY]: canBook,
+      [BOOKABLE_KEY]: ok(DOCTORS),
+      [SLOTS_KEY]: slotsView(),
+      [HOLD_KEY]: incomplete(["legal"]),
+    });
+    render(<BookingFlow />);
+    await chooseDoctorAndSlot();
+    await userEvent.click(screen.getByRole("button", { name: RESERVE }));
+    expect(
+      await screen.findByText(
+        /Para agendar necesitas aceptar la versión vigente/,
+      ),
+    ).toBeInTheDocument();
+    expect(keys(calls).filter((k) => k === HOLD_KEY)).toHaveLength(1);
+    expect(push).not.toHaveBeenCalled();
+  });
 });
 
 const payment = (over: Partial<PatientPayment>): PatientPayment => ({
@@ -547,7 +589,7 @@ describe("/pagar-cita/:appointmentId: pago y confirmación (formulario de Stripe
       screen.getByRole("button", { name: "Pagar con tarjeta (simulado)" }),
     );
     expect(
-      await screen.findByText("Pago aprobado: tu consulta está confirmada"),
+      await screen.findByRole("heading", { name: "¡Pago exitoso!" }),
     ).toBeInTheDocument();
     const pay = calls.find((c) => c.key === PAY_KEY);
     expect(pay?.body).not.toHaveProperty("amount");
@@ -580,7 +622,7 @@ describe("/pagar-cita/:appointmentId: pago y confirmación (formulario de Stripe
       screen.getByRole("button", { name: "Consultar estado del pago" }),
     );
     expect(
-      await screen.findByText("Pago aprobado: tu consulta está confirmada"),
+      await screen.findByRole("heading", { name: "¡Pago exitoso!" }),
     ).toBeInTheDocument();
   });
 
@@ -611,7 +653,7 @@ describe("/pagar-cita/:appointmentId: pago y confirmación (formulario de Stripe
       screen.getByRole("button", { name: "Pagar con tarjeta (simulado)" }),
     );
     expect(
-      await screen.findByText("Pago aprobado: tu consulta está confirmada"),
+      await screen.findByRole("heading", { name: "¡Pago exitoso!" }),
     ).toBeInTheDocument();
     const keysUsed = fetchMock.mock.calls
       .filter(([, init]) => init?.method === "POST")
@@ -699,6 +741,73 @@ describe("/pagar-cita/:appointmentId: pago y confirmación (formulario de Stripe
 const appointment = (over: Record<string, unknown>) => ({ ...HOLD, ...over });
 
 describe("/mis-citas y «Mi próxima cita»: estado real de M08", () => {
+  it("[TC-WEB-PAY-010] «Ver mis citas» (?cita=) abre las próximas y resalta la cita recién pagada", async () => {
+    window.history.pushState({}, "", "/mis-citas?cita=c-new");
+    mockFetch({
+      [LIST_KEY]: ok({
+        appointments: [
+          appointment({
+            id: "c-old",
+            status: "confirmed",
+            holdExpiresAt: null,
+            scheduledAt: "2030-11-01T16:00:00.000Z",
+          }),
+          appointment({
+            id: "c-new",
+            status: "confirmed",
+            holdExpiresAt: null,
+            scheduledAt: "2030-12-01T16:00:00.000Z",
+          }),
+        ],
+      }),
+      [BOOKABLE_KEY]: ok(DOCTORS),
+    });
+    render(<MyAppointments />);
+    const items = within(await screen.findByRole("list")).getAllByRole(
+      "listitem",
+    );
+    expect(screen.getByRole("tab", { selected: true })).toHaveTextContent(
+      "Próximas",
+    );
+    expect(items[1]).toHaveAttribute("aria-current", "true");
+    expect(within(items[1]).getByText("Recién agendada")).toBeInTheDocument();
+    expect(items[0]).not.toHaveAttribute("aria-current");
+    window.history.pushState({}, "", "/");
+  });
+
+  it("[TC-WEB-REG-003][RN-140] con una reaceptación pendiente, las citas confirmadas siguen accesibles detrás del guard", async () => {
+    mockFetch({
+      "GET /me": ok(meAs("patient")),
+      [STATUS_KEY]: ok(
+        status({
+          legal: { accepted: false, pending: [], reacceptanceRequired: true },
+          missing: ["legal"],
+        }),
+      ),
+      [LIST_KEY]: ok({
+        appointments: [
+          appointment({
+            id: "c-confirmed",
+            status: "confirmed",
+            holdExpiresAt: null,
+            scheduledAt: "2030-12-01T16:00:00.000Z",
+          }),
+        ],
+      }),
+      [BOOKABLE_KEY]: ok(DOCTORS),
+    });
+    render(
+      <RequireRegistration>
+        <MyAppointments />
+      </RequireRegistration>,
+    );
+    expect(await screen.findByText("Dra. Ana Real")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Hay una nueva versión de los documentos legales",
+    );
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it("separa próximas y anteriores, nombra al médico y ofrece pagar solo una retención vigente", async () => {
     mockFetch({
       [LIST_KEY]: ok({

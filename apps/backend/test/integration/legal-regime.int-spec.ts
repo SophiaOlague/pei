@@ -57,7 +57,7 @@ describe('Documentos legales por rol (M03 A2, BD de desarrollo con rollback)', (
     withRollback(async (tx) => {
       const useCases = identityUseCases();
       const { patient } = await legacyAcceptedPatient(useCases);
-      expect(computeRegistrationStatus(await useCases.reader.read(patient.userId)).legal).toEqual({ accepted: true, pending: [] });
+      expect(computeRegistrationStatus(await useCases.reader.read(patient.userId)).legal).toEqual({ accepted: true, pending: [], reacceptanceRequired: false });
 
       const doctor = await doctorActor(tx);
       const snapshot = await useCases.reader.read(doctor.userId);
@@ -79,7 +79,7 @@ describe('Documentos legales por rol (M03 A2, BD de desarrollo con rollback)', (
 
       expect(await captureError(useCases.acceptLegal.execute(patient, [privacy]))).toBeInstanceOf(LegalDocumentNotCurrentError);
       await useCases.acceptLegal.execute(patient, [policy, patientTerms]);
-      expect(computeRegistrationStatus(await useCases.reader.read(patient.userId)).legal).toEqual({ accepted: true, pending: [] });
+      expect(computeRegistrationStatus(await useCases.reader.read(patient.userId)).legal).toEqual({ accepted: true, pending: [], reacceptanceRequired: false });
 
       const { rows } = await db().execute<{ legal_document_id: string }>(
         sql`select legal_document_id from user_legal_acceptance where user_profile_id = ${patient.userProfileId} order by accepted_at, legal_document_id`,
