@@ -1,8 +1,10 @@
 # Videoconsulta e inasistencias (RF-18 a RF-22): diseño y primera entrega
 
-Estado al 2026-11-22: **primera entrega implementada sin commit y validada contra PostgreSQL en C2**. Migración 0019
-aplicada en C2 y, desde el 2026-11-22, en desarrollo (Etapa 3 móvil).
-Proveedor de video **sin confirmar**: la entrega usa un proveedor sin configurar que falla cerrado.
+Estado al 2026-11-25: **primera entrega implementada (`4e6ebe1`) y validada contra PostgreSQL en C2**. Migración 0019
+aplicada en C2 y, desde el 2026-11-22, en desarrollo; pendiente para la futura producción.
+Proveedor de video: **Cloudflare RealtimeKit integrado** (`fc810ba`). Sin su configuración en el entorno del backend, se
+usa el proveedor sin configurar, que falla cerrado. Sala del médico en web implementada (`375ff9c`); móvil del paciente
+en `a5bd909` y `a9a8335`. Primera llamada real en desarrollo el 2026-11-25 (sección 11).
 
 Fuentes: Maestro V2.3 vivo (RF-19, RF-20, RN-025, RN-026, RN-030, RN-140; C-26, C-30, C-33), Maestro V2.4 (RF-18,
 RF-21, RF-22, RN-022 a RN-033) y `M08-diseno.md` (A.9.2, A.9.5, A.10.3, A.11.2, A.11.3, A.12.1; AP-6, AP-15, AP-22 a
@@ -24,7 +26,7 @@ AP-25).
 | 10 | Evento y consulta duradera de resultados en M08, con el `refundOutcome` decidido por M08 | Aprobada |
 | 11 | Excepción a RN-140: finalizar una consulta activa propia sin `canOperate` | Aprobada (C-33) |
 | 12 | Consulta que nunca se finaliza: sin cierre automático ni plazo | Aprobada |
-| 13 | Proveedor simulado; aviso de RF-19 solo en pantalla; rutas de la sección 3 | Aprobada |
+| 13 | Proveedor simulado; aviso de RF-19 solo en pantalla; rutas de la sección 3 | Aprobada. El proveedor simulado se sustituyó por RealtimeKit (`fc810ba`); el aviso sigue solo en pantalla |
 
 ## 2. Responsabilidades
 
@@ -138,8 +140,17 @@ barrido lo lista. Nunca se registra un resultado por ellos.
 - Webhooks del proveedor: no se procesan en esta entrega (decisión 6).
 - **Revocación (decisión 7):** al finalizar se llama a `revokeAccess` para cada participante con credencial, después del
   COMMIT; un fallo se registra en el log y no deshace la finalización. Después, `token` responde 409.
-  **Pendiente de verificar con una llamada real** si la revocación expulsa a quien sigue conectado; el cliente del médico
-  debería además llamar a `kickAll()` del SDK.
+  Con RealtimeKit, `revokeAccess` elimina al participante (`DELETE …/participants/{id}`): así no sirve ninguno de sus
+  tokens, porque revocar un solo token deja válidos los demás. La documentación de Cloudflare no indica si esa baja
+  expulsa a quien sigue conectado, por eso la web del médico llama antes a `kickAll()` del SDK y verifica la expulsión.
+  En la llamada real del 2026-11-25, «Finalizar consulta» en la web cerró la sesión para el médico y para el paciente
+  (Pixel): el flujo de finalización quedó validado en ambos participantes. Solo queda pendiente comprobar si
+  `revokeAccess` expulsa por sí solo a un participante conectado, sin `kickAll()`.
+- **Proveedor RealtimeKit:** adaptador REST en `infrastructure/provider` (`fc810ba`), sin SDK en el backend. Crea la
+  reunión con el primer token, da de alta a cada participante con el preset de su rol y renueva el token del mismo
+  participante al reconectar. Variables del entorno del backend: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_REALTIME_APP_ID`,
+  `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_REALTIME_PRESET_DOCTOR`, `CLOUDFLARE_REALTIME_PRESET_PATIENT` y, opcional,
+  `CLOUDFLARE_REALTIME_TIMEOUT_MS`. Ningún token sale en los logs ni el token de la API llega al cliente.
 
 ## 8. Modelo de datos: migración 0019
 
@@ -203,14 +214,24 @@ con reembolso total). Antes de eso, el médico puede cancelar con reembolso tota
 Ejecutado en C2 el 2026-11-22: `video.int-spec.ts` 9/9 (evidencia `c2-20261123004756-e2ec`), y sin regresión
 `appointments.int-spec.ts` 15/15 y `appointments-reschedule.int-spec.ts` 5/5. Todo con rollback: ningún dato quedó en C2.
 
-No ejecutadas: llamada real al proveedor (revocación incluida); concurrencia real entre el evento y el barrido con dos
-conexiones (cubierta con dobles y por la restricción única de `idempotency_key`); el evento en memoria y la revocación
-después del COMMIT (con rollback nunca se confirma).
+Llamada real en desarrollo el 2026-11-25: médico en la web y paciente en un Pixel 9a (Android 17), con RealtimeKit.
+Conexión, audio y video en ambos sentidos. Al pulsar «Finalizar consulta» en la web, la sesión se cerró para el médico y
+para el paciente, y la finalización quedó registrada (`meeting` en `ended`, cita `completed`, sin reembolso). Esa prueba
+reveló fallos corregidos después: en el móvil (`a9a8335`), el paciente veía la opción de volver tras la finalización y
+aparecía un rechazo de promesa sin manejar al salir de la llamada; en el backend (`c1659ef`), se registraban eventos de
+presencia después de `ended`.
+
+No ejecutadas: concurrencia real entre el evento y el barrido con dos conexiones (cubierta con dobles y por la
+restricción única de `idempotency_key`); el evento en memoria y la revocación después del COMMIT contra C2 (con
+rollback nunca se confirma).
 
 ## 12. Siguientes pasos
 
 1. ~~Aplicar 0019 en desarrollo~~ (hecho el 2026-11-22).
-2. Confirmar el proveedor e implementar su adaptador; verificar la revocación con una llamada real.
-3. Móvil (Etapa 3): `joincall.tsx` ya usa `enter`, latidos, salida, reconexión, `pendingResolution` y `token` (sin commit). Falta probarlo en dispositivo contra el backend local y con el proveedor real.
-4. Web del médico (Etapa 4): lista de salas, entrar, admitir, llamada y finalizar.
+2. ~~Confirmar el proveedor e implementar su adaptador~~ (RealtimeKit, `fc810ba`); finalización validada en ambos
+   participantes el 2026-11-25. Queda comprobar si `revokeAccess` expulsa por sí solo a un participante conectado, sin
+   `kickAll()`.
+3. ~~Móvil (Etapa 3)~~ (`a5bd909`, `a9a8335`): probado en dispositivo contra el backend local y con RealtimeKit el
+   2026-11-25.
+4. ~~Web del médico (Etapa 4)~~ (`375ff9c`): lista de salas, entrar, latido, admitir, llamada, `kickAll()` y finalizar.
 5. Resolver los huecos A y B, y definir la periodicidad de los dos barridos.
