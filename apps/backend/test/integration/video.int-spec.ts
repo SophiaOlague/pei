@@ -262,7 +262,7 @@ describe('Videoconsulta contra PostgreSQL (C2, rollback)', () => {
       expect((await historyOf(n3.id)).map((h) => h.status)).toContain('no_show_both');
     }), 240_000);
 
-  it('[TC-VID-306][huecos A y B] un caso pendiente no cambia la cita en la base', () =>
+  it('[TC-VID-306][hueco B2] paciente tardío presente sin admisión: no_show_doctor en D en la base', () =>
     withRollback(async () => {
       const env = setup();
       const c = await confirmedAppointment(env);
@@ -272,8 +272,8 @@ describe('Videoconsulta contra PostgreSQL (C2, rollback)', () => {
       env.clock.current = at(c.t0, 25);
       await env.doctor.enter(c.doctor, c.id);
       await keepAlive(env, c, ['patient', 'doctor'], 25, 30.5);
-      expect((await env.patient.state(c.patient, c.id)).pendingResolution).toBe('late_patient_not_admitted');
-      expect(await statusOf(c.id)).toBe('confirmed');
+      expect((await env.patient.state(c.patient, c.id)).pendingResolution).toBeNull();
+      expect(await statusOf(c.id)).toBe('no_show_doctor');
     }), 240_000);
 
   it('[TC-VID-307] consulta duradera de M08: el resultado se lee de la auditoría, verificado y con la raíz', () =>

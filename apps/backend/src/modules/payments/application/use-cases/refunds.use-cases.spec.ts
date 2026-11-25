@@ -979,6 +979,17 @@ describe('Videoconsulta · reembolso por inasistencia (RN-025, RN-030)', () => {
     expect(w.list()).toHaveLength(1);
   });
 
+  it('[TC-VID-177][huecos A2 y B2] repetir el evento no_show_doctor no crea un segundo reembolso', async () => {
+    const w = new World();
+    const handler = noShowHandlerFor(w);
+    expect(await handler.handle(outcomeEvent('no_show_doctor'))).toMatchObject({ outcome: 'requested', refund: { amount: '650.00', reason: 'no_show_doctor' } });
+    const again = await handler.handle(outcomeEvent('no_show_doctor'));
+    expect(again.outcome).not.toBe('requested');
+    expect(w.list()).toHaveLength(1);
+    expect(w.createCalls).toHaveLength(1);
+    expect(w.succeededCents()).toBe(65_000);
+  });
+
   it('[TC-VID-173] un pago ya reembolsado por cancelación no se reembolsa otra vez por inasistencia', async () => {
     const w = new World();
     await handlerFor(w).handle(canceled({ canceledBy: 'doctor' }));

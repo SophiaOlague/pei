@@ -55,5 +55,5 @@
 - Matriz: archivo externo `Matriz_cumplimiento_academico_PEI.xlsx`, proporcionado por el usuario (fuera del repositorio), hoja “Matriz de entregables”, filas 2–45.
 - PDF: archivo externo `Entregables.pdf`, proporcionado por el usuario (fuera del repositorio), 14 páginas.
 - Maestro: `docs/arquitectura/PEI_Documento_Maestro_V2.4_2026-10-28.docx` (V2.4, corte interno 15-nov).
-- Bitácora: `docs/control/Bitacora_Control_Proyecto_PEI_V1.2.docx` (contenido interno V1.2, corte 15-nov). El archivo se llamaba `Bitacora_Control_Proyecto_PEI_V1.0.docx` hasta el 16-nov-2026, cuando se renombró para resolver la discrepancia de nombre.
+- Bitácora: `docs/control/Bitacora_Control_Proyecto_PEI_V1.3.docx` (contenido interno V1.3: corte histórico al 15-nov-2026 y actualización parcial al 25-nov-2026). Se llamaba `Bitacora_Control_Proyecto_PEI_V1.2.docx` hasta el 25-nov-2026 y `Bitacora_Control_Proyecto_PEI_V1.0.docx` hasta el 16-nov-2026; cada cambio de nombre alinea el archivo con su versión interna.
 

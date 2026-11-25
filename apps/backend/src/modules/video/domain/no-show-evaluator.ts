@@ -12,18 +12,22 @@ import { eventsOf, firstJoinAt, isPresentAt, lastEventAt, type SessionEvent } fr
 // - R5 (RN-033, escenario N13): el paciente puntual se retiró, el médico entró antes de D y el paciente no volvió al
 //   terminar la ventana del médico contada desde su llegada.
 // - R6 (AP-25, N8): los dos presentes antes de D → consulta normal; la decide la admisión.
+// - R7 (hueco A, aprobado 2026-11-25; AP-24, A.11.2, RN-033): si el plazo de R5 pasa de T0 + L, se decide en T0 + L.
+//   Paciente no disponible → no_show_patient (A1); disponible y sin admisión → no_show_doctor (A2).
+// - R8 (hueco B1, aprobado 2026-11-25; AP-25, RN-026): paciente tardío ausente cuando entra el médico (antes de D) y sin
+//   admisión → no_show_patient en D.
+// - R9 (hueco B2, aprobado 2026-11-25; AP-25, RN-025): paciente tardío presente cuando entra el médico (antes de D) y
+//   sin admisión → no_show_doctor en D. La admisión solo cabe antes de D.
 //
 // Lo que el Maestro no define NO se clasifica: queda `pending` con su motivo y la cita sigue confirmed.
-// - r5_beyond_total_limit (hueco A): el plazo de R5 pasa de T0 + L. No se sabe si el límite lo recorta.
-// - late_patient_left_before_doctor y late_patient_not_admitted (hueco B): paciente tardío fuera de N8–N10.
-// - no_rule: cualquier otra combinación que ninguna regla cubre.
+// - no_rule: cualquier combinación que ninguna regla cubre.
 //
 // La evaluación es histórica: cada regla se mira en su propio instante, sin los eventos posteriores. Por eso el
 // resultado no depende de cuándo se ejecute (al entrar a la sala, en un latido o en el barrido del CLI).
 
 export type NoShowOutcome = 'patient' | 'doctor' | 'both';
-export type NoShowRule = 'R1' | 'R2' | 'R3' | 'R4' | 'R5';
-export type PendingReason = 'r5_beyond_total_limit' | 'late_patient_left_before_doctor' | 'late_patient_not_admitted' | 'no_rule';
+export type NoShowRule = 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R7' | 'R8' | 'R9';
+export type PendingReason = 'no_rule';
 
 export type Evaluation =
   | { kind: 'started' }
@@ -91,7 +95,8 @@ export function evaluateNoShow(input: EvaluationInput): Evaluation {
       pending(deadline, 'no_rule');
     } else {
       const r5 = addMinutes(arrival, policy.doctorWaitMinutes);
-      if (r5 > cap) pending(cap, 'r5_beyond_total_limit');
+      // R7 (hueco A): el tope T0 + L recorta la ventana del médico; no hay espera adicional.
+      if (r5 > cap) determined(cap, available(cap) ? 'doctor' : 'patient', 'R7');
       else if (available(r5)) pending(r5, 'no_rule');
       else determined(r5, 'patient', 'R5');
     }
@@ -100,10 +105,11 @@ export function evaluateNoShow(input: EvaluationInput): Evaluation {
     // de la tolerancia y no volvió).
     pending(deadline, 'no_rule');
   } else {
-    // Hueco B: paciente tardío y médico que entró antes de D, sin admisión. N8 (los dos presentes) es consulta normal
-    // si hay admisión; sin ella, ninguna regla cierra la cita.
+    // Hueco B: paciente tardío y médico que entró antes de D, sin admisión antes de D. N8 (los dos presentes y
+    // admitidos) es consulta normal; sin admisión: R9 si el paciente estaba presente al entrar el médico, si no R8.
     const presentAtDoctorArrival = joins.some((j) => j >= firstPatient && j < deadline && isPresentAt(events, 'patient', j));
-    pending(deadline, presentAtDoctorArrival ? 'late_patient_not_admitted' : 'late_patient_left_before_doctor');
+    if (presentAtDoctorArrival) determined(deadline, 'doctor', 'R9');
+    else determined(deadline, 'patient', 'R8');
   }
 
   const due = candidates.filter((c) => c.at <= now).sort((a, b) => a.at.getTime() - b.at.getTime());
