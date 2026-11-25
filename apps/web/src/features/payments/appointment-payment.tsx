@@ -1,15 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ApiError,
   type CardPaymentInput,
+  getBookableDoctors,
   getPatientAppointment,
   type PatientAppointment,
   type PatientPayment,
   payAppointment,
   syncAppointmentPayment,
 } from "@/lib/api";
+import { PaymentConfirmed } from "./payment-confirmed";
 import { StripeCardForm } from "./stripe-card-form";
 import { getStripe, stripePublishableKey } from "./stripe-sdk";
 
@@ -27,6 +29,16 @@ import { getStripe, stripePublishableKey } from "./stripe-sdk";
 
 export const idempotencyStorageKey = (appointmentId: string) =>
   `pei.payment.idempotency.${appointmentId}`;
+
+// Último pago iniciado para la cita (solo su id, sin datos de la tarjeta). Permite que una recarga o volver a abrir la
+// página retome la consulta del estado real con el backend, en lugar de cobrar otra vez o perder el resultado.
+export const lastPaymentStorageKey = (appointmentId: string) =>
+  `pei.payment.last.${appointmentId}`;
+
+// Mientras el pago se procesa o la cita se está confirmando, se consulta el backend (sync) cada POLL_MS, hasta
+// POLL_LIMIT veces; después queda el botón para consultar a mano.
+export const POLL_MS = 4000;
+export const POLL_LIMIT = 15;
 
 function newKey(): string {
   return `pay-${crypto.randomUUID()}`;
@@ -143,8 +155,10 @@ const TONE: Record<PaymentMessage["tone"], string> = {
 
 export function AppointmentPayment({
   appointmentId,
+  pollMs = POLL_MS,
 }: {
   appointmentId: string;
+  pollMs?: number;
 }) {
   const publicKey = stripePublishableKey();
   const [appointment, setAppointment] = useState<PatientAppointment | null>(
@@ -156,16 +170,63 @@ export function AppointmentPayment({
   const [busy, setBusy] = useState(false);
   // Cada intento nuevo vuelve a montar el formulario (la referencia de la tarjeta es de un solo uso).
   const [attempt, setAttempt] = useState(0);
+  const [doctorName, setDoctorName] = useState<string | null>(null);
+  const polls = useRef(0);
+
+  const remember = useCallback(
+    (p: PatientPayment) => {
+      setPayment(p);
+      sessionStorage.setItem(lastPaymentStorageKey(appointmentId), p.paymentId);
+    },
+    [appointmentId],
+  );
 
   useEffect(() => {
-    getPatientAppointment(appointmentId)
-      .then(setAppointment)
-      .catch((e: unknown) =>
-        setLoadError(
-          e instanceof ApiError ? e.message : "No se pudo cargar la cita.",
-        ),
-      );
+    let cancelled = false;
+    (async () => {
+      try {
+        const loaded = await getPatientAppointment(appointmentId);
+        if (cancelled) return;
+        setAppointment(loaded);
+        // Recarga o regreso a la página con un pago ya iniciado: se consulta su estado real (no se cobra de nuevo).
+        const last = sessionStorage.getItem(
+          lastPaymentStorageKey(appointmentId),
+        );
+        if (last && loaded.status === "pending_payment") {
+          syncAppointmentPayment(last)
+            .then((p) => !cancelled && setPayment(p))
+            .catch(() => undefined);
+        }
+      } catch (e) {
+        if (!cancelled)
+          setLoadError(
+            e instanceof ApiError ? e.message : "No se pudo cargar la cita.",
+          );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [appointmentId]);
+
+  // Nombre del médico para la confirmación: del catálogo de médicos reservables, como en «Mis citas». Si no está, la
+  // confirmación se muestra sin nombre.
+  const doctorProfileId = appointment?.doctorProfileId;
+  useEffect(() => {
+    if (!doctorProfileId) return;
+    let cancelled = false;
+    getBookableDoctors()
+      .then((doctors) => {
+        const found = doctors.find(
+          (d) => d.doctorProfileId === doctorProfileId,
+        );
+        if (!cancelled) setDoctorName(found?.displayName ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [doctorProfileId]);
 
   // Autenticación 3-D Secure, si el pago la requiere. Pase lo que pase en el reto (aprobado, rechazado o cerrado), el
   // resultado que se muestra es el que informa el backend tras consultar a Stripe.
@@ -202,7 +263,8 @@ export function AppointmentPayment({
           card,
         );
         const settled = await authenticate(result);
-        setPayment(settled);
+        polls.current = 0;
+        remember(settled);
         if (settled.status === "failed" || settled.status === "canceled")
           rotateKey(appointmentId);
       } catch (e) {
@@ -216,7 +278,7 @@ export function AppointmentPayment({
         setBusy(false);
       }
     },
-    [appointmentId, authenticate],
+    [appointmentId, authenticate, remember],
   );
 
   const sync = useCallback(async () => {
@@ -224,6 +286,7 @@ export function AppointmentPayment({
     setBusy(true);
     setRequestError(null);
     try {
+      polls.current = 0;
       setPayment(await syncAppointmentPayment(payment.paymentId));
     } catch (e) {
       setRequestError(
@@ -236,6 +299,27 @@ export function AppointmentPayment({
     }
   }, [payment]);
 
+  // Estado de espera: el pago se procesa o la cita se está confirmando. Se consulta el backend (el mismo sync del botón)
+  // hasta obtener un estado definitivo o agotar los intentos.
+  const waiting = !!payment && paymentMessage(payment).sync;
+  const paymentId = payment?.paymentId;
+  useEffect(() => {
+    if (!waiting || !paymentId) return;
+    const timer = setInterval(async () => {
+      if (polls.current >= POLL_LIMIT) {
+        clearInterval(timer);
+        return;
+      }
+      polls.current += 1;
+      try {
+        setPayment(await syncAppointmentPayment(paymentId));
+      } catch {
+        // Se reintenta en el siguiente ciclo o con el botón.
+      }
+    }, pollMs);
+    return () => clearInterval(timer);
+  }, [waiting, paymentId, pollMs]);
+
   if (!publicKey) {
     return (
       <p role="alert">
@@ -245,6 +329,18 @@ export function AppointmentPayment({
   }
   if (loadError) return <p role="alert">{loadError}</p>;
   if (!appointment) return <output>Cargando tu cita…</output>;
+
+  // Confirmación: solo con la cita confirmada según el backend (al cargar la cita, o en la respuesta del pago).
+  if (appointment.status === "confirmed" || payment?.appointmentConfirmed) {
+    return (
+      <PaymentConfirmed
+        appointmentId={appointmentId}
+        scheduledAt={appointment.scheduledAt}
+        doctorName={doctorName}
+        amount={payment ? formatMxn(payment.amount) : null}
+      />
+    );
+  }
 
   const message = payment ? paymentMessage(payment) : null;
   const payable = appointment.status === "pending_payment";
@@ -269,6 +365,12 @@ export function AppointmentPayment({
         >
           <p className="font-semibold">{message.title}</p>
           <p>{message.detail}</p>
+          {message.sync && (
+            <p className="mt-2 text-sm">
+              Estamos consultando el estado automáticamente; no cierres esta
+              página.
+            </p>
+          )}
           {message.sync && (
             <button
               type="button"
