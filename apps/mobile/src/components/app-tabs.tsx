@@ -16,12 +16,10 @@ export default function AppTabs() {
           src={require("@/assets/images/tabIcons/home.png")}
         />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="histllamada">
-        <NativeTabs.Trigger.Label>Historial</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-        sf="clock.arrow.circlepath"  
-        md="history"
-      />
+      {/* Citas reales del paciente (GET /me/patient/appointments): sustituye al historial de demostración. */}
+      <NativeTabs.Trigger name="mis-citas">
+        <NativeTabs.Trigger.Label>Mis citas</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon md="event" sf="calendar" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="lab">
         <NativeTabs.Trigger.Label>Laboratorio</NativeTabs.Trigger.Label>

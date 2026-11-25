@@ -10,10 +10,14 @@ const MINUTE_MS = 60_000;
 const OPENS_AT_NOTICE = /Podrás entrar a la sala desde las/;
 
 const mockPush = jest.fn();
+const mockNavigate = jest.fn();
 jest.mock("expo-router", () => {
   const { useEffect } = jest.requireActual<typeof import("react")>("react");
   return {
-    router: { push: (...args: unknown[]) => mockPush(...args) },
+    router: {
+      navigate: (...args: unknown[]) => mockNavigate(...args),
+      push: (...args: unknown[]) => mockPush(...args),
+    },
     useFocusEffect: (effect: () => void) => useEffect(effect, [effect]),
   };
 });
@@ -55,6 +59,7 @@ function setAppointments(appointments: unknown[]) {
 
 beforeEach(() => {
   mockPush.mockReset();
+  mockNavigate.mockReset();
   calls.length = 0;
   replies = {
     "GET /doctors/bookable": {
@@ -88,6 +93,15 @@ beforeEach(() => {
 });
 
 describe("Inicio · próxima cita real", () => {
+  it("[TC-MOB-CIT-030] «Ver todas mis citas» abre la pestaña Mis citas (la lista real)", async () => {
+    setAppointments([appointmentIn(60)]);
+    await render(<NextAppointment />);
+    await fireEvent.press(
+      await screen.findByRole("link", { name: "Ver todas mis citas" })
+    );
+    expect(mockNavigate).toHaveBeenCalledWith("/mis-citas");
+  });
+
   it("muestra la carga y después la cita confirmada del backend, sin datos de maqueta", async () => {
     setAppointments([appointmentIn(120)]);
     // El backend tarda: la respuesta queda retenida hasta soltarla.

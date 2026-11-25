@@ -161,6 +161,9 @@ export function NextAppointment() {
   const schedule = useCallback(() => {
     router.push("/seleccioncita");
   }, []);
+  const allAppointments = useCallback(() => {
+    router.navigate("/mis-citas");
+  }, []);
 
   return (
     <View style={styles.card}>
@@ -203,11 +206,25 @@ export function NextAppointment() {
           doctorName={state.doctorName}
         />
       ) : null}
+      <Pressable
+        accessibilityRole="link"
+        onPress={allAppointments}
+        style={styles.allLink}
+      >
+        <Text style={styles.allLinkText}>Ver todas mis citas</Text>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  allLink: { alignSelf: "flex-start", paddingVertical: 4 },
+  allLinkText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
   button: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",
