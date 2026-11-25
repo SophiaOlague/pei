@@ -73,7 +73,9 @@ export class SessionEngine {
       reconnectGraceMinutes: session.reconnectGraceMinutes,
     };
 
-    if (meeting) {
+    // Una consulta finalizada ya no tiene presencia que vigilar: después de `ended` no se registran más salidas
+    // (ni por falta de latidos ni voluntarias). Esos eventos no cambian el resultado y confundirían el historial.
+    if (meeting && meeting.status !== 'ended') {
       for (const participant of ['patient', 'doctor'] as const) {
         const left = expiredPresence(events, participant, lastSeenOf(meeting, participant), now);
         if (left) {
@@ -124,7 +126,7 @@ export class SessionEngine {
   // Latido: solo renueva una presencia abierta; nunca la reabre (para eso está `enter`).
   async heartbeat(ctx: SessionContext, participant: Participant): Promise<void> {
     const meeting = ctx.meeting;
-    if (!meeting || !isPresentAt(ctx.events, participant, ctx.now)) return;
+    if (!meeting || meeting.status === 'ended' || !isPresentAt(ctx.events, participant, ctx.now)) return;
     const current = lastSeenOf(meeting, participant);
     const next = current && current > ctx.now ? current : ctx.now;
     const patch: Partial<MeetingRecord> = participant === 'patient' ? { patientLastSeenAt: next } : { doctorLastSeenAt: next };
@@ -135,7 +137,7 @@ export class SessionEngine {
   // Salida voluntaria («Salir de la sala»): deja de estar disponible hasta que vuelva a entrar. No cancela la cita.
   async leave(ctx: SessionContext, participant: Participant): Promise<void> {
     const meeting = ctx.meeting;
-    if (!meeting || !isPresentAt(ctx.events, participant, ctx.now)) return;
+    if (!meeting || meeting.status === 'ended' || !isPresentAt(ctx.events, participant, ctx.now)) return;
     await this.meetings.appendEvent({ meetingId: meeting.id, participant, type: 'left_voluntarily', at: ctx.now });
     ctx.events.push({ participant, type: 'left_voluntarily', at: ctx.now });
   }

@@ -7,13 +7,16 @@ import { CancellationPolicyService } from '../../appointments/application/use-ca
 import { APPOINTMENT_AUDIT_ACTIONS } from '../../appointments/application/appointments-audit-events';
 import { AppointmentNotFoundError, InvalidAppointmentStateError } from '../../appointments/domain/appointments.errors';
 import { INITIAL_POLICY } from '../../appointments/domain/cancellation-policy';
-import { DoctorBusyError, DoctorNotInRoomError, PatientNotWaitingError, SessionNotActiveError, SessionNotOpenError, VideoProviderUnavailableError } from '../domain/video.errors';
+import { DoctorBusyError, DoctorNotInRoomError, PatientNotWaitingError, SessionEndedError, SessionNotActiveError, SessionNotOpenError, VideoProviderUnavailableError } from '../domain/video.errors';
 import { SessionEngine } from './session-engine';
 import { DoctorSessionUseCases } from './use-cases/doctor-session.use-cases';
 import { EvaluateSessionsUseCase } from './use-cases/evaluate-sessions.use-case';
 import { PatientSessionUseCases } from './use-cases/patient-session.use-cases';
 import { SessionAccess } from './use-cases/session-access';
 import { VIDEO_AUDIT_ACTIONS } from './video-audit-events';
+import type { VideoProvider } from './ports/video.ports';
+import { RealtimeKitVideoProvider } from '../infrastructure/provider/realtimekit-video-provider';
+import { FakeRealtimeKitApi, respond, RTK_SETTINGS } from '../../../../test/support/realtimekit-fake';
 
 // Casos de uso de videoconsulta con dobles en memoria (sin BD ni proveedor real). La política aplicada es la
 // configuración inicial aprobada (AP-22): W = 30, Tol = 15, L = 60, G = 5.
@@ -25,6 +28,10 @@ const actor = (role: 'patient' | 'doctor' | 'admin', userProfileId: string = ran
 });
 
 async function setup() {
+  return build(new FakeVideoProvider());
+}
+
+async function build<P extends VideoProvider>(provider: P) {
   const world = new InMemoryAppointmentsWorld();
   const inner = new InMemoryAppointmentsUnitOfWork(world);
   const meetings = new InMemoryMeetingRepository(world);
@@ -32,7 +39,6 @@ async function setup() {
   const clock = new FixedClock(new Date('2026-11-01T12:00:00Z'));
   await new CancellationPolicyService(uow, world, world.policies, clock).publish(actor('admin'), { ...INITIAL_POLICY }, 'initial_setup');
   const sessions = new AppointmentSessionService(uow, world, world, world.policies, clock, inner.events);
-  const provider = new FakeVideoProvider();
   const operational = new WorldDoctorOperationalCheck(world);
   const engine = new SessionEngine(meetings, new SequentialIds(), clock, sessions);
   const access = new SessionAccess(meetings, provider);
@@ -45,8 +51,9 @@ async function setup() {
   return env;
 }
 type Env = Awaited<ReturnType<typeof setup>>;
+type BaseEnv = Awaited<ReturnType<typeof build<VideoProvider>>>;
 
-function appointmentWith(env: Env, opts: { scheduledAt?: Date; doctor?: { id: string; actor: Actor } } = {}) {
+function appointmentWith(env: BaseEnv, opts: { scheduledAt?: Date; doctor?: { id: string; actor: Actor } } = {}) {
   const policyId = env.world.state.policies[0].id;
   const doctor = opts.doctor ?? (() => {
     const a = actor('doctor');
@@ -61,8 +68,8 @@ function appointmentWith(env: Env, opts: { scheduledAt?: Date; doctor?: { id: st
   env.world.seedAppointment({ id, patientId, doctorId: doctor.id, scheduledAt: opts.scheduledAt ?? T0, cancellationPolicyId: policyId });
   return { id, doctor, patient: { id: patientId, actor: p } };
 }
-const statusOf = (env: Env, id: string) => env.world.state.appointments.find((a) => a.id === id)!.status;
-const now = (env: Env, minutes: number, seconds = 0) => {
+const statusOf = (env: BaseEnv, id: string) => env.world.state.appointments.find((a) => a.id === id)!.status;
+const now = (env: BaseEnv, minutes: number, seconds = 0) => {
   env.clock.current = at(minutes, seconds);
 };
 // Latidos cada 15 s de los participantes indicados, desde el minuto `from` hasta el minuto `to` (incluido).
@@ -347,5 +354,165 @@ describe('Videoconsulta · inasistencias registradas por el motor (RF-21)', () =
     env.world.locks.length = 0;
     await env.patientUc.enter(c.patient.actor, c.id);
     expect(env.world.locks.slice(0, 2)).toEqual([`video:doctor:${c.doctor.id}`, `video:meeting:${c.id}`]);
+  });
+});
+
+describe('Videoconsulta · flujo completo con el adaptador de RealtimeKit (HTTP simulado)', () => {
+  async function rtkEnv() {
+    const api = new FakeRealtimeKitApi();
+    const env = await build(new RealtimeKitVideoProvider(RTK_SETTINGS, api.fetch));
+    return { api, env };
+  }
+
+  it('[TC-VID-136] reunión, alta con presets, tokens individuales, reconexión y baja de ambos al finalizar', async () => {
+    const { api, env } = await rtkEnv();
+    const c = appointmentWith(env);
+    now(env, 0);
+    await env.patientUc.enter(c.patient.actor, c.id);
+    await env.doctorUc.enter(c.doctor.actor, c.id);
+    // Antes de la admisión no se llama al proveedor (decisión 4).
+    expect(api.requests).toEqual([]);
+    await env.doctorUc.admit(c.doctor.actor, c.id);
+    const patientToken = await env.patientUc.token(c.patient.actor, c.id);
+    const doctorToken = await env.doctorUc.token(c.doctor.actor, c.id);
+    expect(patientToken.provider).toBe('realtimekit');
+    expect(patientToken.authToken).not.toBe(doctorToken.authToken);
+    expect(api.meetings.size).toBe(1);
+    const meeting = env.meetings.state.meetings[0];
+    expect(api.meetings.has(meeting.roomId!)).toBe(true);
+    expect(api.participants.get(meeting.patientProviderParticipantId!)?.preset).toBe('preset_patient_test');
+    expect(api.participants.get(meeting.doctorProviderParticipantId!)?.preset).toBe('preset_doctor_test');
+    // La respuesta al cliente nunca incluye el token de la API.
+    expect(JSON.stringify([patientToken, doctorToken])).not.toContain(RTK_SETTINGS.apiToken);
+
+    // Reconexión: mismo participante, token nuevo, sin otra reunión.
+    const again = await env.patientUc.token(c.patient.actor, c.id);
+    expect(again.authToken).not.toBe(patientToken.authToken);
+    expect(env.meetings.state.meetings[0].patientProviderParticipantId).toBe(meeting.patientProviderParticipantId);
+    expect(api.meetings.size).toBe(1);
+
+    now(env, 30);
+    expect((await env.doctorUc.end(c.doctor.actor, c.id)).appointmentStatus).toBe('completed');
+    expect(api.participants.size).toBe(0);
+    await expect(env.patientUc.token(c.patient.actor, c.id)).rejects.toThrow(SessionNotActiveError);
+  });
+
+  it('[TC-VID-137] si Cloudflare no crea la reunión, no se guarda sala ni participante y la consulta sigue igual', async () => {
+    const { api, env } = await rtkEnv();
+    const c = appointmentWith(env);
+    now(env, 0);
+    await env.patientUc.enter(c.patient.actor, c.id);
+    await env.doctorUc.enter(c.doctor.actor, c.id);
+    await env.doctorUc.admit(c.doctor.actor, c.id);
+    api.on((r) => r.path === '/meetings', () => respond(500, { success: false }));
+    await expect(env.patientUc.token(c.patient.actor, c.id)).rejects.toThrow(VideoProviderUnavailableError);
+    expect(env.meetings.state.meetings[0]).toMatchObject({ roomId: null, patientProviderParticipantId: null });
+    // Un nuevo intento funciona.
+    await expect(env.patientUc.token(c.patient.actor, c.id)).resolves.toMatchObject({ provider: 'realtimekit' });
+  });
+
+  it('[TC-VID-138] si el alta del participante falla, no se persiste un participante ni se devuelve credencial', async () => {
+    const { api, env } = await rtkEnv();
+    const c = appointmentWith(env);
+    now(env, 0);
+    await env.patientUc.enter(c.patient.actor, c.id);
+    await env.doctorUc.enter(c.doctor.actor, c.id);
+    await env.doctorUc.admit(c.doctor.actor, c.id);
+    api.on((r) => r.path.endsWith('/participants'), () => 'hang');
+    await expect(env.doctorUc.token(c.doctor.actor, c.id)).rejects.toThrow(VideoProviderUnavailableError);
+    expect(env.meetings.state.meetings[0].doctorProviderParticipantId).toBeNull();
+  });
+
+  it('[TC-VID-139] un fallo de Cloudflare al revocar no deshace la finalización', async () => {
+    const { api, env } = await rtkEnv();
+    const c = appointmentWith(env);
+    now(env, 0);
+    await env.patientUc.enter(c.patient.actor, c.id);
+    await env.doctorUc.enter(c.doctor.actor, c.id);
+    await env.doctorUc.admit(c.doctor.actor, c.id);
+    await env.patientUc.token(c.patient.actor, c.id);
+    api.on((r) => r.method === 'DELETE', () => 'network', false);
+    now(env, 20);
+    expect((await env.doctorUc.end(c.doctor.actor, c.id)).appointmentStatus).toBe('completed');
+    expect(statusOf(env, c.id)).toBe('completed');
+  });
+});
+
+describe('Videoconsulta · finalizar la consulta para ambos (prueba real del 2026-11-25)', () => {
+  // Reproduce la prueba: ambos entran antes de la hora oficial (T0 − 15), el médico admite y finaliza.
+  async function endedEarly() {
+    const env = await setup();
+    const c = appointmentWith(env);
+    now(env, -12);
+    await env.patientUc.enter(c.patient.actor, c.id);
+    now(env, -12, 30);
+    await env.doctorUc.enter(c.doctor.actor, c.id);
+    await env.doctorUc.admit(c.doctor.actor, c.id);
+    await env.patientUc.token(c.patient.actor, c.id);
+    await env.doctorUc.token(c.doctor.actor, c.id);
+    now(env, -9);
+    const ended = await env.doctorUc.end(c.doctor.actor, c.id);
+    return { env, c, ended };
+  }
+  const eventCount = (env: Env) => env.meetings.state.events.length;
+
+  it('[TC-VID-150] la finalización del médico se persiste y ambos la ven terminada; sin reembolso', async () => {
+    const { env, c, ended } = await endedEarly();
+    expect(ended).toMatchObject({ phase: 'ended', appointmentStatus: 'completed' });
+    expect(env.meetings.state.meetings[0].status).toBe('ended');
+    expect(await env.patientUc.state(c.patient.actor, c.id)).toMatchObject({ phase: 'ended', appointmentStatus: 'completed' });
+    expect(await env.doctorUc.state(c.doctor.actor, c.id)).toMatchObject({ phase: 'ended' });
+    // M08 decide no_refund para completed: pagos no reembolsa.
+    expect(env.inner.published).toEqual([expect.objectContaining({ type: 'AppointmentOutcomeRecorded', status: 'completed', refundOutcome: 'no_refund' })]);
+    expect(env.world.state.audit.find((e) => e.action === APPOINTMENT_AUDIT_ACTIONS.outcomeRecorded)?.metadata).toMatchObject({ refundOutcome: 'no_refund' });
+  });
+
+  it('[TC-VID-151] después de finalizar, ni el paciente ni el médico pueden volver a entrar ni pedir credencial', async () => {
+    const { env, c } = await endedEarly();
+    now(env, -8);
+    await expect(env.patientUc.enter(c.patient.actor, c.id)).rejects.toThrow(SessionEndedError);
+    await expect(env.doctorUc.enter(c.doctor.actor, c.id)).rejects.toThrow(SessionEndedError);
+    await expect(env.patientUc.token(c.patient.actor, c.id)).rejects.toThrow(SessionNotActiveError);
+    await expect(env.doctorUc.token(c.doctor.actor, c.id)).rejects.toThrow(SessionNotActiveError);
+    await expect(env.doctorUc.admit(c.doctor.actor, c.id)).rejects.toThrow(SessionEndedError);
+  });
+
+  it('[TC-VID-152] tras finalizar no se registran más salidas (latidos vencidos ni salidas voluntarias)', async () => {
+    const { env, c } = await endedEarly();
+    const before = eventCount(env);
+    now(env, 30);
+    await env.patientUc.state(c.patient.actor, c.id);
+    await env.patientUc.presence(c.patient.actor, c.id);
+    expect((await env.patientUc.leave(c.patient.actor, c.id)).phase).toBe('ended');
+    await env.doctorUc.state(c.doctor.actor, c.id);
+    expect(eventCount(env)).toBe(before);
+    expect(statusOf(env, c.id)).toBe('completed');
+  });
+
+  it('[TC-VID-153] salir voluntariamente durante la consulta no la finaliza', async () => {
+    const env = await setup();
+    const c = appointmentWith(env);
+    now(env, -5);
+    await env.patientUc.enter(c.patient.actor, c.id);
+    await env.doctorUc.enter(c.doctor.actor, c.id);
+    await env.doctorUc.admit(c.doctor.actor, c.id);
+    now(env, -3);
+    expect((await env.patientUc.leave(c.patient.actor, c.id)).phase).toBe('active');
+    expect((await env.doctorUc.leave(c.doctor.actor, c.id)).phase).toBe('active');
+    expect(env.meetings.state.meetings[0]).toMatchObject({ status: 'active', endedAt: null });
+    expect(statusOf(env, c.id)).toBe('confirmed');
+    // Ambos pueden volver mientras la consulta siga en curso.
+    await expect(env.patientUc.enter(c.patient.actor, c.id)).resolves.toMatchObject({ phase: 'active' });
+    await expect(env.doctorUc.enter(c.doctor.actor, c.id)).resolves.toMatchObject({ phase: 'active' });
+  });
+
+  it('[TC-VID-154][C-30] la sala admite la entrada desde T0 − 15 y no antes', async () => {
+    const env = await setup();
+    const c = appointmentWith(env);
+    now(env, -15, -1);
+    await expect(env.patientUc.enter(c.patient.actor, c.id)).rejects.toThrow(SessionNotOpenError);
+    now(env, -15);
+    await expect(env.patientUc.enter(c.patient.actor, c.id)).resolves.toMatchObject({ phase: 'waiting' });
+    await expect(env.doctorUc.enter(c.doctor.actor, c.id)).resolves.toMatchObject({ phase: 'waiting' });
   });
 });
