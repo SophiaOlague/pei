@@ -14,8 +14,8 @@ AP-25).
 
 | # | Decisión | Estado |
 |---|---|---|
-| 1 | Plazo de R5 frente al límite total (hueco A) | **Pendiente**. Se conserva la regla de N13; el caso límite queda sin resultado |
-| 2 | Pacientes tardíos fuera de N8–N10 (hueco B) | **Pendiente**. No se clasifican ni se cierran |
+| 1 | Plazo de R5 frente al límite total (hueco A) | **Aprobada (2026-11-25)**: R7. R5 se decide en `min(llegada del médico + W, T0 + L)`; en `T0 + L`, A1 `no_show_patient` (sin reembolso) o A2 `no_show_doctor` (100 %) |
+| 2 | Pacientes tardíos fuera de N8–N10 (hueco B) | **Aprobada (2026-11-25)**: R8 (B1) `no_show_patient` en D, sin reembolso; R9 (B2) `no_show_doctor` en D, 100 % y sin importe liquidable. La admisión solo cabe antes de D |
 | 3 | La sala de espera la gestiona PEI; el proveedor solo transporta audio y video desde la admisión | Aprobada |
 | 4 | `meeting.room_id` admite nulos: la sala de espera no depende del proveedor | Aprobada |
 | 5 | Presencia por latido cada 15 s, con corte a los 45 s; columnas `*_last_seen_at` | Aprobada |
@@ -106,6 +106,9 @@ Valores de la política aplicada a la cita (AP-22): W = 30, Tol = 15, L = 60, G 
 | R4 | D | Paciente puntual, sin admisión, y disponible o con el médico sin entrar | `no_show_doctor` | RN-025, RN-032, AP-24 |
 | R5 | Llegada del médico + W | Paciente puntual que se retiró y no volvió; el médico entró antes de D | `no_show_patient` | RN-033 (N13) |
 | R6 | — | Ambos presentes antes de D | Consulta normal, por la admisión | AP-25 (N8) |
+| R7 | T0 + L | Como R5, pero llegada del médico + W > T0 + L (hueco A) | Paciente no disponible: `no_show_patient` (A1); disponible y sin admisión: `no_show_doctor` (A2) | AP-24, A.11.2, RN-033; decisión 1 |
+| R8 | D | Paciente tardío (primera entrada después de T0 + Tol) ausente cuando entra el médico, antes de D; sin admisión (hueco B1) | `no_show_patient` | AP-25, RN-026; decisión 2 |
+| R9 | D | Paciente tardío presente cuando entra el médico, antes de D; sin admisión (hueco B2) | `no_show_doctor` | AP-25, RN-025; decisión 2 |
 
 «Puntual»: primera entrada en `[T0 − 15, T0 + Tol]`. «Disponible»: puntual y conectado, o desconectado sin querer hace
 menos de G. Tras una salida voluntaria no está disponible hasta que vuelve.
@@ -123,9 +126,6 @@ barrido lo lista. Nunca se registra un resultado por ellos.
 
 | Motivo | Caso |
 |---|---|
-| `r5_beyond_total_limit` | Hueco A: el plazo de R5 pasa de `T0 + L` |
-| `late_patient_left_before_doctor` | Hueco B: el paciente tardío sale antes de que llegue el médico |
-| `late_patient_not_admitted` | Hueco B: el paciente tardío está presente y el médico no lo admite (el médico todavía puede admitirlo) |
 | `no_rule` | Cualquier otra combinación que ninguna regla cubre (por ejemplo, N13 con un regreso del paciente sin admisión) |
 
 **Consulta que nunca se finaliza (decisión 12):** sigue `active` sin plazo. El barrido la lista con su hora de inicio
@@ -201,15 +201,15 @@ con reembolso total). Antes de eso, el médico puede cancelar con reembolso tota
 
 | Grupo | Archivo | Qué cubre |
 |---|---|---|
-| Dominio | `video/domain/no-show-evaluator.spec.ts`, `presence.spec.ts` | N1–N13, E5–E11, casos pendientes, plazos, latidos |
-| Casos de uso | `video/application/video-sessions.spec.ts` | Sala, admisión, finalización, RN-140 y C-33, barrido, pendientes, candados |
+| Dominio | `video/domain/no-show-evaluator.spec.ts`, `presence.spec.ts` | N1–N13, E5–E11, huecos A y B (R7: TC-VID-020 y 024; R8: TC-VID-021; R9: TC-VID-022), `no_rule` (TC-VID-023), plazos, latidos |
+| Casos de uso | `video/application/video-sessions.spec.ts` | Sala, admisión, finalización, RN-140 y C-33, barrido, pendientes, candados; B2 (TC-VID-152): `no_show_doctor` en D, un solo resultado auditado y publicado con `full_refund`, admisión rechazada después de D |
 | HTTP | `video/presentation/video.http.spec.ts` | Guards, roles, UUID, traducción de errores |
 | M08 | `appointments.use-cases.spec.ts`, `outcome-recorded-feed.spec.ts` | Evento, auditoría, consulta duradera |
-| Pagos | `refunds.use-cases.spec.ts`, `appointment-canceled-refund.listener.spec.ts` | Reembolso por inasistencia, concurrencia, convivencia con cancelaciones |
-| CLI | `cli/video-cli.spec.ts` | Contextos sin conexión y resúmenes |
+| Pagos | `refunds.use-cases.spec.ts`, `appointment-canceled-refund.listener.spec.ts` | Reembolso por inasistencia, concurrencia, convivencia con cancelaciones; repetir el evento `no_show_doctor` no crea un segundo reembolso (TC-VID-177) |
+| CLI | `cli/video-cli.spec.ts` | Contextos sin conexión y resúmenes (pendiente `no_rule`, TC-VID-181) |
 | Esquema y arquitectura | `test/video-0019-schema.spec.ts`, `test/video-architecture.spec.ts` | Migración protegida y aditiva; dependencias permitidas |
 
-| PostgreSQL (C2, rollback) | `test/integration/video.int-spec.ts` (TC-VID-300 a TC-VID-308) | 0019, sala, eventos de solo inserción, admisión y finalización, C-33, inasistencias, consulta duradera, reembolso idempotente |
+| PostgreSQL (C2, rollback) | `test/integration/video.int-spec.ts` (TC-VID-300 a TC-VID-308) | 0019, sala, eventos de solo inserción, admisión y finalización, C-33, inasistencias, consulta duradera, reembolso idempotente. TC-VID-306 reescrita para B2 (`no_show_doctor` en D) el 2026-11-25, **sin ejecutar** |
 
 Ejecutado en C2 el 2026-11-22: `video.int-spec.ts` 9/9 (evidencia `c2-20261123004756-e2ec`), y sin regresión
 `appointments.int-spec.ts` 15/15 y `appointments-reschedule.int-spec.ts` 5/5. Todo con rollback: ningún dato quedó en C2.
@@ -234,4 +234,13 @@ rollback nunca se confirma).
 3. ~~Móvil (Etapa 3)~~ (`a5bd909`, `a9a8335`): probado en dispositivo contra el backend local y con RealtimeKit el
    2026-11-25.
 4. ~~Web del médico (Etapa 4)~~ (`375ff9c`): lista de salas, entrar, latido, admitir, llamada, `kickAll()` y finalizar.
-5. Resolver los huecos A y B, y definir la periodicidad de los dos barridos.
+5. ~~Resolver los huecos A y B~~ (R7, R8 y R9, 2026-11-25; sin commit). Queda definir la periodicidad de los dos barridos
+   y ejecutar en C2 la versión nueva de TC-VID-306 (con autorización).
+
+**Huecos A y B (2026-11-25).** Solo cambia el evaluador (`no-show-evaluator.ts`): los tres motivos pendientes se
+sustituyen por R7, R8 y R9, y `PendingReason` queda en `no_rule`. El resultado llega a M08 por `markNoShow`, como R1 a
+R5; M08 decide `refundOutcome` (`outcome-rules.ts`) y pagos reembolsa `no_show_doctor` una sola vez. No cambian M08,
+pagos, el esquema ni el móvil (su tipo conserva los motivos antiguos, que el servidor ya no envía). Pruebas:
+TC-VID-020, 021, 022 y 024 (dominio), TC-VID-152 (motor: B2 registrado en D, un solo resultado publicado y admisión
+rechazada después), TC-VID-177 (pagos: repetir el evento `no_show_doctor` no crea un segundo reembolso), TC-VID-181
+(CLI) y TC-VID-306 (C2, reescrita y **no ejecutada**). `npm test`: 131 suites, 2251/2251.

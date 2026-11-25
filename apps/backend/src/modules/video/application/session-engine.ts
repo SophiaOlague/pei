@@ -41,7 +41,7 @@ export interface SessionStateView {
   endedAt: string | null;
   // RF-22: duración real = ended_at − started_at.
   durationSeconds: number | null;
-  // Caso sin regla en el Maestro (huecos A y B, o ninguna regla aplicable): la cita sigue confirmed.
+  // Caso sin regla en el Maestro (no_rule): la cita sigue confirmed. Los huecos A y B ya se resuelven (R7 a R9).
   pendingResolution: PendingReason | null;
 }
 

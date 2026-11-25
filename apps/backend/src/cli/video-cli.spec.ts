@@ -32,12 +32,12 @@ describe('CLI de videoconsulta', () => {
   it('[TC-VID-181][decisión 12] el resumen de evaluación informa pendientes y consultas activas sin tratarlos como error', () => {
     const r = formatEvaluationSummary({
       examined: 3, determined: { both: 1 }, waiting: 0, started: 1,
-      pending: [{ appointmentId: 'apt-a', reason: 'late_patient_not_admitted', since: '2026-11-20T16:30:00.000Z' }],
+      pending: [{ appointmentId: 'apt-a', reason: 'no_rule', since: '2026-11-20T16:30:00.000Z' }],
       activeConsultations: [{ appointmentId: 'apt-b', startedAt: '2026-11-17T16:00:00.000Z' }], errors: [],
     });
     expect(r.exitCode).toBe(0);
     expect(r.lines[0]).toBe('Citas examinadas: 3; inasistencias registradas: both: 1; en espera: 0; con consulta iniciada: 1; pendientes de definición: 1; con error: 0');
-    expect(r.lines.join('\n')).toMatch(/apt-a=late_patient_not_admitted/);
+    expect(r.lines.join('\n')).toMatch(/apt-a=no_rule/);
     expect(r.lines.join('\n')).toMatch(/Consultas activas sin finalizar \(no se cierran solas\): apt-b desde 2026-11-17T16:00:00.000Z/);
     expect(formatEvaluationSummary({ examined: 1, determined: {}, waiting: 0, started: 0, pending: [], activeConsultations: [], errors: ['apt-c'] }).exitCode).toBe(1);
   });

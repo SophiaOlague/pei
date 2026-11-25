@@ -1781,6 +1781,15 @@ INSERT) y la cita. No hay escritura nueva ni outbox.
   - **Pendiente:** validar el lector contra PostgreSQL real (C2) para confirmar la igualdad de los timestamps con
     precisión de microsegundos.
 
+## A.26 Resultados de videoconsulta: huecos A y B (2026-11-25)
+
+Sin cambios en M08. Videoconsulta resolvió los casos que dejaban una cita `confirmed` sin resultado (`Video-diseno.md`
+§1 decisiones 1 y 2, §5 reglas R7 a R9, aprobadas por la responsable del producto el 2026-11-25): R7 (hueco A): si el plazo de R5 pasa de `T0 + L`, se decide en `T0 + L`; paciente no disponible → `no_show_patient`, disponible sin admisión → `no_show_doctor`. R8 (hueco B1): paciente tardío ausente cuando entra el médico, sin admisión antes de D → `no_show_patient` en D. R9 (hueco B2): paciente tardío presente cuando entra el médico, sin admisión antes de D → `no_show_doctor` en D; no se admite después de D. Todos llegan a
+M08 por `AppointmentSessionService.markNoShow` (CC-9), que aplica la transición, decide el reembolso con
+`outcome-rules.ts` (`no_show_patient` sin reembolso; `no_show_doctor` 100 %), audita y publica
+`AppointmentOutcomeRecorded`; pagos lo reembolsa por evento o por la consulta duradera de resultados. DA-4 se mantiene:
+M08 no cierra citas por su cuenta. Solo `no_rule` puede dejar una cita sin resultado.
+
 ## 1. Alcance y límites
 
 | Dentro de M08 | Fuera de M08 (a cargo de) |

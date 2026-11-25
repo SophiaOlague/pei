@@ -321,7 +321,7 @@ describe('Videoconsulta · inasistencias registradas por el motor (RF-21)', () =
     expect((await env.sweep.execute()).examined).toBe(0);
   });
 
-  it('[TC-VID-152][huecos A y B] un caso pendiente se informa y la cita sigue confirmed', async () => {
+  it('[TC-VID-152][hueco B2] paciente tardío presente sin admisión: no_show_doctor en D y ya no se puede admitir', async () => {
     const env = await setup();
     const c = appointmentWith(env);
     now(env, 20);
@@ -330,13 +330,23 @@ describe('Videoconsulta · inasistencias registradas por el motor (RF-21)', () =
     now(env, 25);
     await env.doctorUc.enter(c.doctor.actor, c.id);
     await keepAlive(env, c, 25, 30);
-    const view = await env.patientUc.state(c.patient.actor, c.id);
-    expect(view).toMatchObject({ phase: 'waiting', appointmentStatus: 'confirmed', pendingResolution: 'late_patient_not_admitted' });
+    // El latido de T0+30 (= D) ya evalúa y registra el resultado; el barrido posterior no lo repite.
+    expect(statusOf(env, c.id)).toBe('no_show_doctor');
     const summary = await env.sweep.execute();
-    expect(summary.pending).toEqual([{ appointmentId: c.id, reason: 'late_patient_not_admitted', since: at(30).toISOString() }]);
-    expect(statusOf(env, c.id)).toBe('confirmed');
-    // El caso pendiente no impide la consulta: el médico todavía puede admitir.
-    expect((await env.doctorUc.admit(c.doctor.actor, c.id)).phase).toBe('active');
+    expect(summary.examined).toBe(0);
+    expect(summary.pending).toEqual([]);
+    expect(statusOf(env, c.id)).toBe('no_show_doctor');
+    // M08 auditó y publicó UNA vez el resultado con reembolso total (lo consume pagos, TC-VID-170 y 177).
+    expect(env.world.state.audit.filter((e) => e.action === APPOINTMENT_AUDIT_ACTIONS.outcomeRecorded).map((e) => e.metadata)).toEqual([expect.objectContaining({ status: 'no_show_doctor', refundOutcome: 'full_refund' })]);
+    const outcomes = () => env.inner.published.filter((e) => e.type === 'AppointmentOutcomeRecorded');
+    expect(outcomes()).toEqual([expect.objectContaining({ appointmentId: c.id, status: 'no_show_doctor', refundOutcome: 'full_refund' })]);
+    // La admisión solo cabe antes de D.
+    await expect(env.doctorUc.admit(c.doctor.actor, c.id)).rejects.toThrow(InvalidAppointmentStateError);
+    expect(statusOf(env, c.id)).toBe('no_show_doctor');
+    // Evaluar otra vez (estado, barrido) no registra ni publica un segundo resultado.
+    await env.patientUc.state(c.patient.actor, c.id);
+    await env.sweep.execute();
+    expect(outcomes()).toHaveLength(1);
   });
 
   it('[TC-VID-153] una cita ya con resultado no admite volver a entrar', async () => {
