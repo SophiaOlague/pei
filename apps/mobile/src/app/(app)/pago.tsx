@@ -3,9 +3,9 @@ import {
   StripeProvider,
   useStripe,
 } from "@stripe/stripe-react-native";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -16,14 +16,22 @@ import {
   View,
 } from "react-native";
 import {
+  rememberPayment,
+  useAppointmentForPayment,
+  useDoctorName,
+  usePaymentPolling,
+} from "@/hooks/use-payment-completion";
+import {
   ApiError,
   type CardPaymentInput,
-  getPatientAppointment,
-  type PatientAppointment,
   type PatientPayment,
   payAppointment,
   syncAppointmentPayment,
 } from "@/lib/api";
+import {
+  formatAppointmentDate,
+  formatAppointmentTime,
+} from "@/lib/next-appointment";
 import {
   STRIPE_URL_SCHEME,
   stripePublishableKey,
@@ -67,6 +75,19 @@ async function currentKey(appointmentId: string): Promise<string> {
   const key = newKey();
   await SecureStore.setItemAsync(storageKey, key);
   return key;
+}
+
+// Después del pago se cierra el flujo de agendamiento y pago (no se apila encima): «Ver mis citas» abre la lista real
+// con la cita resaltada; «Volver al inicio» vuelve a Inicio.
+export const HOME_ROUTE = "/(app)/(tabs)/home";
+export const MY_APPOINTMENTS_ROUTE = "/mis-citas";
+const goHome = () => router.dismissTo(HOME_ROUTE);
+function goToMyAppointments(appointmentId: string) {
+  router.dismissTo(HOME_ROUTE);
+  router.navigate({
+    params: { cita: appointmentId },
+    pathname: MY_APPOINTMENTS_ROUTE,
+  });
 }
 
 async function rotateKey(appointmentId: string): Promise<void> {
@@ -186,13 +207,77 @@ export default function PaymentScreen() {
   );
 }
 
+// Confirmación después de pagar: solo cuando el BACKEND informa la cita confirmada.
+// La cita está confirmada según el backend: al cargarla, o en la respuesta del pago (appointmentConfirmed).
+const isConfirmed = (
+  appointment: { status: string },
+  payment: PatientPayment | null
+) => appointment.status === "confirmed" || !!payment?.appointmentConfirmed;
+
+function PaymentConfirmed({
+  appointmentId,
+  scheduledAt,
+  doctorName,
+  payment,
+}: {
+  appointmentId: string;
+  scheduledAt: string;
+  doctorName: string | null;
+  payment: PatientPayment | null;
+}) {
+  const at = new Date(scheduledAt);
+  const showAppointments = useCallback(
+    () => goToMyAppointments(appointmentId),
+    [appointmentId]
+  );
+  const amount = payment ? formatMxn(payment.amount) : null;
+  return (
+    <View style={styles.container}>
+      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
+      <ScrollView contentContainerStyle={styles.confirmed}>
+        <Text accessibilityRole="header" style={styles.confirmedTitle}>
+          ¡Pago exitoso!
+        </Text>
+        <Text style={styles.confirmedSubtitle}>Tu cita quedó confirmada</Text>
+        {amount ? <Text style={styles.muted}>Cobramos {amount}.</Text> : null}
+        <View style={styles.summary}>
+          {doctorName ? (
+            <Text style={styles.summaryText}>{doctorName}</Text>
+          ) : null}
+          <Text style={styles.summaryText}>{formatAppointmentDate(at)}</Text>
+          <Text style={styles.summaryText}>{formatAppointmentTime(at)} h</Text>
+        </View>
+        <Text style={styles.muted}>
+          Podrás entrar a la sala de espera 15 minutos antes de la hora de tu
+          consulta.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={showAppointments}
+          style={styles.payButton}
+        >
+          <Text style={styles.payButtonText}>Ver mis citas</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={goHome}
+          style={styles.button}
+        >
+          <Text style={styles.buttonText}>Volver al inicio</Text>
+        </Pressable>
+      </ScrollView>
+    </View>
+  );
+}
+
 function AppointmentPayment({ appointmentId }: { appointmentId: string }) {
   const { createPaymentMethod, handleNextAction } = useStripe();
-  const [appointment, setAppointment] = useState<PatientAppointment | null>(
-    null
-  );
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [payment, setPayment] = useState<PatientPayment | null>(null);
+  const { appointment, loadError } = useAppointmentForPayment(
+    appointmentId,
+    setPayment
+  );
+  const doctorName = useDoctorName(appointment?.doctorProfileId);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [cardError, setCardError] = useState<string | null>(null);
   const [authCanceled, setAuthCanceled] = useState(false);
@@ -200,16 +285,15 @@ function AppointmentPayment({ appointmentId }: { appointmentId: string }) {
   const [busy, setBusy] = useState(false);
   // Cada intento nuevo vuelve a montar CardField: la referencia de la tarjeta es de un solo uso.
   const [attempt, setAttempt] = useState(0);
+  const polls = useRef(0);
 
-  useEffect(() => {
-    getPatientAppointment(appointmentId)
-      .then(setAppointment)
-      .catch((e: unknown) =>
-        setLoadError(
-          e instanceof ApiError ? e.message : "No se pudo cargar la cita."
-        )
-      );
-  }, [appointmentId]);
+  const remember = useCallback(
+    async (p: PatientPayment) => {
+      setPayment(p);
+      await rememberPayment(appointmentId, p.paymentId);
+    },
+    [appointmentId]
+  );
 
   // Autenticación 3-D Secure, si el pago la requiere. Pase lo que pase en el reto, el resultado que se muestra es el que
   // informa el backend tras consultar a Stripe.
@@ -249,7 +333,8 @@ function AppointmentPayment({ appointmentId }: { appointmentId: string }) {
           card
         );
         const settled = await authenticate(result);
-        setPayment(settled);
+        polls.current = 0;
+        await remember(settled);
         if (settled.status === "failed" || settled.status === "canceled") {
           await rotateKey(appointmentId);
         }
@@ -262,7 +347,7 @@ function AppointmentPayment({ appointmentId }: { appointmentId: string }) {
         );
       }
     },
-    [appointmentId, authenticate]
+    [appointmentId, authenticate, remember]
   );
 
   const pay = useCallback(async () => {
@@ -305,6 +390,7 @@ function AppointmentPayment({ appointmentId }: { appointmentId: string }) {
     setBusy(true);
     setRequestError(null);
     try {
+      polls.current = 0;
       setPayment(await syncAppointmentPayment(payment.paymentId));
     } catch (e) {
       setRequestError(
@@ -317,6 +403,13 @@ function AppointmentPayment({ appointmentId }: { appointmentId: string }) {
     }
   }, [payment]);
 
+  usePaymentPolling(
+    payment?.paymentId,
+    !!payment && paymentMessage(payment).sync,
+    polls,
+    setPayment
+  );
+
   if (loadError) {
     return <Notice text={loadError} />;
   }
@@ -326,6 +419,17 @@ function AppointmentPayment({ appointmentId }: { appointmentId: string }) {
         <ActivityIndicator />
         <Text>Cargando tu cita…</Text>
       </View>
+    );
+  }
+
+  if (isConfirmed(appointment, payment)) {
+    return (
+      <PaymentConfirmed
+        appointmentId={appointmentId}
+        doctorName={doctorName}
+        payment={payment}
+        scheduledAt={appointment.scheduledAt}
+      />
     );
   }
 
@@ -349,6 +453,12 @@ function AppointmentPayment({ appointmentId }: { appointmentId: string }) {
           <View style={[styles.box, TONE[message.tone]]}>
             <Text style={styles.boxTitle}>{message.title}</Text>
             <Text>{message.detail}</Text>
+            {message.sync ? (
+              <Text>
+                Estamos consultando el estado automáticamente; no cierres esta
+                pantalla.
+              </Text>
+            ) : null}
             {message.sync ? (
               <Pressable
                 accessibilityRole="button"
@@ -492,11 +602,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 20,
   },
+  confirmed: { alignItems: "stretch", gap: 14, padding: 24 },
+  confirmedSubtitle: {
+    color: "#15803D",
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  confirmedTitle: {
+    color: "#111827",
+    fontSize: 26,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   container: { backgroundColor: "#FFFFFF", flex: 1 },
   content: { gap: 12, padding: 20 },
   error: { color: "#B91C1C" },
   form: { gap: 10 },
   label: { color: "#374151", fontWeight: "600" },
+  muted: { color: "#4B5563", textAlign: "center" },
   note: { color: "#92400E" },
   payButton: {
     alignItems: "center",
@@ -506,5 +630,12 @@ const styles = StyleSheet.create({
   },
   payButtonDisabled: { opacity: 0.5 },
   payButtonText: { color: "#FFFFFF", fontWeight: "700" },
+  summary: {
+    backgroundColor: "#F4F1FF",
+    borderRadius: 14,
+    gap: 6,
+    padding: 16,
+  },
+  summaryText: { color: "#111827", fontSize: 16 },
   title: { color: "#111827", fontSize: 20, fontWeight: "700" },
 });

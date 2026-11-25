@@ -28,7 +28,15 @@ const APPOINTMENT = {
 const mockParams: { appointmentId?: string } = {
   appointmentId: APPOINTMENT_ID,
 };
-jest.mock("expo-router", () => ({ useLocalSearchParams: () => mockParams }));
+const mockDismissTo = jest.fn();
+const mockNavigate = jest.fn();
+jest.mock("expo-router", () => ({
+  router: {
+    dismissTo: (...args: unknown[]) => mockDismissTo(...args),
+    navigate: (...args: unknown[]) => mockNavigate(...args),
+  },
+  useLocalSearchParams: () => mockParams,
+}));
 jest.mock("expo-linking", () => ({
   createURL: (path: string) => `gestinovo://${path}`,
 }));
@@ -101,8 +109,9 @@ const AUTH_CANCELED = /Cancelaste la verificación de tu banco/;
 const NOT_PAYABLE = /Esta cita ya no admite pago/;
 const KEY_SHAPE = /^pay-/;
 const NETWORK_ERROR = /No pudimos conectar con el servidor/;
-const CONFIRMED = /consulta está confirmada/;
+const CONFIRMED = /Pago exitoso|consulta está confirmada|cita quedó confirmada/;
 const SENSITIVE = /pm_|secret|4242/;
+const AUTO_SYNC = /consultando el estado automáticamente/;
 const PAY = `POST /me/patient/appointments/${APPOINTMENT_ID}/payment`;
 const SYNC = `POST /me/patient/payments/${PAYMENT_ID}/sync`;
 const GET = `GET /me/patient/appointments/${APPOINTMENT_ID}`;
@@ -226,9 +235,7 @@ describe("envío de la referencia del medio de pago a PEI", () => {
     routes[PAY] = [{ body: payment(), status: 200 }];
     await renderScreen();
     await payWithCard();
-    expect(
-      await screen.findByText("Pago aprobado: tu consulta está confirmada")
-    ).toBeTruthy();
+    expect(await screen.findByText("¡Pago exitoso!")).toBeTruthy();
     expect(mockStripe.createPaymentMethod).toHaveBeenCalledWith({
       paymentMethodType: "Card",
     });
@@ -275,9 +282,7 @@ describe("envío de la referencia del medio de pago a PEI", () => {
     await payWithCard();
     expect(await screen.findByText("Tu pago fue rechazado")).toBeTruthy();
     await payWithCard();
-    expect(
-      await screen.findByText("Pago aprobado: tu consulta está confirmada")
-    ).toBeTruthy();
+    expect(await screen.findByText("¡Pago exitoso!")).toBeTruthy();
     const [a, b, c] = keys();
     expect(a).toBe(b);
     expect(c).not.toBe(b);
@@ -292,9 +297,7 @@ describe("3-D Secure", () => {
     routes[SYNC] = [{ body: payment(), status: 200 }];
     await renderScreen();
     await payWithCard();
-    expect(
-      await screen.findByText("Pago aprobado: tu consulta está confirmada")
-    ).toBeTruthy();
+    expect(await screen.findByText("¡Pago exitoso!")).toBeTruthy();
     expect(mockStripe.handleNextAction).toHaveBeenCalledWith(
       CLIENT_SECRET,
       "gestinovo://stripe-redirect"
@@ -335,9 +338,7 @@ describe("3-D Secure", () => {
     expect(await screen.findByText("Tu pago se está procesando")).toBeTruthy();
     expect(screen.queryByText(CONFIRMED)).toBeNull();
     fireEvent.press(screen.getByText("Consultar estado del pago"));
-    expect(
-      await screen.findByText("Pago aprobado: tu consulta está confirmada")
-    ).toBeTruthy();
+    expect(await screen.findByText("¡Pago exitoso!")).toBeTruthy();
     expect(pays()).toHaveLength(1);
   });
 });
@@ -367,9 +368,7 @@ describe("estados", () => {
     expect(screen.queryByText(CONFIRMED)).toBeNull();
     expect(mockStripe.handleNextAction).not.toHaveBeenCalled();
     fireEvent.press(screen.getByText("Consultar estado del pago"));
-    expect(
-      await screen.findByText("Pago aprobado: tu consulta está confirmada")
-    ).toBeTruthy();
+    expect(await screen.findByText("¡Pago exitoso!")).toBeTruthy();
     expect(pays()).toHaveLength(1);
   });
 
@@ -390,9 +389,7 @@ describe("estados", () => {
         "Recibimos tu pago, pero no pudimos confirmar la consulta"
       )
     ).toBeTruthy();
-    expect(
-      screen.queryByText("Pago aprobado: tu consulta está confirmada")
-    ).toBeNull();
+    expect(screen.queryByText("¡Pago exitoso!")).toBeNull();
   });
 
   it("una cita que ya no está en pending_payment no ofrece el formulario", async () => {
@@ -402,5 +399,151 @@ describe("estados", () => {
     await render(<PaymentScreen />);
     expect(await screen.findByText(NOT_PAYABLE)).toBeTruthy();
     expect(mockCardFields).toHaveLength(0);
+  });
+});
+
+describe("pago.tsx · finalización del pago y de la cita", () => {
+  const DOCTOR_ID = "33333333-3333-4333-8333-333333333333";
+  const BOOKABLE = "GET /doctors/bookable";
+  const DOCTORS = {
+    doctors: [
+      {
+        displayName: "Dra. Ana Real",
+        doctorProfileId: DOCTOR_ID,
+        specialty: { id: "s", name: "Medicina general" },
+      },
+    ],
+    timeZone: "America/Mexico_City",
+  };
+  const processing = payment({
+    appointmentConfirmed: false,
+    confirmation: { result: "not_requested" },
+    recoverable: true,
+    status: "processing",
+  });
+  const LAST_PAYMENT = `pei.payment.last.${APPOINTMENT_ID}`;
+
+  beforeEach(() => {
+    mockDismissTo.mockReset();
+    mockNavigate.mockReset();
+  });
+
+  it("[TC-MOB-PAY-001] aprobado y confirmado: confirmación con médico, fecha y hora; «Ver mis citas» abre la lista real con la cita resaltada y «Volver al inicio» va a Inicio", async () => {
+    routes[GET] = [
+      { body: { ...APPOINTMENT, doctorProfileId: DOCTOR_ID }, status: 200 },
+    ];
+    routes[BOOKABLE] = [{ body: DOCTORS, status: 200 }];
+    routes[PAY] = [{ body: payment(), status: 200 }];
+    await renderScreen();
+    await payWithCard();
+    expect(await screen.findByText("¡Pago exitoso!")).toBeTruthy();
+    expect(screen.getByText("Tu cita quedó confirmada")).toBeTruthy();
+    expect(await screen.findByText("Dra. Ana Real")).toBeTruthy();
+    expect(screen.getByText("20 de noviembre de 2026")).toBeTruthy();
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Ver mis citas" })
+    );
+    // Cierra el flujo de agendar y pagar y abre «Mis citas» con la cita recién pagada.
+    expect(mockDismissTo).toHaveBeenCalledWith("/(app)/(tabs)/home");
+    expect(mockNavigate).toHaveBeenCalledWith({
+      params: { cita: APPOINTMENT_ID },
+      pathname: "/mis-citas",
+    });
+    mockDismissTo.mockReset();
+    mockNavigate.mockReset();
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Volver al inicio" })
+    );
+    expect(mockDismissTo).toHaveBeenCalledWith("/(app)/(tabs)/home");
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("stripe-card-field")).toBeNull();
+  });
+
+  it("[TC-MOB-PAY-002] pendiente: espera amigable y consulta el backend automáticamente hasta la confirmación", async () => {
+    routes[PAY] = [{ body: processing, status: 200 }];
+    routes[SYNC] = [
+      { body: processing, status: 200 },
+      { body: payment(), status: 200 },
+    ];
+    await renderScreen();
+    jest.useFakeTimers();
+    await payWithCard();
+    expect(await screen.findByText("Tu pago se está procesando")).toBeTruthy();
+    expect(screen.getByText(AUTO_SYNC)).toBeTruthy();
+    await act(() => {
+      jest.advanceTimersByTime(4000);
+    });
+    await act(() => {
+      jest.advanceTimersByTime(4000);
+    });
+    jest.useRealTimers();
+    expect(await screen.findByText("¡Pago exitoso!")).toBeTruthy();
+    expect(pays()).toHaveLength(1);
+  });
+
+  it("[TC-MOB-PAY-003] rechazado: mensaje claro y la tarjeta para volver a intentar", async () => {
+    routes[PAY] = [
+      {
+        body: payment({
+          appointmentConfirmed: false,
+          confirmation: { result: "not_requested" },
+          status: "failed",
+        }),
+        status: 200,
+      },
+    ];
+    await renderScreen();
+    await payWithCard();
+    expect(await screen.findByText("Tu pago fue rechazado")).toBeTruthy();
+    expect(screen.queryByText("¡Pago exitoso!")).toBeNull();
+    expect(screen.getByText(PAY_BUTTON)).toBeTruthy();
+    expect(mockCardFields.length).toBeGreaterThan(1);
+  });
+
+  it("[TC-MOB-PAY-004] aprobado sin la cita confirmada todavía: no muestra confirmación y permite actualizar", async () => {
+    const notYet = payment({
+      appointmentConfirmed: false,
+      confirmation: { result: "confirmation_failed" },
+    });
+    routes[PAY] = [{ body: notYet, status: 200 }];
+    routes[SYNC] = [{ body: notYet, status: 200 }];
+    await renderScreen();
+    await payWithCard();
+    expect(
+      await screen.findByText(
+        "Recibimos tu pago; estamos confirmando tu consulta"
+      )
+    ).toBeTruthy();
+    expect(screen.queryByText("¡Pago exitoso!")).toBeNull();
+    expect(screen.getByText("Consultar estado del pago")).toBeTruthy();
+  });
+
+  it("[TC-MOB-PAY-005] volver a abrir la pantalla con la cita confirmada muestra la confirmación sin cobrar", async () => {
+    routes[GET] = [
+      { body: { ...APPOINTMENT, status: "confirmed" }, status: 200 },
+    ];
+    await render(<PaymentScreen />);
+    expect(await screen.findByText("¡Pago exitoso!")).toBeTruthy();
+    expect(pays()).toHaveLength(0);
+    expect(mockCardFields).toHaveLength(0);
+  });
+
+  it("[TC-MOB-PAY-006] con un pago ya iniciado, al volver se consulta su estado (sync) y no se crea otro cobro", async () => {
+    mockStore.set(LAST_PAYMENT, PAYMENT_ID);
+    routes[SYNC] = [{ body: payment(), status: 200 }];
+    await render(<PaymentScreen />);
+    expect(await screen.findByText("¡Pago exitoso!")).toBeTruthy();
+    expect(sent.filter((s) => s.key === SYNC)).toHaveLength(1);
+    expect(pays()).toHaveLength(0);
+  });
+
+  it("[TC-MOB-PAY-007] guarda solo el id del pago para retomarlo, nunca datos de la tarjeta", async () => {
+    routes[PAY] = [{ body: processing, status: 200 }];
+    routes[SYNC] = [{ body: processing, status: 200 }];
+    await renderScreen();
+    await payWithCard();
+    await screen.findByText("Tu pago se está procesando");
+    expect(mockStore.get(LAST_PAYMENT)).toBe(PAYMENT_ID);
+    expect(JSON.stringify([...mockStore.values()])).not.toMatch(SENSITIVE);
   });
 });
