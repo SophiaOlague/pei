@@ -13,7 +13,6 @@ import * as Device from "expo-device";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  NativeModules,
   PermissionsAndroid,
   Platform,
   Pressable,
@@ -26,33 +25,38 @@ import { ThemedText } from "@/components/themed-text";
 
 // Interfaz de llamada con RealtimeKit. joincall.tsx la monta SOLO con una credencial real que emite el backend de PEI
 // para la cita (POST /me/patient/appointments/:id/session/token) y con proveedor «realtimekit». No obtiene el token
-// por su cuenta ni llama a ningún servidor externo. Hoy el backend no tiene adaptador del proveedor (responde 422), así
-// que esta interfaz no se llega a mostrar. El proveedor sigue sin confirmarse en el Maestro; si cambia, se sustituye.
+// por su cuenta ni llama a ningún servidor externo. La sala, la admisión y la finalización son de PEI.
 
 type RtkClient = NonNullable<ReturnType<typeof useRealtimeKitClient>[0]>;
 
-const RtkUIModule = NativeModules.CoreUiKit;
+// Por qué terminó la llamada, según `roomLeft` del SDK (p. ej., "left", "kicked", "ended", "disconnected"), o "failed"
+// si no se pudo unir. joincall.tsx consulta entonces el estado de la sala en PEI: la llamada no decide si la consulta
+// terminó.
+export type CallLeftReason = string;
 
-async function startKeepAliveService() {
-  if (Platform.OS !== "android") {
-    return;
-  }
-  if ((Platform.Version as number) >= 33) {
-    await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
-    );
-  }
-  const isRunning = await RtkUIModule.isForegroundServiceRunning();
-  if (!isRunning) {
-    await RtkUIModule.startService();
+// Ninguna operación del SDK al salir debe dejar una promesa rechazada sin manejar: la sala ya puede estar cerrada o el
+// recurso ya liberado (por ejemplo, tras la expulsión del médico).
+function settle(action: () => Promise<unknown> | undefined) {
+  try {
+    action()?.catch(() => undefined);
+  } catch {
+    // El SDK puede fallar de forma síncrona si la sala ya se liberó.
   }
 }
 
-async function stopKeepAliveService() {
-  if (Platform.OS !== "android") {
+// El servicio en primer plano de Android lo arranca y detiene el propio SDK (RTKHelper, @cloudflare/realtimekit-react-
+// native 2.x). En la versión 2.0 de la UI, el módulo nativo CoreUiKit ya no tiene startService/stopService: llamarlos
+// lanzaba TypeError dentro de una promesa sin manejar al salir. Aquí solo se pide el permiso de notificaciones que usa
+// ese servicio; si se rechaza, la llamada sigue.
+function requestNotificationPermission() {
+  if (Platform.OS !== "android" || (Platform.Version as number) < 33) {
     return;
   }
-  await RtkUIModule.stopService();
+  settle(() =>
+    PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+    )
+  );
 }
 
 function CallControls({ meeting }: { meeting: RtkClient }) {
@@ -79,7 +83,7 @@ function CallControls({ meeting }: { meeting: RtkClient }) {
 
   // Salir dispara roomLeft, que avisa a quien monta el componente (onLeft).
   const leave = useCallback(() => {
-    meeting.leave();
+    settle(() => meeting.leave());
   }, [meeting]);
 
   return (
@@ -118,25 +122,26 @@ function ActiveCall({
   onLeft,
 }: {
   meeting: RtkClient;
-  onLeft: () => void;
+  onLeft: (reason: CallLeftReason) => void;
 }) {
   const { storeStates, setStates } = useContext(RtkUIContext);
   const storeStatesRef = useRef(storeStates);
   storeStatesRef.current = storeStates;
+  // La llamada sigue abierta en el SDK: al desmontar (navegación o fin de la consulta) se abandona una sola vez.
+  const inCall = useRef<boolean>(false);
 
   useEffect(() => {
     const onRoomJoined = () => {
-      startKeepAliveService();
+      inCall.current = true;
+      requestNotificationPermission();
       setStates({ ...storeStatesRef.current, meeting: "joined" });
     };
-    const onRoomLeft = () => {
-      stopKeepAliveService();
-      onLeft();
+    const onRoomLeft = (payload?: { state?: string }) => {
+      inCall.current = false;
+      onLeft(payload?.state ?? "left");
     };
-
     meeting.self.addListener("roomJoined", onRoomJoined);
     meeting.self.addListener("roomLeft", onRoomLeft);
-
     return () => {
       meeting.self.removeListener("roomJoined", onRoomJoined);
       meeting.self.removeListener("roomLeft", onRoomLeft);
@@ -144,8 +149,20 @@ function ActiveCall({
   }, [meeting, onLeft, setStates]);
 
   useEffect(() => {
-    meeting.join();
-  }, [meeting]);
+    let mounted = true;
+    meeting.join().catch(() => {
+      if (mounted) {
+        onLeft("failed");
+      }
+    });
+    return () => {
+      mounted = false;
+      if (inCall.current) {
+        inCall.current = false;
+        settle(() => meeting.leave());
+      }
+    };
+  }, [meeting, onLeft]);
 
   if (storeStates.meeting !== "joined") {
     return (
@@ -185,7 +202,7 @@ function CallSession({
   onLeft,
 }: {
   authToken: string;
-  onLeft: () => void;
+  onLeft: (reason: CallLeftReason) => void;
 }) {
   const [meeting, initMeeting] = useRealtimeKitClient();
   const initialized = useRef<boolean>(false);
@@ -198,8 +215,8 @@ function CallSession({
     initMeeting({
       authToken,
       defaults: { audio: true, video: Device.isDevice },
-    });
-  }, [authToken, initMeeting]);
+    }).catch(() => onLeft("failed"));
+  }, [authToken, initMeeting, onLeft]);
 
   if (!meeting) {
     return (
@@ -224,7 +241,7 @@ export function RealtimeKitCall({
   onLeft,
 }: {
   authToken: string;
-  onLeft: () => void;
+  onLeft: (reason: CallLeftReason) => void;
 }) {
   return (
     <View style={styles.page}>

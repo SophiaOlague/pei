@@ -26,6 +26,7 @@ const TOKEN_422_NOTICE =
   /El médico te admitió, pero la videollamada no se pudo iniciar: La videollamada no está disponible en este momento/;
 const TEXT_0 = /El médico está terminando otra consulta/;
 const TEXT_1 = /El médico todavía puede admitirte/;
+const ENDED_NOTICE = /La consulta terminó/;
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -49,12 +50,23 @@ jest.mock("@/lib/auth-client", () => ({
   },
 }));
 const mockCallTokens: string[] = [];
+// Último onLeft recibido por la llamada simulada: permite reproducir un corte de la llamada (expulsión, salida).
+const mockCall: { onLeft: ((reason: string) => void) | null } = {
+  onLeft: null,
+};
 jest.mock("@/components/video/realtimekit-call", () => {
   const { Text } =
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
-    RealtimeKitCall: ({ authToken }: { authToken: string }) => {
+    RealtimeKitCall: ({
+      authToken,
+      onLeft,
+    }: {
+      authToken: string;
+      onLeft: (reason: string) => void;
+    }) => {
       mockCallTokens.push(authToken);
+      mockCall.onLeft = onLeft;
       return <Text>llamada con credencial {authToken}</Text>;
     },
   };
@@ -129,6 +141,7 @@ beforeEach(() => {
   mockRelease.mockReset();
   mockGetUserMedia.mockReset();
   mockCallTokens.length = 0;
+  mockCall.onLeft = null;
   audioTrack.enabled = true;
   videoTrack.enabled = true;
   mockGetUserMedia.mockResolvedValue({
@@ -429,5 +442,116 @@ describe("joincall.tsx · credencial y llamada", () => {
       )
     ).toBeTruthy();
     expect(mockCallTokens).toEqual([]);
+  });
+});
+
+describe("joincall.tsx · fin de la consulta (prueba real del 2026-11-25)", () => {
+  const activeSession = () =>
+    session({
+      doctor: {
+        busyWithAnotherConsultation: false,
+        joinedAt: "",
+        present: true,
+      },
+      phase: "active",
+      startedAt: new Date().toISOString(),
+    });
+  const endedSession = () =>
+    session({
+      appointmentStatus: "completed",
+      doctor: {
+        busyWithAnotherConsultation: false,
+        joinedAt: "",
+        present: false,
+      },
+      durationSeconds: 120,
+      endedAt: new Date().toISOString(),
+      patient: { joinedAt: "", present: false },
+      phase: "ended",
+      startedAt: new Date().toISOString(),
+    });
+
+  async function inCall() {
+    jest.useFakeTimers();
+    reply(`POST ${BASE}/session/enter`, ok(session()));
+    reply(`POST ${BASE}/session/presence`, ok(activeSession()));
+    reply(
+      `POST ${BASE}/session/token`,
+      ok({ authToken: "rtk-token-real", provider: "realtimekit" })
+    );
+    await render(<JoinCall />);
+    await screen.findByLabelText("vista previa stream-1");
+    await fireEvent.press(enterButton());
+    await screen.findByText("Sala de espera");
+    await act(() => {
+      jest.advanceTimersByTime(15_000);
+    });
+    await screen.findByText("llamada con credencial rtk-token-real");
+  }
+
+  const expectNoReentry = () => {
+    expect(
+      screen.queryByText("llamada con credencial rtk-token-real")
+    ).toBeNull();
+    expect(screen.queryByText("Volver a la videollamada")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Volver a la sala" })
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Salir de la sala" })
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Entrar a la sala de espera" })
+    ).toBeNull();
+  };
+
+  it("[TC-MOB-VID-030] el médico finaliza: con el siguiente latido el paciente sale de la llamada y no puede volver", async () => {
+    await inCall();
+    reply(`POST ${BASE}/session/presence`, ok(endedSession()));
+    await act(() => {
+      jest.advanceTimersByTime(15_000);
+    });
+    expect(await screen.findByText(ENDED_NOTICE)).toBeTruthy();
+    expectNoReentry();
+    // Ya no se envían latidos ni se registra una salida voluntaria.
+    const beats = calls.filter(
+      (c) => c === `POST ${BASE}/session/presence`
+    ).length;
+    await act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
+    expect(
+      calls.filter((c) => c === `POST ${BASE}/session/presence`)
+    ).toHaveLength(beats);
+    expect(calls).not.toContain(`POST ${BASE}/session/leave`);
+  });
+
+  it("[TC-MOB-VID-031] la expulsión del médico (kickAll) consulta la sala de inmediato y muestra la consulta terminada", async () => {
+    await inCall();
+    reply(`GET ${BASE}/session`, ok(endedSession()));
+    await act(() => {
+      mockCall.onLeft?.("kicked");
+    });
+    expect(await screen.findByText(ENDED_NOTICE)).toBeTruthy();
+    expect(calls).toContain(`GET ${BASE}/session`);
+    expectNoReentry();
+  });
+
+  it("[TC-MOB-VID-032] salir de la llamada con la consulta en curso no la finaliza: se puede volver a la videollamada", async () => {
+    await inCall();
+    reply(`GET ${BASE}/session`, ok(activeSession()));
+    await act(() => {
+      mockCall.onLeft?.("left");
+    });
+    expect(
+      await screen.findByText(
+        "Saliste de la videollamada. La consulta sigue en curso."
+      )
+    ).toBeTruthy();
+    expect(calls).not.toContain(`POST ${BASE}/session/leave`);
+    await fireEvent.press(screen.getByText("Volver a la videollamada"));
+    expect(
+      await screen.findByText("llamada con credencial rtk-token-real")
+    ).toBeTruthy();
   });
 });

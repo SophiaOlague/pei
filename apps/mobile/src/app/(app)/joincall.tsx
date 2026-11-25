@@ -318,8 +318,13 @@ function AppointmentInfo({
   );
 }
 
+// Consulta terminada según el backend (finalizada por el médico o cerrada con un resultado): no se vuelve a entrar.
+const isFinished = (session: ReturnType<typeof roomFlags>["session"]) =>
+  session?.phase === "ended" || session?.phase === "closed";
+
 const canEnterRoom = (room: Room) =>
-  room.kind === "outside" || room.kind === "error" || room.kind === "left";
+  (room.kind === "outside" || room.kind === "error" || room.kind === "left") &&
+  !isFinished(roomFlags(room).session);
 
 export default function JoinCallScreen() {
   const { appointmentId, doctorName } = useLocalSearchParams<{
@@ -339,8 +344,9 @@ export default function JoinCallScreen() {
       ? unavailableReason(load.appointment, new Date())
       : null;
 
-  const { room, token, enter, leave, requestToken } = video;
+  const { room, token, enter, leave, refresh, requestToken } = video;
   const { session, inRoom, active } = roomFlags(room);
+  const finished = isFinished(session);
   const canEnter = load.kind === "ready" && !unavailable && canEnterRoom(room);
   const showPreview =
     load.kind === "ready" && !unavailable && !active && previewAllowed(session);
@@ -356,7 +362,11 @@ export default function JoinCallScreen() {
     );
   }, [leave]);
 
-  const onCallLeft = useCallback(() => setCallLeft(true), []);
+  // La llamada se cortó (salida, expulsión del médico, red): se consulta la sala para saber si la consulta terminó.
+  const onCallLeft = useCallback(() => {
+    setCallLeft(true);
+    refresh();
+  }, [refresh]);
   const rejoinCall = useCallback(() => {
     setCallLeft(false);
     requestToken();
@@ -397,7 +407,7 @@ export default function JoinCallScreen() {
             session={session}
           />
         ) : null}
-        {room.kind === "left" ? (
+        {room.kind === "left" && !finished ? (
           <Text style={styles.notice}>
             Saliste de la sala. Tu cita sigue confirmada; puedes volver a
             entrar.
@@ -427,13 +437,15 @@ export default function JoinCallScreen() {
       </ScrollView>
 
       <View style={styles.bottomContainer}>
-        <RoomButton
-          canEnter={canEnter}
-          inRoom={inRoom}
-          onEnter={enter}
-          onLeave={confirmLeave}
-          room={room}
-        />
+        {finished ? null : (
+          <RoomButton
+            canEnter={canEnter}
+            inRoom={inRoom}
+            onEnter={enter}
+            onLeave={confirmLeave}
+            room={room}
+          />
+        )}
 
         <Pressable
           accessibilityRole="button"

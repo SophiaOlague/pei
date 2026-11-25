@@ -19,6 +19,8 @@ import {
 // - Si el backend ya cerró la presencia (pasaron más de 45 s sin latido), se vuelve a entrar (reconexión): la
 //   desconexión involuntaria no es abandono mientras dure la gracia de reconexión.
 // - La salida voluntaria detiene los latidos; volver a entrar es una acción del paciente.
+// - La fuente de verdad de si la consulta sigue o terminó es la fase que informa el backend (meeting.status), nunca la
+//   llamada de video: si la llamada se corta, se consulta la sala (refresh).
 
 export type RoomState =
   | { kind: "outside" }
@@ -97,8 +99,35 @@ export function useVideoSession(appointmentId: string | undefined) {
     }
   }, [appointmentId]);
 
+  // Lee el estado real de la sala (p. ej., cuando se corta la llamada: el médico pudo haber finalizado la consulta).
+  // Conserva si el paciente está dentro o salió; solo cambia lo que informa el backend.
+  const refresh = useCallback(async () => {
+    if (!appointmentId) {
+      return;
+    }
+    try {
+      const session = await getVideoSession(appointmentId);
+      setRoom((current) =>
+        current.kind === "left"
+          ? { kind: "left", session }
+          : { connection: "ok", kind: "inside", session }
+      );
+      if (!isLive(session)) {
+        setToken({ kind: "none" });
+      }
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 0)) {
+        setRoom({
+          kind: "error",
+          message: messageOf(error, "No se pudo consultar la sala."),
+        });
+      }
+    }
+  }, [appointmentId]);
+
+  // Salida voluntaria: solo con la sala abierta. Una consulta ya finalizada no se «abandona» (no genera eventos).
   const leave = useCallback(async () => {
-    if (!appointmentId || room.kind !== "inside") {
+    if (!appointmentId || room.kind !== "inside" || !isLive(room.session)) {
       return;
     }
     try {
@@ -111,7 +140,7 @@ export function useVideoSession(appointmentId: string | undefined) {
         message: messageOf(error, "No se pudo salir de la sala."),
       });
     }
-  }, [appointmentId, room.kind]);
+  }, [appointmentId, room]);
 
   const inside = room.kind === "inside" && isLive(room.session);
 
@@ -162,5 +191,5 @@ export function useVideoSession(appointmentId: string | undefined) {
     }
   }, [phase, token.kind, requestToken]);
 
-  return { enter, leave, requestToken, room, token };
+  return { enter, leave, refresh, requestToken, room, token };
 }
